@@ -10,14 +10,22 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies for building with retry mechanism
-RUN apt-get update --fix-missing || apt-get update && \
+# --- MODIFICATION v2 START ---
+# The python:3.11-slim image (Debian Bookworm) uses a new source file format.
+# We must remove the default source file before adding our own to prevent conflicts.
+RUN rm /etc/apt/sources.list.d/debian.sources && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main" >> /etc/apt/sources.list
+# --- MODIFICATION v2 END ---
+
+# Install system dependencies for building
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster dependency management
 RUN pip install uv
@@ -29,7 +37,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 
 # Install dependencies using uv
-RUN uv pip install apryse-sdk>=11.5.0 --extra-index-url=https://pypi.apryse.com
+RUN uv pip install --system apryse-sdk>=11.5.0 --extra-index-url=https://pypi.apryse.com
 RUN uv pip install --system -r pyproject.toml
 
 # Production stage
@@ -42,8 +50,16 @@ ENV PYTHONUNBUFFERED=1 \
     PYPPETEER_CHROMIUM_REVISION=1263111 \
     PYPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install system dependencies for runtime with retry mechanism
-RUN apt-get update || apt-get update && \
+# --- MODIFICATION v2 START ---
+# Also remove the default source file in the production stage.
+RUN rm /etc/apt/sources.list.d/debian.sources && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main" >> /etc/apt/sources.list
+# --- MODIFICATION v2 END ---
+
+# Install system dependencies for runtime
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # For PDF processing
     wkhtmltopdf \
@@ -73,9 +89,8 @@ RUN apt-get update || apt-get update && \
     xdg-utils \
     # For netcat (health check)
     netcat-openbsd \
-    # For cleanup
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd -r landppt && useradd -r -g landppt landppt
@@ -96,7 +111,7 @@ COPY docker-healthcheck.sh docker-entrypoint.sh ./
 # Make scripts executable
 RUN chmod +x docker-healthcheck.sh docker-entrypoint.sh
 
-# Create necessary directories
+# Create necessary directories and set ownership
 RUN mkdir -p temp/ai_responses_cache \
     temp/style_genes_cache \
     temp/summeryanyfile_cache \

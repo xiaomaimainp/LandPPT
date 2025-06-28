@@ -10,12 +10,38 @@ ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
 # Install Python and minimal dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
     python3.11 \
-    python3.11-dev \
     python3-pip \
     curl \
     ca-certificates \
+    wkhtmltopdf \
+    # For file processing
+    poppler-utils \
+    # For image processing
+    libmagic1 \
+    # For network requests
+    ca-certificates \
+    curl \
+    # For pyppeteer (Chromium dependencies)
+    chromium \
+    chromium-driver \
+    # For onnxruntime
+    libgomp1 \
+    # For general compatibility
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    # For netcat (health check)
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
