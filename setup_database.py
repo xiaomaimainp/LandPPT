@@ -280,6 +280,18 @@ async def main(clean_start=True):
         print("\n❌ Database connection test failed")
         return False
 
+    # Import default templates from examples (force import for setup)
+    print("\n📋 Importing default templates from examples...")
+    try:
+        from landppt.database.create_default_template import ensure_default_templates_exist_first_time
+        template_ids = await ensure_default_templates_exist_first_time()
+        if template_ids:
+            print(f"✅ Successfully imported {len(template_ids)} templates")
+        else:
+            print("⚠️  No templates were imported")
+    except Exception as e:
+        print(f"❌ Failed to import templates: {e}")
+
     # Final verification - ensure database is clean
     print("\n🔍 Final verification - ensuring clean database...")
     if not await verify_clean_database():

@@ -17,3 +17,7 @@ prompts.md
 temp/
 *.tmp
 *.cache
+
+# uv cache and lock files
+.uv-cache/
+# Keep uv.lock for reproducible builds

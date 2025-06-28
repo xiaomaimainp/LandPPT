@@ -19,7 +19,7 @@ from .api.config_api import router as config_router
 from .web import router as web_router
 from .auth import auth_router, create_auth_middleware
 from .database.database import init_db
-from .database.create_default_template import ensure_default_template_exists
+from .database.create_default_template import ensure_default_templates_exist_first_time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,14 +46,22 @@ app = FastAPI(
 async def startup_event():
     """Initialize database on startup"""
     try:
+        # Check if database file exists before initialization
+        import os
+        db_file_path = "landppt.db"  # 默认数据库文件路径
+        db_exists = os.path.exists(db_file_path)
+
         logger.info("Initializing database...")
         await init_db()
         logger.info("Database initialized successfully")
 
-        # Ensure default global master template exists
-        logger.debug("Ensuring default global master template...")
-        await ensure_default_template_exists()
-        logger.debug("Default global master template ensured")
+        # Only import templates if database file didn't exist before (first time setup)
+        if not db_exists:
+            logger.info("First time setup detected - importing templates from examples...")
+            template_ids = await ensure_default_templates_exist_first_time()
+            logger.info(f"Template initialization completed. {len(template_ids)} templates available.")
+        else:
+            logger.info("Database already exists - skipping template import")
 
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")

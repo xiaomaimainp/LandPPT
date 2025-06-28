@@ -226,11 +226,8 @@ class PDFToPPTXConverter:
             # Use SDK manager to get the correct platform directory
             platform_dir = self.sdk_manager.platform_dir
 
-            # For Windows, use the nested directory structure
-            if self.sdk_manager.platform_name == 'windows':
-                sdk_resource_dir = platform_dir / 'Lib' / 'Windows'
-            else:
-                sdk_resource_dir = platform_dir
+
+            sdk_resource_dir = platform_dir / 'Lib' / self.sdk_manager.platform_name
 
             # Add resource search path for the downloaded SDK
             if sdk_resource_dir.exists():
