@@ -918,23 +918,14 @@
         let currentSlideIndex = 0;
 
         function startGeneration() {
-            console.log('startGeneration called');
-
             // Prevent multiple simultaneous generations
             if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                console.log('Generation already in progress, skipping...');
                 return;
             }
 
             const startBtn = document.getElementById('startBtn');
             const statusDiv = document.getElementById('generationStatus');
             const slidesContainer = document.getElementById('slidesContainer');
-
-            console.log('Elements found:', {
-                startBtn: !!startBtn,
-                statusDiv: !!statusDiv,
-                slidesContainer: !!slidesContainer
-            });
 
             // Mark as started
             generationStarted = true;
@@ -946,9 +937,6 @@
             // 断点续生：不清空已有数据，而是保留现有的幻灯片
             // 如果有已生成的幻灯片数据，保留它们
             if (projectSlidesData && projectSlidesData.length > 0) {
-                console.log('断点续生：保留已有的', projectSlidesData.length, '页幻灯片');
-                console.log('projectSlidesData:', projectSlidesData);
-
                 // 清空容器但保留数据，稍后重新渲染
                 slidesContainer.innerHTML = '';
 
@@ -958,16 +946,13 @@
                     if (!slideData.page_number) {
                         slideData.page_number = index + 1;
                     }
-                    console.log(`重新渲染第${index + 1}页:`, slideData.title, slideData.page_number);
                     addSlideToContainer(slideData);
                 });
 
                 // 更新本地数据
                 slidesData = [...projectSlidesData];
-                console.log('slidesData 更新后:', slidesData.length, '页');
             } else {
                 // 如果没有已生成的数据，清空容器
-                console.log('没有已生成的数据，清空容器');
                 slidesContainer.innerHTML = '';
                 slidesData = [];
             }
@@ -1045,7 +1030,6 @@
 
                 case 'slide_skipped':
                     // 处理跳过的幻灯片（断点续生或用户编辑）
-                    console.log('跳过幻灯片:', data.message);
                     updateStatus(data.message, 'progress');
                     const skipProgress = (data.current / data.total) * 100;
                     progressBar.style.width = skipProgress + '%';
@@ -1147,15 +1131,11 @@
             // 确保page_number存在，如果不存在则根据当前幻灯片数量推断
             if (!slideData.page_number) {
                 slideData.page_number = slidesData.length + 1;
-                console.log(`幻灯片缺少page_number，推断为: ${slideData.page_number}`);
             }
-
-            console.log(`尝试添加幻灯片 ${slideData.page_number}: ${slideData.title}`);
 
             // 检查是否已经存在这个幻灯片
             const existingSlide = document.getElementById(`slide-${slideData.page_number}`);
             if (existingSlide) {
-                console.log(`幻灯片 ${slideData.page_number} 已存在，跳过添加`);
                 return;
             }
 
@@ -1373,8 +1353,6 @@
             const expectedSlideCount = projectOutline.slides.length;
             const actualSlideCount = projectSlidesData.length;
 
-            console.log('Expected slides:', expectedSlideCount, 'Actual slides:', actualSlideCount);
-
             return actualSlideCount >= expectedSlideCount;
         }
 
@@ -1382,22 +1360,14 @@
 
         function checkAndStartGeneration() {
             if (checkAndStartGenerationCalled) {
-                console.log('checkAndStartGeneration already called, skipping...');
                 return;
             }
             checkAndStartGenerationCalled = true;
 
-            console.log('checkAndStartGeneration called');
-            console.log('projectSlidesData:', projectSlidesData);
-            console.log('projectOutline:', projectOutline);
-            console.log('projectStatus:', projectStatus);
-
             const isCompleted = isPPTCompleted();
-            console.log('isPPTCompleted:', isCompleted);
 
             // 如果PPT真正完成，显示现有幻灯片
             if (isCompleted) {
-                console.log('PPT is completed, displaying existing slides...');
                 displayExistingSlides();
                 showEditorButton();
 
@@ -1412,32 +1382,24 @@
 
             // 如果有部分slides但未完成，显示部分内容并继续生成
             if (projectSlidesData && projectSlidesData.length > 0) {
-                console.log('PPT partially generated, displaying existing slides and continuing...');
                 displayPartialSlides();
                 // 继续检查是否需要自动开始生成
             }
 
             const urlParams = new URLSearchParams(window.location.search);
             const autoStartParam = urlParams.get('auto_start') === 'true';
-            console.log('autoStartParam:', autoStartParam, 'URL:', window.location.href);
 
             // 检查是否需要自动开始或继续生成
             const shouldAutoStart = autoStartParam || (projectSlidesData && projectSlidesData.length > 0 && !isCompleted);
 
             if (shouldAutoStart) {
-                console.log('Auto-starting or continuing PPT generation...');
-
                 setTimeout(() => {
-                    console.log('Calling startGeneration...');
                     startGeneration();
-                }, 500); // 减少延迟时间
-            } else {
-                console.log('Auto-start not triggered - conditions not met');
+                }, 500);
             }
         }
 
         function displayExistingSlides() {
-            console.log('Displaying existing slides (completed)...');
             const slidesContainer = document.getElementById('slidesContainer');
             const statusDiv = document.getElementById('generationStatus');
 
@@ -1457,15 +1419,9 @@
 
             // Update slides data
             slidesData = projectSlidesData;
-
-            console.log('Existing slides displayed successfully');
         }
 
         function displayPartialSlides() {
-            console.log('Displaying partial slides...');
-            console.log('projectSlidesData:', projectSlidesData);
-            console.log('projectSlidesData.length:', projectSlidesData.length);
-
             const slidesContainer = document.getElementById('slidesContainer');
             const statusDiv = document.getElementById('generationStatus');
 
@@ -1483,20 +1439,16 @@
             progressBar.style.width = progress + '%';
 
             // Display existing slides
-            console.log('开始显示已有幻灯片...');
             projectSlidesData.forEach((slideData, index) => {
                 // 确保每个幻灯片都有正确的page_number
                 if (!slideData.page_number) {
                     slideData.page_number = index + 1;
                 }
-                console.log(`显示第${index + 1}页:`, slideData.title, slideData.page_number);
                 addSlideToContainer(slideData);
             });
 
             // Update slides data
             slidesData = [...projectSlidesData];
-
-            console.log('Partial slides displayed successfully, slidesData.length:', slidesData.length);
         }
 
         // 实时检查PPT生成状态
