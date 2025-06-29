@@ -22,7 +22,7 @@ import logging
 import time
 from typing import Optional, Dict, Any, List
 
-from ..api.models import PPTGenerationRequest, PPTProject, TodoBoard
+from ..api.models import PPTGenerationRequest, PPTProject, TodoBoard, FileOutlineGenerationRequest
 from ..services.enhanced_ppt_service import EnhancedPPTService
 from ..services.pdf_to_pptx_converter import get_pdf_to_pptx_converter
 from ..services.pyppeteer_pdf_converter import get_pdf_converter
@@ -684,12 +684,17 @@ async def start_project_workflow(
             network_mode = project.project_metadata.get("network_mode", False)
 
         # Create project request from project data
+        confirmed_requirements = project.confirmed_requirements or {}
         project_request = PPTGenerationRequest(
             scenario=project.scenario,
             topic=project.topic,
             requirements=project.requirements,
             language="zh",  # Default language
-            network_mode=network_mode
+            network_mode=network_mode,
+            target_audience=confirmed_requirements.get('target_audience', '普通大众'),
+            ppt_style=confirmed_requirements.get('ppt_style', 'general'),
+            custom_style_prompt=confirmed_requirements.get('custom_style_prompt'),
+            description=confirmed_requirements.get('description')
         )
 
         # Start the workflow in background
@@ -797,7 +802,11 @@ async def generate_outline(
             topic=confirmed_requirements.get('topic', project.topic),
             requirements=project.requirements,
             language="zh",  # Default language
-            network_mode=network_mode
+            network_mode=network_mode,
+            target_audience=confirmed_requirements.get('target_audience', '普通大众'),
+            ppt_style=confirmed_requirements.get('ppt_style', 'general'),
+            custom_style_prompt=confirmed_requirements.get('custom_style_prompt'),
+            description=confirmed_requirements.get('description')
         )
 
         # Extract page count settings from confirmed requirements
@@ -828,6 +837,103 @@ async def generate_outline(
 
     except Exception as e:
         logger.error(f"Error generating outline: {e}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+@router.post("/projects/{project_id}/regenerate-outline")
+async def regenerate_outline(
+    project_id: str,
+    user: User = Depends(get_current_user_required)
+):
+    """Regenerate outline for a project (overwrites existing outline)"""
+    try:
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Check if project has confirmed requirements
+        if not project.confirmed_requirements:
+            return {
+                "status": "error",
+                "error": "项目需求尚未确认，请先完成需求确认步骤"
+            }
+
+        # Create project request from confirmed requirements
+        confirmed_requirements = project.confirmed_requirements
+        project_request = PPTGenerationRequest(
+            scenario=confirmed_requirements.get('scenario', 'general'),
+            topic=confirmed_requirements.get('topic', project.topic),
+            requirements=confirmed_requirements.get('requirements', project.requirements),
+            language="zh",  # Default language
+            network_mode=confirmed_requirements.get('network_mode', False),
+            target_audience=confirmed_requirements.get('target_audience', '普通大众'),
+            ppt_style=confirmed_requirements.get('ppt_style', 'general'),
+            custom_style_prompt=confirmed_requirements.get('custom_style_prompt'),
+            description=confirmed_requirements.get('description')
+        )
+
+        # Extract page count settings from confirmed requirements
+        page_count_settings = confirmed_requirements.get('page_count_settings', {})
+
+        # Check if this is a file-based project
+        is_file_project = confirmed_requirements.get('file_path') is not None
+
+        if is_file_project:
+            # Use file-based outline generation
+            file_request = FileOutlineGenerationRequest(
+                file_path=confirmed_requirements.get('file_path'),
+                filename=confirmed_requirements.get('filename', 'uploaded_file'),
+                topic=project_request.topic,
+                scenario=project_request.scenario,
+                target_audience=confirmed_requirements.get('target_audience', '普通大众'),
+                page_count_mode=page_count_settings.get('mode', 'ai_decide'),
+                min_pages=page_count_settings.get('min_pages', 5),
+                max_pages=page_count_settings.get('max_pages', 20),
+                fixed_pages=page_count_settings.get('fixed_pages', 10),
+                ppt_style=confirmed_requirements.get('ppt_style', 'general'),
+                custom_style_prompt=confirmed_requirements.get('custom_style_prompt'),
+                file_processing_mode=confirmed_requirements.get('file_processing_mode', 'markitdown'),
+                content_analysis_depth=confirmed_requirements.get('content_analysis_depth', 'standard')
+            )
+
+            result = await ppt_service.generate_outline_from_file(file_request)
+
+            # Update outline generation stage
+            await ppt_service._update_outline_generation_stage(project_id, result['outline_dict'])
+
+            return {
+                "status": "success",
+                "outline_content": result['outline_content'],
+                "message": "File-based outline regenerated successfully"
+            }
+        else:
+            # Use standard outline generation
+            outline = await ppt_service.generate_outline(project_request, page_count_settings)
+
+            # Convert outline to dict format
+            outline_dict = {
+                "title": outline.title,
+                "slides": outline.slides,
+                "metadata": outline.metadata
+            }
+
+            # Format as JSON
+            import json
+            formatted_json = json.dumps(outline_dict, ensure_ascii=False, indent=2)
+
+            # Update outline generation stage
+            await ppt_service._update_outline_generation_stage(project_id, outline_dict)
+
+            return {
+                "status": "success",
+                "outline_content": formatted_json,
+                "message": "Outline regenerated successfully"
+            }
+
+    except Exception as e:
+        logger.error(f"Error regenerating outline: {e}")
         return {
             "status": "error",
             "error": str(e)
@@ -1082,6 +1188,11 @@ async def confirm_project_requirements(
 ):
     """Confirm project requirements and generate TODO list"""
     try:
+        # Get project to access original requirements
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
         # Process audience information
         target_audience = audience_type
         if audience_type == "自定义" and custom_audience:
@@ -1112,6 +1223,7 @@ async def confirm_project_requirements(
         # Update project with confirmed requirements
         confirmed_requirements = {
             "topic": topic,
+            "requirements": project.requirements,  # 保留原始的具体要求
             "target_audience": target_audience,
             "audience_type": audience_type,
             "custom_audience": custom_audience if audience_type == "自定义" else None,

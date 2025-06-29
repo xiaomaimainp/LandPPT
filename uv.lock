@@ -282,45 +282,6 @@ wheels = [
 ]
 
 [[package]]
-name = "apryse-sdk"
-version = "11.5.0"
-source = { registry = "https://pypi.apryse.com/" }
-wheels = [
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-macosx_10_15_universal2.whl", hash = "sha256:8a09814818ccd9743b934d50d0248bea7f3c8fffc81fd2b44c66d6df7d187a36" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux1_i686.whl", hash = "sha256:b4157ae041346d32a1e792c4a7936e44858d6722367524dc1c0e9329fca698f6" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:f9910e9853b9dc8c9d59c62f3ebd79b86d6c3a78a2b6edecf381207f2ed27bc8" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux2010_i686.whl", hash = "sha256:50118b2432dab1bb0536a1faa5149cad929a2600285635171e350777e702b962" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux2010_x86_64.whl", hash = "sha256:e3a654d8503202cbf70d5bb9c1cf5675ace75f1bdffd1edae9f1c93572471f8d" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:561df95e206a306e61330f6d50b3799fa2c2d6a6298201bb9c33d7ecf7c19431" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux2014_i686.whl", hash = "sha256:4029cf045709e9420acebdcf6e62294ddbb6d59c04e785799765a2e99f6ed64e" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:db3e96b2248598d2b9238e4f437f97e0787354165b04429182cc02b4d9afc9e7" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:83a93c832f38c4e78ca4d392cc7c72733de06136432c2a17319ad8ba9d4ae4cc" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-win32.whl", hash = "sha256:4d5b634174f7f8b1f3027b95a8ade7eab2b60053e97dbcf612ae0f45dc4119b9" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp311-cp311-win_amd64.whl", hash = "sha256:147096849a58caa85c95cf4c78071aa58831b1ef217cf63c28798cf86f066070" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-macosx_10_15_universal2.whl", hash = "sha256:d1ed466eab5fbaeed11755a15f5b12ecf13628201ef4254480ab9cf6294ccd87" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux1_i686.whl", hash = "sha256:c8736d0e5654127196966fc47dcfeb5e1e4052eb27d7259756e221fdb73349e3" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux1_x86_64.whl", hash = "sha256:ae446320f045fffd23f46be9138f2f83e40e5f76259f4f5394195359727df647" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux2010_i686.whl", hash = "sha256:f3fe916b02dbaf14a9fd466b2b4ac2c8ff50a4dd67ee9ac8a1fe6c63fc7473de" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux2010_x86_64.whl", hash = "sha256:8aa123162e448d3bc7db81d007817618b36205d0f40743cba32b616ecf0d08aa" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:1a067e0fb7d086a9504b87bc988742aaf1cf1b0aa4d6ea336b8149860e8e8e36" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux2014_i686.whl", hash = "sha256:dd9c097548f88a61edc018af3396a619c74369bcf94c48b473f7094d2d923234" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:9560d061f97351e4abfd2181f1c8a7357a83efb715f7c0fea8f8245f60dc637c" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:cf67327376e8284e953400066fc4101e30e867126f447e77cb2826f43e85c732" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-win32.whl", hash = "sha256:fdc0b83d2441ca2620d976b314e8b9095f7e26d14e9d6662350d86c72d47ea4b" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:21671b950783d950aaa512748470b7a51ef40367f6a61601891a971fc657ff3f" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-macosx_10_15_universal2.whl", hash = "sha256:122221a84124d91f2b7e611c4416a590e183aead417a752e0348c151b36e263e" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux1_i686.whl", hash = "sha256:4548c6fad12ade57048990632959874b8f20bf7bc704a47182b3c4ec3cd0d053" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux1_x86_64.whl", hash = "sha256:287b56457b663e10f4368f3d4a34379988a43fdfbfc39eb8756ca40be0b078a6" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux2010_i686.whl", hash = "sha256:ee9ba714ecea40f84bb6b56bf6e8e8c2e17a5938ed66b082f2847be219e853cd" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux2010_x86_64.whl", hash = "sha256:8986d2f9ef74cb983d3da2479cdd3b0671027d7900572b9b8e41525094fba826" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux2014_aarch64.whl", hash = "sha256:9aa52079abfd15158930e74a7d6713c208e5b99448f2ea86daac8eb573c1599a" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux2014_i686.whl", hash = "sha256:a2b09004b91be922d28019f4e5b2b8f90d8ebe472f5e830dce5b89e85e8a8e60" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-manylinux2014_x86_64.whl", hash = "sha256:cb03277d259501de0f78c8ea45858298740dfa0a5131a6785afbca25f8896bf7" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-win32.whl", hash = "sha256:c1d071f7050c5e7e0ba2ea008f8e125e68446cf2d9cdf8ee9ddfb029fef91037" },
-    { url = "https://pypi.apryse.com/apryse-sdk/apryse_sdk-11.5.0-cp313-cp313-win_amd64.whl", hash = "sha256:2d00590624bc523daba5521b3117218963a4d9ccb340a353ee14154df27e0c93" },
-]
-
-[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1647,7 +1608,6 @@ dependencies = [
     { name = "aiosqlite" },
     { name = "alembic" },
     { name = "anthropic" },
-    { name = "apryse-sdk" },
     { name = "beautifulsoup4" },
     { name = "chardet" },
     { name = "click" },
@@ -1696,7 +1656,6 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "anthropic", specifier = ">=0.7.0" },
-    { name = "apryse-sdk", specifier = ">=11.5.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "chardet", specifier = ">=5.0.0" },
     { name = "click", specifier = ">=8.0.0" },
@@ -1710,7 +1669,7 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=1.0.0" },
     { name = "langchain-ollama", specifier = ">=0.1.0" },
     { name = "langchain-openai", specifier = ">=0.1.0" },
-    { name = "langgraph", specifier = ">=0.1.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
     { name = "markdown", specifier = ">=3.5.1" },
     { name = "markitdown", extras = ["all"], specifier = ">=0.1.2" },
     { name = "mineru", extras = ["core"], specifier = ">=2.0.6" },

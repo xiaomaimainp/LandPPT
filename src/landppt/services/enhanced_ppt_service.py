@@ -546,13 +546,34 @@ class EnhancedPPTService(PPTService):
 
 请充分利用以上研究信息来丰富PPT内容，确保信息准确、权威、具有深度。"""
 
+        # Get target audience and style information
+        target_audience = getattr(request, 'target_audience', None) or '普通大众'
+        ppt_style = getattr(request, 'ppt_style', None) or 'general'
+        custom_style_prompt = getattr(request, 'custom_style_prompt', None)
+        description = getattr(request, 'description', None)
+
+        # Create style description
+        style_descriptions = {
+            "general": "通用商务风格，简洁专业",
+            "conference": "学术会议风格，严谨正式",
+            "custom": custom_style_prompt or "自定义风格"
+        }
+        style_desc = style_descriptions.get(ppt_style, "通用商务风格")
+
+        # Add custom style prompt if provided (regardless of ppt_style)
+        if custom_style_prompt and ppt_style != "custom":
+            style_desc += f"，{custom_style_prompt}"
+
         if request.language == "zh":
             prompt = f"""作为专业的PPT大纲设计师，请为以下主题生成一个详细、创意且专业的JSON格式大纲：
 
 **项目信息：**
 主题：{request.topic}
 场景：{scenario_desc}
-特殊要求：{request.requirements or '无'}{research_section}
+目标受众：{target_audience}
+PPT风格：{style_desc}
+特殊要求：{request.requirements or '无'}
+补充说明：{description or '无'}{research_section}
 
 **页数要求：**
 {page_count_instruction}
@@ -693,7 +714,10 @@ Please utilize the above research information to enrich the PPT content, ensurin
 **Project Information:**
 Topic: {request.topic}
 Scenario: {request.scenario}
-Special Requirements: {request.requirements or 'None'}{english_research_section}
+Target Audience: {target_audience}
+PPT Style: {style_desc}
+Special Requirements: {request.requirements or 'None'}
+Additional Description: {description or 'None'}{english_research_section}
 
 **Page Count Requirements:**
 {english_page_count_instruction}
@@ -4773,347 +4797,209 @@ slide_type可选值：
         return style_info[:8]  # Limit to 8 most important style elements
 
     def _validate_html_completeness(self, html_content: str) -> Dict[str, Any]:
-        """Validate HTML format correctness and tag closure"""
-        import re
+        """
+        Validate HTML format correctness and tag closure using BeautifulSoup and lxml.
+
+        This validator checks for:
+        1. Presence of essential elements (<!DOCTYPE>, <html>, <head>, <body>) as warnings
+        2. Correct structural order (<head> before <body>) as a warning
+        3. Well-formedness and tag closure using strict parsing, reported as errors
+        4. Unescaped special characters ('<' or '>') in text content as a warning
+
+        Returns:
+            Dict with 'is_complete', 'errors', 'warnings', 'missing_elements' keys
+        """
+        from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
+        import warnings
 
         validation_result = {
             'is_complete': False,
-            'missing_elements': [],
             'errors': [],
-            'warnings': []
+            'warnings': [],
+            'missing_elements': []  # 添加missing_elements字段
         }
 
         if not html_content or not html_content.strip():
-            validation_result['errors'].append('HTML内容为空')
+            validation_result['errors'].append('HTML内容为空或仅包含空白字符')
             return validation_result
 
-        html_lower = html_content.lower().strip()
+        # --- Primary Validation using Strict Parsing ---
+        # This is the most reliable way to find malformed HTML and unclosed tags
+        self._check_html_well_formedness(html_content, validation_result)
 
-        # Check for essential HTML structure
-        required_elements = {
-            'doctype': r'<!doctype\s+html',
-            'html_open': r'<html[^>]*>',
-            'html_close': r'</html>',
-            'head_open': r'<head[^>]*>',
-            'head_close': r'</head>',
-            'body_open': r'<body[^>]*>',
-            'body_close': r'</body>'
-        }
+        # --- Secondary Validation using BeautifulSoup for structural best practices ---
+        # This part runs even if there are syntax errors to provide more feedback
+        try:
+            # Suppress BeautifulSoup warnings about markup that looks like a file path
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
+                # Use 'html.parser' for better compatibility, fallback to 'lxml' if available
+                try:
+                    soup = BeautifulSoup(html_content, 'lxml')
+                except:
+                    soup = BeautifulSoup(html_content, 'html.parser')
 
-        for element_name, pattern in required_elements.items():
-            if not re.search(pattern, html_lower, re.DOTALL):
-                validation_result['missing_elements'].append(element_name)
+            # 1. Check for DOCTYPE declaration (Missing element)
+            if not html_content.strip().lower().startswith('<!doctype'):
+                validation_result['missing_elements'].append('doctype')
 
-        # Check for proper tag closure - only HTML language tags
-        open_tags = re.findall(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>', html_content)
-        close_tags = re.findall(r'</([a-zA-Z][a-zA-Z0-9]*)>', html_content)
+            # 2. Check for essential structural elements (Missing elements)
+            essential_tags = {'html', 'head', 'body'}
+            for tag_name in essential_tags:
+                if not soup.find(tag_name):
+                    validation_result['missing_elements'].append(tag_name)
 
-        # Define HTML language tags that need to be checked for closure
-        html_language_tags = {
-            'html', 'head', 'body', 'title', 'meta', 'link', 'style', 'script',
-            'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-            'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-            'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-            'form', 'input', 'textarea', 'select', 'option', 'button', 'label',
-            'a', 'img', 'video', 'audio', 'source', 'canvas', 'svg',
-            'header', 'nav', 'main', 'section', 'article', 'aside', 'footer',
-            'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'del', 'ins',
-            'pre', 'code', 'blockquote', 'cite', 'q', 'abbr', 'time',
-            'br', 'hr', 'wbr'
-        }
+            # 3. Check for correct structure order: <head> before <body> (Warning)
+            head_tag = soup.find('head')
+            body_tag = soup.find('body')
 
-        # Self-closing tags that don't need closing tags
-        self_closing_tags = {'meta', 'link', 'img', 'br', 'hr', 'input', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'}
+            if head_tag and body_tag:
+                # Check if body tag has a preceding sibling named 'head'
+                if not body_tag.find_previous_sibling('head'):
+                    validation_result['warnings'].append('HTML结构顺序不正确：<body>标签出现在<head>标签之前')
 
-        # Filter to only check HTML language tags, excluding self-closing tags
-        open_tags_filtered = [tag.lower() for tag in open_tags
-                             if tag.lower() in html_language_tags and tag.lower() not in self_closing_tags]
-        close_tags_lower = [tag.lower() for tag in close_tags if tag.lower() in html_language_tags]
+            # 4. Check for unescaped special characters in text content (Warning)
+            # soup.get_text() extracts only human-readable text
+            text_content = soup.get_text()
+            if '<' in text_content or '>' in text_content:
+                validation_result['warnings'].append('文本内容中可能包含未转义的特殊字符（\'<\'或\'>\'）')
 
-        # Check for unclosed HTML tags
-        unclosed_tags = []
-        for tag in open_tags_filtered:
-            if tag not in close_tags_lower:
-                unclosed_tags.append(tag)
+        except Exception as e:
+            # Catch potential errors from BeautifulSoup itself
+            validation_result['errors'].append(f'BeautifulSoup解析过程中发生意外错误: {e}')
 
-        if unclosed_tags:
-            validation_result['errors'].append(f'未闭合的HTML标签: {", ".join(unclosed_tags)}')
+        # Final determination of validity is based on the absence of critical errors
+        # missing_elements are treated as warnings only, not errors
+        validation_result['is_complete'] = len(validation_result['errors']) == 0
 
-        # Check for proper HTML structure order
-        doctype_pos = html_content.lower().find('<!doctype')
-        html_pos = html_content.lower().find('<html')
-        head_pos = html_content.lower().find('<head')
-        body_pos = html_content.lower().find('<body')
+        return validation_result
 
-        if not (doctype_pos < html_pos < head_pos < body_pos):
-            validation_result['errors'].append('HTML结构顺序不正确')
+    def _check_html_well_formedness(self, html_content: str, validation_result: Dict[str, Any]) -> None:
+        """
+        Uses lxml's strict parser to check if the HTML is well-formed.
+        This is the definitive check for syntax errors like unclosed tags.
+        Modifies the validation_result dictionary in place.
+        """
+        try:
+            # Try to import lxml for strict parsing
+            from lxml import etree
 
-        # Check for basic HTML syntax errors
-        # Check for malformed tags
+            # Encode the string to bytes for the lxml parser
+            encoded_html = html_content.encode('utf-8')
+            # Create a parser that does NOT recover from errors. This makes it strict.
+            parser = etree.HTMLParser(recover=False, encoding='utf-8')
+            etree.fromstring(encoded_html, parser)
+
+        except ImportError:
+            # lxml not available, fall back to basic regex checks
+            logger.warning("lxml not available, using basic HTML validation")
+            self._basic_html_syntax_check(html_content, validation_result)
+
+        except Exception as e:
+            # This error is triggered by unclosed tags, malformed tags, etc.
+            # It's the most reliable indicator of a syntax problem.
+            validation_result['errors'].append(f'HTML语法错误: {str(e)}')
+
+    def _auto_fix_html_with_parser(self, html_content: str) -> str:
+        """
+        使用 lxml 的恢复解析器自动修复 HTML 错误
+
+        Args:
+            html_content: 原始 HTML 内容
+
+        Returns:
+            修复后的 HTML 内容，如果修复失败则返回原始内容
+        """
+        try:
+            from lxml import etree
+
+            # 首先检查原始 HTML 是否已经是有效的
+            try:
+                # 尝试严格解析
+                encoded_html = html_content.encode('utf-8')
+                strict_parser = etree.HTMLParser(recover=False, encoding='utf-8')
+                etree.fromstring(encoded_html, strict_parser)
+                # 如果严格解析成功，说明 HTML 已经是有效的，直接返回
+                logger.debug("HTML 已经是有效的，无需修复")
+                return html_content
+            except:
+                # 严格解析失败，需要修复
+                pass
+
+            # 创建一个启用恢复功能的解析器
+            parser = etree.HTMLParser(recover=True, encoding='utf-8')
+            tree = etree.fromstring(encoded_html, parser)
+
+            # 保留 DOCTYPE 声明（如果存在）
+            doctype_match = None
+            import re
+            doctype_pattern = r'<!DOCTYPE[^>]*>'
+            doctype_match = re.search(doctype_pattern, html_content, re.IGNORECASE)
+
+            # 将修复后的树转换回字符串
+            fixed_html = etree.tostring(tree, encoding='unicode', method='html', pretty_print=True)
+
+            # 如果原始 HTML 有 DOCTYPE，添加回去
+            if doctype_match:
+                doctype = doctype_match.group(0)
+                if not fixed_html.lower().startswith('<!doctype'):
+                    fixed_html = doctype + '\n' + fixed_html
+
+            logger.info("使用 lxml 解析器自动修复 HTML 成功")
+            return fixed_html
+
+        except ImportError:
+            logger.warning("lxml 不可用，无法使用解析器自动修复")
+            return html_content
+
+        except Exception as e:
+            logger.warning(f"解析器自动修复失败: {str(e)}")
+            return html_content
+
+    def _basic_html_syntax_check(self, html_content: str, validation_result: Dict[str, Any]) -> None:
+        """
+        Basic HTML syntax checking when lxml is not available.
+        Uses regex patterns to detect common HTML syntax errors.
+        """
+        import re
+        from collections import Counter
+
+        # Check for malformed tags (tags containing other tags)
         malformed_tags = re.findall(r'<[^>]*<[^>]*>', html_content)
         if malformed_tags:
             validation_result['errors'].append('发现格式错误的标签')
 
-        # Check for unescaped special characters in content
-        # Look for < or > that are not part of tags
-        content_without_tags = re.sub(r'<[^>]*>', '', html_content)
-        if '<' in content_without_tags or '>' in content_without_tags:
-            validation_result['warnings'].append('内容中包含未转义的特殊字符')
+        # Check for unclosed critical HTML tags using tag counting
+        # Define critical HTML tags that must be properly closed
+        critical_tags = {'html', 'head', 'body', 'div', 'p', 'span'}
 
-        # Determine if HTML is valid
-        validation_result['is_complete'] = (
-            len(validation_result['errors']) == 0 and
-            len(validation_result['missing_elements']) == 0
-        )
+        # Find all opening and closing tags
+        open_tags = re.findall(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>', html_content)
+        close_tags = re.findall(r'</([a-zA-Z][a-zA-Z0-9]*)>', html_content)
 
-        return validation_result
+        # Self-closing tags that don't need closing tags
+        self_closing_tags = {'meta', 'link', 'img', 'br', 'hr', 'input', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'}
 
-    async def _fix_html_with_ai(self, html_content: str, validation_result: Dict[str, Any],
-                               slide_data: Dict[str, Any], page_number: int, total_pages: int,
-                               max_fix_attempts: int = 3) -> Optional[str]:
-        """Use AI to fix HTML errors with multiple attempts"""
-        ai_provider = get_ai_provider()
-        # Use the global ai_config instead of ai_config_manager
+        # Filter to only check critical tags, excluding self-closing tags
+        open_tags_filtered = [tag.lower() for tag in open_tags
+                             if tag.lower() in critical_tags and tag.lower() not in self_closing_tags]
+        close_tags_lower = [tag.lower() for tag in close_tags if tag.lower() in critical_tags]
 
-        # Prepare error description
-        error_description = []
-        if validation_result['errors']:
-            error_description.append(f"错误: {'; '.join(validation_result['errors'])}")
-        if validation_result['missing_elements']:
-            error_description.append(f"缺失元素: {', '.join(validation_result['missing_elements'])}")
-        if validation_result['warnings']:
-            error_description.append(f"警告: {'; '.join(validation_result['warnings'])}")
+        # Count occurrences of each tag
+        open_tag_counts = Counter(open_tags_filtered)
+        close_tag_counts = Counter(close_tags_lower)
 
-        error_text = '\n'.join(error_description)
+        # Check for unclosed critical tags
+        unclosed_critical_tags = []
+        for tag, open_count in open_tag_counts.items():
+            close_count = close_tag_counts.get(tag, 0)
+            if open_count > close_count:
+                unclosed_critical_tags.append(f"{tag}({open_count - close_count}个未闭合)")
 
-        # Categorize errors to determine fix strategy
-        error_category = self._categorize_html_errors(validation_result)
+        if unclosed_critical_tags:
+            validation_result['errors'].append(f'未闭合的关键HTML标签: {", ".join(unclosed_critical_tags)}')
 
-        for fix_attempt in range(max_fix_attempts):
-            try:
-                logger.info(f"AI fix attempt {fix_attempt + 1}/{max_fix_attempts} for slide {page_number} (error type: {error_category})")
 
-                # Create specialized fix prompt based on error category
-                if error_category == "structural":
-                    fix_instructions = """特别注意:
-1. 确保包含完整的HTML文档结构: <!DOCTYPE html>, <html>, <head>, <body>
-2. 检查所有主要结构标签是否存在和正确闭合
-3. 确保head部分包含必要的meta标签"""
-                elif error_category == "unclosed_tags":
-                    fix_instructions = """特别注意:
-1. 仔细检查所有开放标签是否有对应的闭合标签
-2. 注意自闭合标签(如<img>, <br>, <meta>等)不需要闭合标签
-3. 确保标签嵌套正确"""
-                elif error_category == "format":
-                    fix_instructions = """特别注意:
-1. 检查HTML标签的格式是否正确
-2. 确保标签属性格式正确
-3. 检查文档结构顺序是否正确"""
-                else:
-                    fix_instructions = """特别注意:
-1. 全面检查HTML代码的格式和结构
-2. 确保所有标签正确闭合
-3. 保持原有样式和内容不变"""
-
-                fix_prompt = f"""请修复以下HTML代码中的错误。
-
-原始HTML代码:
-```html
-{html_content}
-```
-
-检测到的问题:
-{error_text}
-
-{fix_instructions}
-
-请提供修复后的完整HTML代码，只返回HTML代码，不要添加任何解释。"""
-
-                system_prompt = f"""你是一个HTML修复专家，专门处理{error_category}类型的错误。你的任务是精确修复HTML代码中的问题，同时保持原有的样式和内容完全不变。"""
-
-                # Call AI to fix HTML
-                messages = [AIMessage(role=MessageRole.USER, content=fix_prompt)]
-                response = await ai_provider.chat_completion(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    max_tokens=min(ai_config.max_tokens, 8000),
-                    temperature=0.1  # Low temperature for precise fixes
-                )
-
-                # Clean and extract fixed HTML
-                fixed_html = self._clean_html_response(response.content)
-
-                if not fixed_html or len(fixed_html.strip()) < 50:
-                    logger.warning(f"AI returned empty or too short fixed HTML for slide {page_number}, attempt {fix_attempt + 1}")
-                    continue
-
-                # Validate the fixed HTML
-                fix_validation = self._validate_html_completeness(fixed_html)
-
-                if fix_validation['is_complete']:
-                    logger.info(f"✅ Successfully fixed HTML with AI for slide {page_number} on fix attempt {fix_attempt + 1}")
-                    return fixed_html
-                else:
-                    remaining_errors = len(fix_validation.get('errors', []))
-                    remaining_missing = len(fix_validation.get('missing_elements', []))
-                    logger.warning(f"❌ AI fix attempt {fix_attempt + 1} partially successful for slide {page_number}: "
-                                 f"{remaining_errors} errors, {remaining_missing} missing elements remaining")
-
-                    # Update error description for next attempt
-                    if fix_validation['errors'] or fix_validation['missing_elements']:
-                        new_errors = []
-                        if fix_validation['errors']:
-                            new_errors.append(f"剩余错误: {'; '.join(fix_validation['errors'])}")
-                        if fix_validation['missing_elements']:
-                            new_errors.append(f"剩余缺失元素: {', '.join(fix_validation['missing_elements'])}")
-                        error_text = '\n'.join(new_errors)
-                        html_content = fixed_html  # Use the partially fixed HTML for next attempt
-                        # Update error category for next attempt
-                        error_category = self._categorize_html_errors(fix_validation)
-
-            except Exception as e:
-                logger.error(f"Error in AI fix attempt {fix_attempt + 1} for slide {page_number}: {e}")
-                continue
-
-        logger.warning(f"All AI fix attempts failed for slide {page_number}")
-        return None
-
-    def _categorize_html_errors(self, validation_result: Dict[str, Any]) -> str:
-        """Categorize HTML errors to determine fix strategy"""
-        errors = validation_result.get('errors', [])
-        missing_elements = validation_result.get('missing_elements', [])
-
-        if not errors and not missing_elements:
-            return "none"
-
-        # Check for structural issues
-        structural_issues = ['html_open', 'html_close', 'head_open', 'head_close', 'body_open', 'body_close', 'doctype']
-        if any(element in missing_elements for element in structural_issues):
-            return "structural"
-
-        # Check for tag closure issues
-        if any("未闭合的HTML标签" in error for error in errors):
-            return "unclosed_tags"
-
-        # Check for format issues
-        if any("格式错误" in error or "结构顺序" in error for error in errors):
-            return "format"
-
-        # Default to general issues
-        return "general"
-
-    async def test_html_fix_mechanism(self, broken_html: str) -> Dict[str, Any]:
-        """Test the HTML fix mechanism with broken HTML (for debugging)"""
-        logger.info("🧪 Testing HTML fix mechanism")
-
-        try:
-            # Validate the broken HTML
-            validation_result = self._validate_html_completeness(broken_html)
-            logger.info(f"Initial validation: {validation_result}")
-
-            if validation_result['is_complete']:
-                return {"status": "no_fix_needed", "html": broken_html}
-
-            # Try to fix with AI
-            slide_data = {"title": "测试页面", "content_points": ["测试内容"]}
-            fixed_html = await self._fix_html_with_ai(broken_html, validation_result, slide_data, 999, 1)
-
-            if fixed_html:
-                final_validation = self._validate_html_completeness(fixed_html)
-                return {
-                    "status": "fixed" if final_validation['is_complete'] else "partially_fixed",
-                    "html": fixed_html,
-                    "validation": final_validation
-                }
-            else:
-                return {"status": "fix_failed", "html": broken_html}
-
-        except Exception as e:
-            logger.error(f"Error in test_html_fix_mechanism: {e}")
-            return {"status": "error", "error": str(e), "html": broken_html}
-
-    def test_html_tag_validation(self) -> Dict[str, Any]:
-        """Test HTML tag validation to ensure only HTML language tags are checked"""
-        logger.info("🧪 Testing HTML tag validation")
-
-        # Test case 1: HTML with unclosed HTML tags (should detect error)
-        html_with_unclosed_html_tags = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Test</title>
-        </head>
-        <body>
-            <div>
-                <p>This paragraph is not closed
-            </div>
-        </body>
-        </html>
-        """
-
-        # Test case 2: HTML with custom/non-HTML tags (should ignore them)
-        html_with_custom_tags = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Test</title>
-        </head>
-        <body>
-            <div>
-                <custom-component>
-                    <my-widget data="test">
-                        <p>This is valid HTML content</p>
-                    </my-widget>
-                </custom-component>
-            </div>
-        </body>
-        </html>
-        """
-
-        # Test case 3: Mixed HTML and custom tags with HTML tag error
-        html_mixed_with_error = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Test</title>
-        </head>
-        <body>
-            <div>
-                <custom-component>
-                    <p>Unclosed paragraph
-                </custom-component>
-            </div>
-        </body>
-        </html>
-        """
-
-        results = {}
-
-        # Test case 1
-        validation1 = self._validate_html_completeness(html_with_unclosed_html_tags)
-        results['unclosed_html_tags'] = {
-            'is_complete': validation1['is_complete'],
-            'errors': validation1['errors'],
-            'should_detect_error': True
-        }
-
-        # Test case 2
-        validation2 = self._validate_html_completeness(html_with_custom_tags)
-        results['custom_tags_ignored'] = {
-            'is_complete': validation2['is_complete'],
-            'errors': validation2['errors'],
-            'should_be_valid': True
-        }
-
-        # Test case 3
-        validation3 = self._validate_html_completeness(html_mixed_with_error)
-        results['mixed_with_html_error'] = {
-            'is_complete': validation3['is_complete'],
-            'errors': validation3['errors'],
-            'should_detect_html_error_only': True
-        }
-
-        return results
 
     async def _generate_html_with_retry(self, context: str, system_prompt: str, slide_data: Dict[str, Any],
                                       page_number: int, total_pages: int, max_retries: int = 3) -> str:
@@ -5165,36 +5051,47 @@ slide_type可选值：
                           f"Missing elements: {len(validation_result['missing_elements'])}")
 
                 if validation_result['is_complete']:
+                    # Log any missing elements as warnings only
+                    if validation_result['missing_elements']:
+                        logger.warning(f"Missing elements (warnings only): {', '.join(validation_result['missing_elements'])}")
                     logger.info(f"Successfully generated complete HTML for slide {page_number} on attempt {attempt + 1}")
                     return html_content
                 else:
                     # Log validation issues
                     if validation_result['missing_elements']:
-                        logger.warning(f"Missing elements: {', '.join(validation_result['missing_elements'])}")
+                        logger.warning(f"Missing elements (warnings only): {', '.join(validation_result['missing_elements'])}")
                     if validation_result['errors']:
-                        logger.warning(f"Validation errors: {'; '.join(validation_result['errors'])}")
+                        logger.error(f"Validation errors: {'; '.join(validation_result['errors'])}")
 
-                    # Try to fix HTML with AI before retrying or giving up
-                    logger.info(f"🔧 Attempting to fix HTML errors with AI for slide {page_number}")
-                    fixed_html = await self._fix_html_with_ai(html_content, validation_result, slide_data, page_number, total_pages)
+                    # Only try to fix HTML with parser if there are actual errors (not just missing elements)
+                    if validation_result['errors']:
+                        # Try automatic parser-based fix
+                        logger.info(f"🔧 Attempting automatic parser fix for slide {page_number}")
+                        parser_fixed_html = self._auto_fix_html_with_parser(html_content)
 
-                    if fixed_html:
-                        # Validate the AI-fixed HTML
-                        fixed_validation = self._validate_html_completeness(fixed_html)
-                        if fixed_validation['is_complete']:
-                            logger.info(f"✅ Successfully fixed HTML with AI for slide {page_number}")
-                            return fixed_html
+                        # Validate the parser-fixed HTML
+                        if parser_fixed_html != html_content:  # Only if parser actually changed something
+                            parser_validation = self._validate_html_completeness(parser_fixed_html)
+                            if parser_validation['is_complete']:
+                                logger.info(f"✅ Successfully fixed HTML with parser for slide {page_number}")
+                                return parser_fixed_html
+                            else:
+                                logger.warning(f"🔧 Parser fix did not completely resolve all issues for slide {page_number}")
                         else:
-                            logger.warning(f"⚠️ AI fix did not completely resolve all issues for slide {page_number}")
+                            logger.info(f"🔧 Parser did not change HTML for slide {page_number}")
 
-                    # If this is not the last attempt, continue to retry with fresh generation
-                    if attempt < max_retries - 1:
-                        logger.info(f"🔄 HTML incomplete, retrying fresh generation for slide {page_number}...")
-                        continue
+                        # If parser fix didn't work completely, retry generation
+                        if attempt < max_retries - 1:
+                            logger.info(f"🔄 HTML has errors after parser fix, retrying fresh generation for slide {page_number}...")
+                            continue
+                        else:
+                            # Last attempt failed, use fallback
+                            logger.warning(f"❌ All generation and parser fix attempts failed, using fallback for slide {page_number}")
+                            return self._generate_fallback_slide_html(slide_data, page_number, total_pages)
                     else:
-                        # Last attempt failed, use fallback
-                        logger.warning(f"❌ All generation and fix attempts failed, using fallback for slide {page_number}")
-                        return self._generate_fallback_slide_html(slide_data, page_number, total_pages)
+                        # No actual errors, just missing elements (warnings), so don't try to fix
+                        logger.info(f"✅ HTML is valid with only missing element warnings for slide {page_number}")
+                        return html_content
 
             except Exception as e:
                 error_msg = str(e)
@@ -6645,7 +6542,7 @@ slide_type可选值：
 
             try:
                 # 导入summeryanyfile模块
-                from summeryanyfile import PPTOutlineGenerator
+                from summeryanyfile.generators.ppt_generator import PPTOutlineGenerator
                 from summeryanyfile.core.models import ProcessingConfig, ChunkStrategy
 
                 # 创建配置 - temperature和max_tokens将从.env文件自动读取

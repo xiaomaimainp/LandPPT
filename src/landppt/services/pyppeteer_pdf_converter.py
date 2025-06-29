@@ -1870,12 +1870,24 @@ class PyppeteerPDFConverter:
 
             logger.info(f"✅ Batch conversion completed. Generated {len(pdf_files)} PDF files.")
 
-            # If merging is requested and we have multiple PDFs
-            if merged_pdf_path and len(pdf_files) > 1:
-                logger.info("🔗 Merging PDFs...")
-                merge_success = await self.merge_pdfs(pdf_files, merged_pdf_path)
-                if merge_success:
-                    logger.info(f"✅ Merged PDF created: {merged_pdf_path}")
+            # If merging is requested and we have PDFs
+            if merged_pdf_path and len(pdf_files) > 0:
+                if len(pdf_files) == 1:
+                    # For single PDF, just copy it to the merged path
+                    logger.info("📄 Single PDF detected, copying to merged path...")
+                    import shutil
+                    try:
+                        shutil.copy2(pdf_files[0], merged_pdf_path)
+                        logger.info(f"✅ Single PDF copied to: {merged_pdf_path}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to copy single PDF: {e}")
+                        return pdf_files
+                else:
+                    # For multiple PDFs, merge them
+                    logger.info("🔗 Merging multiple PDFs...")
+                    merge_success = await self.merge_pdfs(pdf_files, merged_pdf_path)
+                    if merge_success:
+                        logger.info(f"✅ Merged PDF created: {merged_pdf_path}")
 
             return pdf_files
 

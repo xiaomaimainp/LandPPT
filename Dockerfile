@@ -103,6 +103,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
+COPY .env.example ./.env
 COPY src/ ./src/
 COPY run.py setup_database.py ./
 COPY template_examples/ ./template_examples/

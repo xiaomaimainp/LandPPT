@@ -87,6 +87,11 @@ class PPTGenerationRequest(BaseModel):
     network_mode: bool = Field(False, description="Whether to use network mode for enhanced generation")
     language: str = Field("zh", description="Language for the PPT content")
     uploaded_content: Optional[str] = Field(None, description="Content from uploaded files")
+    # 目标受众和风格相关参数
+    target_audience: Optional[str] = Field(None, description="Target audience for the PPT")
+    ppt_style: str = Field("general", description="PPT style: 'general', 'conference', 'custom'")
+    custom_style_prompt: Optional[str] = Field(None, description="Custom style prompt")
+    description: Optional[str] = Field(None, description="Additional description or requirements")
     # 文件生成相关参数
     use_file_content: bool = Field(False, description="Whether to use uploaded file content for generation")
     file_processing_mode: str = Field("markitdown", description="File processing mode: 'markitdown' or 'magic_pdf'")

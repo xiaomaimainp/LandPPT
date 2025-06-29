@@ -2,10 +2,12 @@
 工作流管理器 - 定义和管理LangGraph工作流
 """
 
-from typing import Dict, Any, Optional, Callable, AsyncGenerator
+from typing import Dict, Any, Optional, Callable, AsyncGenerator, TYPE_CHECKING
 import logging
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.graph import CompiledGraph
+
+if TYPE_CHECKING:
+    from langgraph.graph.state import CompiledStateGraph
 
 from ..core.models import PPTState
 from ..generators.chains import ChainManager
@@ -22,7 +24,7 @@ class WorkflowManager(LoggerMixin):
         self.chain_manager = chain_manager
         self.config = config
         self.nodes = GraphNodes(chain_manager, config)
-        self.app: Optional[CompiledGraph] = None
+        self.app: Optional["CompiledStateGraph"] = None
         self._setup_graph()
     
     def _setup_graph(self):

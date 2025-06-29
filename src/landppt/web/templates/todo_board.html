@@ -1117,11 +1117,11 @@ function showOutlineSection() {
                         <!-- View Toggle Buttons - Always show -->
                         <div style="display: flex; background: #e9ecef; border-radius: 6px; padding: 2px;">
                             <button id="json-view-btn-new" onclick="switchOutlineViewNew('json')"
-                                    style="background: #3498db; color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
+                                    style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
                                 <i class="fas fa-code"></i> JSON
                             </button>
                             <button id="outline-view-btn-new" onclick="switchOutlineViewNew('outline')"
-                                    style="background: transparent; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
+                                    style="background: transparent; color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
                                 <i class="fas fa-list-ul"></i> 大纲视图
                             </button>
                         </div>
@@ -1788,6 +1788,9 @@ async function regenerateOutlineNew() {
     // 隐藏开始PPT生成按钮
     hideStartPPTButton();
 
+    // 确保切换到JSON视图以显示生成过程
+    switchOutlineViewNew('json');
+
     // 清空当前内容并显示加载状态
     const contentDiv = document.getElementById('outline-content-display');
     const placeholderDiv = document.getElementById('outline-placeholder');
@@ -1809,35 +1812,78 @@ async function regenerateOutlineNew() {
     // 重置生成标志
     outlineGenerationStarted = false;
 
-    // 重置大纲生成阶段状态
+    // 重置大纲生成阶段状态（不触发页面重新加载）
     try {
-        await updateStageStatus('outline_generation', 'running', 0);
+        await updateStageStatusSilent('outline_generation', 'running', 0);
     } catch (error) {
         console.warn('Failed to update stage status:', error);
     }
 
-    // 检查当前项目类型，决定使用哪种生成方式
+    // 调用专门的重新生成大纲接口
     try {
-        // 获取项目信息来判断是否为文件生成项目
-        const response = await fetch(`/projects/${currentProjectId}`);
-        if (response.ok) {
-            const projectData = await response.json();
-            const isFileProject = projectData.project &&
-                                 (projectData.project.file_path ||
-                                  projectData.project.requirements_confirmation?.file_path);
-
-            if (isFileProject) {
-                console.log('Regenerating file-based outline');
-                await startFileOutlineGeneration();
-            } else {
-                console.log('Regenerating standard outline');
-                await startOutlineGenerationNew();
+        console.log('Calling regenerate outline API');
+        const response = await fetch(`/projects/${currentProjectId}/regenerate-outline`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             }
-        } else {
-            // 如果无法获取项目信息，默认使用标准生成方式
-            console.log('Could not determine project type, using standard outline generation');
-            await startOutlineGenerationNew();
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const result = await response.json();
+
+        if (result.error) {
+            // 显示错误信息
+            if (contentDiv) {
+                contentDiv.innerHTML = `<div style="color: #e74c3c; text-align: center; padding: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> 错误: ${result.error}
+                </div>`;
+            }
+            if (placeholderDiv) placeholderDiv.style.display = 'none';
+
+            // 重新显示操作按钮
+            if (actionsDiv) {
+                actionsDiv.style.display = 'block';
+            }
+
+            // 重置标志，允许重试
+            outlineGenerationStarted = false;
+            return;
+        }
+
+        // 隐藏加载状态
+        if (placeholderDiv) {
+            placeholderDiv.style.display = 'none';
+        }
+
+        // 显示生成的大纲内容
+        if (contentDiv && result.outline_content) {
+            const preElement = document.createElement('pre');
+            preElement.style.cssText = 'white-space: pre-wrap; word-wrap: break-word; font-family: "Courier New", monospace; font-size: 12px; line-height: 1.4; margin: 0; padding: 0; background: transparent; border: none;';
+            preElement.textContent = result.outline_content;
+            contentDiv.appendChild(preElement);
+        }
+
+        // 重置标志，允许下次生成
+        outlineGenerationStarted = false;
+
+        // Show action buttons
+        if (actionsDiv) {
+            actionsDiv.style.display = 'block';
+        }
+
+        // Generate outline view if currently in outline view
+        if (currentViewNew === 'outline') {
+            setTimeout(() => {
+                renderOutlineViewNew();
+            }, 500);
+        }
+
+        // Show start PPT generation button
+        showStartPPTButton();
     } catch (error) {
         console.error('Error during outline regeneration:', error);
 
@@ -1856,6 +1902,9 @@ async function regenerateOutlineNew() {
         if (actionsDiv) {
             actionsDiv.style.display = 'block';
         }
+
+        // 重置标志，允许重试
+        outlineGenerationStarted = false;
     }
 }
 
@@ -2469,7 +2518,7 @@ async function updateStageStatus(stageId, status, progress = null) {
                 progress: progress
             })
         });
-        
+
         if (response.ok) {
             // Reload page to show updated status
             setTimeout(() => {
@@ -2481,6 +2530,28 @@ async function updateStageStatus(stageId, status, progress = null) {
     } catch (error) {
         console.error('Error updating stage:', error);
         alert('更新失败: ' + error.message);
+    }
+}
+
+// Silent version that doesn't reload the page (for regeneration scenarios)
+async function updateStageStatusSilent(stageId, status, progress = null) {
+    try {
+        const response = await fetch(`/api/projects/${currentProjectId}/stages/${stageId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                status: status,
+                progress: progress
+            })
+        });
+
+        if (!response.ok) {
+            console.warn('Failed to update stage status silently');
+        }
+    } catch (error) {
+        console.error('Error updating stage silently:', error);
     }
 }
 
@@ -3537,7 +3608,7 @@ function renderMindmapInContainer(data, containerId) {
 }
 
 // New view switching functions for the new outline section
-let currentViewNew = 'outline'; // Default to outline view
+let currentViewNew = 'json'; // Default to JSON view for better compatibility
 let currentEditInput = null; // Track current editing input to prevent duplicates
 
 function switchOutlineViewNew(view) {
