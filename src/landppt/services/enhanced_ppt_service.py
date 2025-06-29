@@ -3791,20 +3791,26 @@ slide_type可选值：
             # Generate each slide individually
             for i, slide in enumerate(slides):
                 try:
-                    # Check if slide already exists and is user-edited
+                    # Check if slide already exists
                     existing_slide = None
                     if project.slides_data and i < len(project.slides_data):
                         existing_slide = project.slides_data[i]
 
-                    # If slide exists and is user-edited, skip generation
-                    if existing_slide and existing_slide.get('is_user_edited', False):
-                        logger.info(f"Skipping slide {i+1} generation - user has edited this slide")
+                    # If slide exists and has content (either user-edited or AI-generated), skip generation
+                    if existing_slide and existing_slide.get('html_content'):
+                        if existing_slide.get('is_user_edited', False):
+                            logger.info(f"Skipping slide {i+1} generation - user has edited this slide")
+                            skip_message = f'第{i+1}页已被用户编辑，跳过重新生成'
+                        else:
+                            logger.info(f"Skipping slide {i+1} generation - slide already exists (断点续生)")
+                            skip_message = f'第{i+1}页已存在，跳过生成（断点续生）'
+
                         # Send skip message
                         skip_data = {
                             'type': 'slide_skipped',
                             'current': i + 1,
                             'total': len(slides),
-                            'message': f'第{i+1}页已被用户编辑，跳过重新生成',
+                            'message': skip_message,
                             'slide_data': existing_slide
                         }
                         yield f"data: {json.dumps(skip_data)}\n\n"

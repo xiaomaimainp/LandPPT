@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  landppt:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: landppt
+    ports:
+      - "8000:8000"
+    volumes:
+      # Configuration
+      - ./.env:/app/.env:ro
+      # Data persistence
+      - landppt_data:/app/data
+      - landppt_uploads:/app/uploads
+      - landppt_reports:/app/research_reports
+      - landppt_cache:/app/temp
+    environment:
+      - PYTHONPATH=/app/src
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "./docker-healthcheck.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 40s
+    networks:
+      - landppt_network
+
+  # Optional: Ollama service for local AI models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: landppt_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - landppt_network
+    profiles:
+      - ollama
+    # Uncomment the following lines if you have NVIDIA GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  landppt_data:
+    driver: local
+  landppt_uploads:
+    driver: local
+  landppt_reports:
+    driver: local
+  landppt_cache:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  landppt_network:
+    driver: bridge

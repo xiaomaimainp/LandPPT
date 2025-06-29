@@ -1,281 +1,321 @@
 # LandPPT - AI-Powered PPT Generation Platform
 
-### 🎯 Project Overview
+[![GitHub stars](https://img.shields.io/github/stars/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/network)
+[![GitHub issues](https://img.shields.io/github/issues/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/issues)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg?style=flat-square)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg?style=flat-square)](https://hub.docker.com)
+
+**English** | [中文](README.md)
+
+---
+
+## 📋 Table of Contents
+
+- [Project Overview](#-project-overview)
+- [Key Features](#-key-features)
+- [Quick Start](#-quick-start)
+- [Usage Guide](#-usage-guide)
+- [Configuration](#-configuration)
+- [API Documentation](#-api-documentation)
+- [Tech Stack](#️-tech-stack)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+## 🎯 Project Overview
 
 LandPPT is an AI-powered presentation generation platform that automatically converts document content into professional PPT presentations. The platform supports multiple AI models and provides rich templates and style options, enabling users to quickly create high-quality presentations.
 
-### ✨ Key Features
+## ✨ Key Features
 
-#### 🤖 AI-Driven Content Generation
-- **Multi-AI Provider Support**: OpenAI, Anthropic Claude, Google Gemini, Ollama
-- **Intelligent Content Analysis**: Automatically extract key information and structure from documents
-- **Scenario-based Generation**: Support for business, education, technical, and other presentation scenarios
-- **Automatic Outline Generation**: Intelligently generate PPT structure based on content
+### 🤖 Multi-AI Provider Support
+- **OpenAI GPT Series**: GPT-3.5/GPT-4 and other mainstream models
+- **Anthropic Claude**: Claude-3 series models
+- **Google Gemini**: Gemini-1.5 series models
+- **Azure OpenAI**: Enterprise-grade AI services
+- **Ollama**: Locally deployed open-source models
 
-#### 📄 Powerful File Processing
+### 📄 Powerful File Processing
 - **Multi-format Support**: PDF, Word, Markdown, TXT, etc.
-- **Intelligent Content Parsing**: High-quality document parsing using MarkItDown and MinerU
-- **Batch Processing**: Support for multiple file uploads and processing
-- **Content Optimization**: Automatically optimize document content for PPT format
+- **Intelligent Parsing**: Content extraction using magic-pdf and markitdown
+- **Local Caching**: File caching system with MD5 hash verification
+- **Deep Research**: DEEP research functionality with Tavily API integration
 
-#### 🎨 Rich Template System
-- **Global Master Templates**: Unified design style and layout
-- **Scenario-specific Templates**: Professional templates for different use cases
-- **Custom Styling**: Personalized customization of colors, fonts, and layouts
-- **Responsive Design**: Adapt to different screen sizes and devices
+### 🎨 Rich Template System
+- **Global Master Templates**: Unified HTML template system
+- **Diverse Layouts**: AI-generated creative page layouts
+- **Scenario-based Design**: Professional templates for business, education, tech, etc.
+- **Custom Templates**: Support for importing and creating personalized templates
 
-#### 📊 Project Management
-- **Project Workflow**: Complete PPT creation and management process
-- **Version Control**: Support for multi-version management and history
-- **Collaboration Features**: Team collaboration and permission management
-- **Progress Tracking**: Real-time tracking of project status and completion
+### 📊 Complete Project Management
+- **Three-stage Workflow**: Requirements confirmation → Outline generation → PPT generation
+- **Visual Editing**: Mind map-style outline editor
+- **Version Control**: Project version management and history tracking
+- **Real-time Preview**: 16:9 responsive page preview
 
-#### 🔧 Developer Friendly
-- **RESTful API**: Complete API interface documentation
-- **OpenAI Compatible**: Support for OpenAI API format
-- **Web Interface**: Intuitive user operation interface
-- **Database Management**: Complete data persistence solution
+### 🔧 Developer Friendly
+- **RESTful API**: Complete API interface
+- **OpenAI Compatible**: Compatible with OpenAI API format
+- **Real-time Configuration**: Configuration updates without restart
+- **Health Monitoring**: Comprehensive service monitoring
 
-### 🏗️ Technical Architecture
+### 🌐 Modern Web Interface
+- **Intuitive Operation**: User-friendly web interface
+- **AI Chat Editing**: Sidebar AI editing functionality
+- **Multi-format Export**: PDF/HTML/PPTX export support
+- **Responsive Design**: Adaptive to various devices
 
-#### Backend Stack
-- **Web Framework**: FastAPI - High-performance async web framework
-- **Database**: SQLAlchemy + SQLite - Lightweight database solution
-- **AI Integration**: Unified interface design for multiple providers
-- **File Processing**: MarkItDown, MinerU, PyPDF, etc.
-- **Authentication**: JWT + Session management
+## 🚀 Quick Start
 
-#### Frontend Stack
-- **Template Engine**: Jinja2
-- **Styling Framework**: CSS3 + Responsive design
-- **Interactive Logic**: Native JavaScript
-- **PDF Generation**: Puppeteer + PDF-lib
-
-#### Core Modules
-```
-src/landppt/
-├── ai/              # AI provider integration
-├── api/             # API interface definitions
-├── auth/            # Authentication and permission management
-├── core/            # Core configuration
-├── database/        # Database models and operations
-├── services/        # Business logic services
-└── web/             # Web interface
-```
-
-### 🚀 Quick Start
-
-#### Requirements
+### System Requirements
 - Python 3.11+
-- Node.js 16.0+
 - SQLite 3
+- Docker (optional)
 
-#### Installation Steps
+### Local Installation
 
-1. **Clone the project**
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone https://github.com/your-username/LandPPT.git
 cd LandPPT
-```
 
-2. **Install Python dependencies**
-```bash
+# Install dependencies using uv (recommended)
+pip install uv
+uv pip install -e .
+
+# Or use pip
 pip install -e .
-```
 
-3. **Install Node.js dependencies**
-```bash
-npm install
-```
+# Configure environment variables
+cp .env.example .env
+# Edit .env file and configure your AI API keys
 
-4. **Initialize database**
-```bash
+# Initialize database
 python setup_database.py
-```
 
-5. **Start the service**
-```bash
+# Start the service
 python run.py
 ```
 
-#### Access the Application
-- **Web Interface**: http://localhost:8000/web
+### Docker Deployment
+
+```bash
+# Build image
+docker build -t landppt .
+
+# Run container
+docker run -d \
+  --name landppt \
+  -p 8000:8000 \
+  -v $(pwd)/.env:/app/.env \
+  -v landppt_data:/app/data \
+  -v landppt_uploads:/app/uploads \
+  landppt
+
+# View logs
+docker logs -f landppt
+```
+
+### Using Docker Compose (Recommended)
+
+Create `docker-compose.yml` file:
+
+```yaml
+version: '3.8'
+
+services:
+  landppt:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.env:/app/.env
+      - landppt_data:/app/data
+      - landppt_uploads:/app/uploads
+      - landppt_reports:/app/research_reports
+    environment:
+      - PYTHONPATH=/app/src
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "./docker-healthcheck.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  landppt_data:
+  landppt_uploads:
+  landppt_reports:
+```
+
+```bash
+# Start services
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+## 📖 Usage Guide
+
+### 1. Access Web Interface
+After starting the service, visit:
+- **Web Interface**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/api/health
+- **Health Check**: http://localhost:8000/health
 
-### ⚙️ Configuration
+### 2. Configure AI Providers
+Configure your AI API keys in the settings page:
+- OpenAI API Key
+- Anthropic API Key
+- Google API Key
+- Or configure local Ollama service
 
-#### AI Provider Configuration
-Configure the corresponding AI provider API keys before use:
+### 3. Create PPT Projects
+1. **Requirements Confirmation**: Input topic, select audience, set page range
+2. **Outline Generation**: AI generates editable mind map outline
+3. **PPT Generation**: Generate complete HTML presentation based on outline
 
-```python
-# Configure through web interface or set environment variables directly
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-GOOGLE_API_KEY=your_google_key
-```
+### 4. Edit and Export
+- Use AI chat functionality to edit content
+- Export as PDF, HTML, or PPTX format
+- Save project versions and history
 
-#### Database Configuration
-Uses SQLite by default, with the database file located at `landppt.db` in the project root directory.
+## 🔧 Configuration
 
-### 📖 Usage Guide
+### Environment Variables
 
-#### 1. Create PPT Project
-- Access the web interface
-- Select generation scenario (business, education, technical, etc.)
-- Enter topic and requirements
-- Upload related documents (optional)
+Main configuration items (see `.env.example` for details):
 
-#### 2. Generate and Edit
-- System automatically generates PPT outline
-- Confirm or modify outline structure
-- Generate complete PPT content
-- Preview and adjust styles
-
-#### 3. Export and Share
-- Export as PDF format
-- Online preview and sharing
-- Download source files
-
-### 🔌 API Usage
-
-#### Basic API Calls
-```python
-import requests
-
-# Create PPT project
-response = requests.post('http://localhost:8000/api/projects', json={
-    "topic": "AI Development Trends",
-    "scenario": "business",
-    "requirements": "Include market analysis, technology trends, future outlook"
-})
-
-project = response.json()
-```
-
-#### OpenAI Compatible API
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="your-api-key"
-)
-
-response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[{"role": "user", "content": "Generate PPT outline about AI"}]
-)
-```
-
-### 🛠️ Development Guide
-
-#### Project Structure
-```
-LandPPT/
-├── src/
-│   ├── landppt/           # Main application
-│   │   ├── ai/            # AI provider integration
-│   │   ├── api/           # API routes and models
-│   │   ├── auth/          # Authentication system
-│   │   ├── core/          # Core configuration
-│   │   ├── database/      # Database related
-│   │   ├── services/      # Business logic
-│   │   └── web/           # Web interface
-│   └── summeryanyfile/    # Document processing module
-├── static/                # Static resources
-├── research_reports/      # Research report storage
-├── package.json          # Node.js dependencies
-├── pyproject.toml        # Python project configuration
-├── run.py               # Application startup script
-└── setup_database.py    # Database initialization
-```
-
-#### Adding New AI Providers
-1. Create a new provider class in `src/landppt/ai/providers.py`
-2. Inherit from `AIProvider` base class and implement required methods
-3. Register the new provider in `AIProviderFactory`
-4. Update configuration files to support the new provider
-
-#### Custom Templates
-1. Create new global master templates in the database
-2. Define template HTML structure and CSS styles
-3. Configure template metadata and parameters
-4. Apply templates through API or web interface
-
-### 🧪 Testing
-
-#### Run Tests
 ```bash
-# Install test dependencies
-pip install pytest pytest-asyncio
+# AI Provider Configuration
+DEFAULT_AI_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GOOGLE_API_KEY=your_google_api_key_here
 
-# Run all tests
-pytest
+# Server Configuration
+HOST=0.0.0.0
+PORT=8000
+SECRET_KEY=your-secure-secret-key
 
-# Run specific tests
-pytest tests/test_api.py
+# Feature Configuration
+TAVILY_API_KEY=your_tavily_api_key_here  # Research functionality
+APRYSE_LICENSE_KEY=your_apryse_key_here  # PPTX export
+
+# Generation Parameters
+MAX_TOKENS=8192
+TEMPERATURE=0.7
 ```
 
-#### Test Coverage
+## 📚 API Documentation
+
+After starting the service, visit:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+### Main API Endpoints
+
 ```bash
-pip install pytest-cov
-pytest --cov=src/landppt tests/
+# Health Check
+GET /health
+
+# Project Management
+POST /api/projects          # Create project
+GET /api/projects           # Get project list
+GET /api/projects/{id}      # Get project details
+
+# File Processing
+POST /api/upload            # Upload file
+POST /api/files/upload-and-generate-outline  # Upload and generate outline
+
+# OpenAI Compatible Interface
+POST /v1/chat/completions   # Chat completion
+POST /v1/completions        # Text completion
 ```
 
-### 📦 Deployment
+## 🛠️ Tech Stack
 
-#### Docker Deployment
-```dockerfile
-FROM python:3.11-slim
+### Backend Technologies
+- **FastAPI**: Modern Python web framework
+- **SQLAlchemy**: ORM database operations
+- **Pydantic**: Data validation and serialization
+- **Uvicorn**: ASGI server
 
-WORKDIR /app
-COPY . .
+### AI Integration
+- **OpenAI**: GPT series models
+- **Anthropic**: Claude series models
+- **Google AI**: Gemini series models
+- **LangChain**: AI application development framework
 
-RUN pip install -e .
-RUN npm install
+### File Processing
+- **magic-pdf**: Intelligent PDF parsing
+- **markitdown**: Multi-format document conversion
+- **python-docx**: Word document processing
+- **BeautifulSoup**: HTML parsing
 
-EXPOSE 8000
-CMD ["python", "run.py"]
-```
+### Export Functionality
+- **Pyppeteer**: HTML to PDF conversion
+- **Apryse SDK**: PPTX generation
+- **Jinja2**: Template rendering
 
-#### Production Configuration
-- Use PostgreSQL instead of SQLite
-- Configure reverse proxy (Nginx)
-- Set environment variables and key management
-- Configure logging and monitoring
+## 🤝 Contributing
 
-### 🤝 Contributing
+We welcome all forms of contributions!
 
-1. Fork the project
+### How to Contribute
+1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Create a Pull Request
+5. Open a Pull Request
 
-### 📄 License
+### Development Environment Setup
+```bash
+# Clone your fork
+git clone https://github.com/your-username/LandPPT.git
+cd LandPPT
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Install development dependencies
+uv pip install -e ".[dev]"
 
-### 🙏 Acknowledgments
+# Run tests
+pytest
 
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [SQLAlchemy](https://www.sqlalchemy.org/) - Python SQL toolkit
-- [Puppeteer](https://pptr.dev/) - Headless Chrome control library
-- [MarkItDown](https://github.com/microsoft/markitdown) - Document conversion tool
+# Code formatting
+black src/
+isort src/
+```
 
-### 📞 Contact
+### Reporting Issues
+If you find bugs or have feature suggestions, please create a new issue on the [Issues](https://github.com/your-username/LandPPT/issues) page.
 
-- Project Homepage: [GitHub Repository]
-- Issue Reports: [GitHub Issues]
-- Email: [your-email@example.com]
+## 📄 License
 
----
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
 ## 🌟 Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=your-username/LandPPT&type=Date)](https://star-history.com/#your-username/LandPPT&Date)
 
+## 📞 Contact Us
+
+- **Project Homepage**: https://github.com/your-username/LandPPT
+- **Issue Reporting**: https://github.com/your-username/LandPPT/issues
+- **Discussions**: https://github.com/your-username/LandPPT/discussions
+
 ---
 
-**Made with ❤️ by the LandPPT Team**
+<div align="center">
+
+**If this project helps you, please give us a ⭐️ Star!**
+
+Made with ❤️ by the LandPPT Team
+
+</div>

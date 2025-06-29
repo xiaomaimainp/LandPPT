@@ -78,7 +78,8 @@ class DatabaseService:
                     "metadata": slide.slide_metadata or {},
                     "is_user_edited": slide.is_user_edited,
                     "created_at": slide.created_at,
-                    "updated_at": slide.updated_at
+                    "updated_at": slide.updated_at,
+                    "page_number": slide.slide_index + 1  # 添加page_number字段，从slide_index转换而来
                 }
                 slides_data.append(slide_dict)
             logger.debug(f"Loaded {len(slides_data)} slides from slide_data table for project {db_project.project_id}")

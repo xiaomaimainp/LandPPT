@@ -943,9 +943,34 @@
             startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
             statusDiv.style.display = 'block';
 
-            // Clear slides container and reset slides data
-            slidesContainer.innerHTML = '';
-            slidesData = [];
+            // 断点续生：不清空已有数据，而是保留现有的幻灯片
+            // 如果有已生成的幻灯片数据，保留它们
+            if (projectSlidesData && projectSlidesData.length > 0) {
+                console.log('断点续生：保留已有的', projectSlidesData.length, '页幻灯片');
+                console.log('projectSlidesData:', projectSlidesData);
+
+                // 清空容器但保留数据，稍后重新渲染
+                slidesContainer.innerHTML = '';
+
+                // 重新显示已有的幻灯片
+                projectSlidesData.forEach((slideData, index) => {
+                    // 确保每个幻灯片都有正确的page_number
+                    if (!slideData.page_number) {
+                        slideData.page_number = index + 1;
+                    }
+                    console.log(`重新渲染第${index + 1}页:`, slideData.title, slideData.page_number);
+                    addSlideToContainer(slideData);
+                });
+
+                // 更新本地数据
+                slidesData = [...projectSlidesData];
+                console.log('slidesData 更新后:', slidesData.length, '页');
+            } else {
+                // 如果没有已生成的数据，清空容器
+                console.log('没有已生成的数据，清空容器');
+                slidesContainer.innerHTML = '';
+                slidesData = [];
+            }
 
             // 显示生成状态指示器
             const generationIndicatorDiv = document.getElementById('generationIndicator');
@@ -1014,6 +1039,32 @@
                     if (data.slide_data) {
                         addSlideToContainer(data.slide_data);
                         // 每生成一页就检查是否可以显示编辑器按钮
+                        checkAndShowEditorButton();
+                    }
+                    break;
+
+                case 'slide_skipped':
+                    // 处理跳过的幻灯片（断点续生或用户编辑）
+                    console.log('跳过幻灯片:', data.message);
+                    updateStatus(data.message, 'progress');
+                    const skipProgress = (data.current / data.total) * 100;
+                    progressBar.style.width = skipProgress + '%';
+
+                    // 对于跳过的幻灯片，我们不需要重新添加到容器中
+                    // 因为在startGeneration中已经重新渲染了所有已有的幻灯片
+                    // 只需要确保数据同步即可
+                    if (data.slide_data) {
+                        // 确保slidesData中包含这个幻灯片数据
+                        const existingDataIndex = slidesData.findIndex(slide => slide.page_number === data.slide_data.page_number);
+                        if (existingDataIndex === -1) {
+                            // 如果数据中没有，添加进去（按页码顺序插入）
+                            const insertIndex = slidesData.findIndex(slide => slide.page_number > data.slide_data.page_number);
+                            if (insertIndex === -1) {
+                                slidesData.push(data.slide_data);
+                            } else {
+                                slidesData.splice(insertIndex, 0, data.slide_data);
+                            }
+                        }
                         checkAndShowEditorButton();
                     }
                     break;
@@ -1093,9 +1144,25 @@
         function addSlideToContainer(slideData) {
             const slidesContainer = document.getElementById('slidesContainer');
 
+            // 确保page_number存在，如果不存在则根据当前幻灯片数量推断
+            if (!slideData.page_number) {
+                slideData.page_number = slidesData.length + 1;
+                console.log(`幻灯片缺少page_number，推断为: ${slideData.page_number}`);
+            }
+
+            console.log(`尝试添加幻灯片 ${slideData.page_number}: ${slideData.title}`);
+
+            // 检查是否已经存在这个幻灯片
+            const existingSlide = document.getElementById(`slide-${slideData.page_number}`);
+            if (existingSlide) {
+                console.log(`幻灯片 ${slideData.page_number} 已存在，跳过添加`);
+                return;
+            }
+
             const slideCard = document.createElement('div');
             slideCard.className = 'slide-card generating';
             slideCard.id = `slide-${slideData.page_number}`;
+            slideCard.setAttribute('data-slide-index', slideData.page_number - 1);
 
             slideCard.innerHTML = `
                 <div class="slide-header">
@@ -1131,8 +1198,15 @@
                 slideCard.classList.add('completed');
             }, 1000);
 
-            // Store slide data
-            slidesData.push(slideData);
+            // Store slide data - 检查是否已存在相同页码的数据
+            const existingDataIndex = slidesData.findIndex(slide => slide.page_number === slideData.page_number);
+            if (existingDataIndex >= 0) {
+                // 更新现有数据
+                slidesData[existingDataIndex] = slideData;
+            } else {
+                // 添加新数据
+                slidesData.push(slideData);
+            }
         }
 
         function checkAndShowEditorButton() {
@@ -1304,7 +1378,15 @@
             return actualSlideCount >= expectedSlideCount;
         }
 
+        let checkAndStartGenerationCalled = false;
+
         function checkAndStartGeneration() {
+            if (checkAndStartGenerationCalled) {
+                console.log('checkAndStartGeneration already called, skipping...');
+                return;
+            }
+            checkAndStartGenerationCalled = true;
+
             console.log('checkAndStartGeneration called');
             console.log('projectSlidesData:', projectSlidesData);
             console.log('projectOutline:', projectOutline);
@@ -1381,6 +1463,9 @@
 
         function displayPartialSlides() {
             console.log('Displaying partial slides...');
+            console.log('projectSlidesData:', projectSlidesData);
+            console.log('projectSlidesData.length:', projectSlidesData.length);
+
             const slidesContainer = document.getElementById('slidesContainer');
             const statusDiv = document.getElementById('generationStatus');
 
@@ -1398,14 +1483,20 @@
             progressBar.style.width = progress + '%';
 
             // Display existing slides
-            projectSlidesData.forEach(slideData => {
+            console.log('开始显示已有幻灯片...');
+            projectSlidesData.forEach((slideData, index) => {
+                // 确保每个幻灯片都有正确的page_number
+                if (!slideData.page_number) {
+                    slideData.page_number = index + 1;
+                }
+                console.log(`显示第${index + 1}页:`, slideData.title, slideData.page_number);
                 addSlideToContainer(slideData);
             });
 
             // Update slides data
-            slidesData = projectSlidesData;
+            slidesData = [...projectSlidesData];
 
-            console.log('Partial slides displayed successfully');
+            console.log('Partial slides displayed successfully, slidesData.length:', slidesData.length);
         }
 
         // 实时检查PPT生成状态
