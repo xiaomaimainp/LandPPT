@@ -56,14 +56,27 @@ class DEEPResearchService:
     def _initialize_tavily_client(self):
         """Initialize Tavily client"""
         try:
-            if ai_config.tavily_api_key:
-                self.tavily_client = TavilyClient(api_key=ai_config.tavily_api_key)
+            current_api_key = ai_config.tavily_api_key
+            logger.info(f"Initializing Tavily client with API key: {'***' + current_api_key[-4:] if current_api_key and len(current_api_key) > 4 else 'None'}")
+
+            if current_api_key:
+                self.tavily_client = TavilyClient(api_key=current_api_key)
                 logger.info("Tavily client initialized successfully")
             else:
                 logger.warning("Tavily API key not found in configuration")
+                self.tavily_client = None
         except Exception as e:
             logger.error(f"Failed to initialize Tavily client: {e}")
-            raise
+            self.tavily_client = None
+
+    def reload_config(self):
+        """Reload configuration and reinitialize Tavily client"""
+        logger.info("Reloading research service configuration...")
+        # Clear existing client first
+        self.tavily_client = None
+        # Reinitialize with new config
+        self._initialize_tavily_client()
+        logger.info(f"Research service reload completed. Available: {self.is_available()}")
 
     @property
     def ai_provider(self):

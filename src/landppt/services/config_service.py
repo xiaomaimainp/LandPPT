@@ -167,22 +167,29 @@ class ConfigService:
     def _reload_ai_config(self):
         """Reload AI configuration"""
         try:
-            from ..core.config import reload_ai_config
+            from ..core.config import reload_ai_config, ai_config
             from ..ai.providers import reload_ai_providers
             from .service_instances import reload_services
 
+            logger.info("Starting AI configuration reload process...")
+
             # Reload AI configuration
             reload_ai_config()
+            logger.info(f"AI config reloaded. Tavily API key: {'***' + ai_config.tavily_api_key[-4:] if ai_config.tavily_api_key and len(ai_config.tavily_api_key) > 4 else 'None'}")
 
             # Clear AI provider cache to force reload with new config
             reload_ai_providers()
+            logger.info("AI providers reloaded")
 
             # Reload service instances to pick up new configuration
             reload_services()
+            logger.info("Service instances reloaded")
 
             logger.info("AI configuration, providers, and services reloaded successfully")
         except Exception as e:
             logger.error(f"Failed to reload AI configuration: {e}")
+            import traceback
+            logger.error(f"Reload traceback: {traceback.format_exc()}")
 
     def _reload_app_config(self):
         """Reload application configuration"""

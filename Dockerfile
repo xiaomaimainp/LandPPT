@@ -48,7 +48,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
     PYPPETEER_CHROMIUM_REVISION=1263111 \
-    PYPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    PYPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PYPPETEER_HOME=/home/landppt/.local/share/pyppeteer \
+    HOME=/home/landppt
 
 # --- MODIFICATION v2 START ---
 # Also remove the default source file in the production stage.
@@ -92,8 +94,13 @@ RUN apt-get update && \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r landppt && useradd -r -g landppt landppt
+# Create non-root user with proper home directory and permissions
+RUN groupadd -r landppt && \
+    useradd -r -g landppt -m -d /home/landppt landppt && \
+    # Create and set permissions for pyppeteer cache directory
+    mkdir -p /home/landppt/.local/share/pyppeteer && \
+    mkdir -p /home/landppt/.cache && \
+    chown -R landppt:landppt /home/landppt
 
 # Set work directory
 WORKDIR /app
@@ -122,7 +129,10 @@ RUN mkdir -p temp/ai_responses_cache \
     lib/MacOS \
     lib/Windows \
     uploads \
-    && chown -R landppt:landppt /app
+    data \
+    && chown -R landppt:landppt /app \
+    && chmod -R 755 /app \
+    && chmod -R 755 /home/landppt
 
 # Switch to non-root user
 USER landppt

@@ -177,7 +177,6 @@ class PDFToPPTXConverter:
     """Converts PDF files to PPTX using Apryse SDK"""
 
     def __init__(self):
-        self.license_key = os.getenv('APRYSE_LICENSE_KEY', 'your_apryse_license_key_here')
         self._sdk_initialized = False
         self._sdk_available = None
 
@@ -186,6 +185,12 @@ class PDFToPPTXConverter:
         project_root = current_file.parent.parent.parent.parent  # Go up from services -> landppt -> src -> project_root
         lib_dir = project_root / "lib"
         self.sdk_manager = SDKDownloadManager(lib_dir)
+
+    @property
+    def license_key(self):
+        """Dynamically get license key to ensure latest config"""
+        from ..core.config import ai_config
+        return ai_config.apryse_license_key or 'your_apryse_license_key_here'
     
     def _check_sdk_availability(self) -> bool:
         """Check if Apryse SDK is available and can be initialized"""
@@ -225,9 +230,17 @@ class PDFToPPTXConverter:
 
             # Use SDK manager to get the correct platform directory
             platform_dir = self.sdk_manager.platform_dir
+            
+            if self.sdk_manager.platform_name == 'windows':
+                sdk_resource_dir = platform_dir / 'Lib/Windows'
+            elif self.sdk_manager.platform_name == 'linux':
+                sdk_resource_dir = platform_dir / 'Lib/Linux'
+            elif self.sdk_manager.platform_name == 'macos':
+                sdk_resource_dir = platform_dir / 'Lib/MacOS'
+            else:
+                logger.error(f"Unsupported platform: {self.sdk_manager.platform_name}")
+                return False
 
-
-            sdk_resource_dir = platform_dir / 'Lib' / self.sdk_manager.platform_name
 
             # Add resource search path for the downloaded SDK
             if sdk_resource_dir.exists():
@@ -251,6 +264,13 @@ class PDFToPPTXConverter:
         except Exception as e:
             logger.error(f"Failed to initialize Apryse SDK: {e}")
             return False
+
+    def reload_config(self):
+        """Reload configuration and reinitialize SDK if needed"""
+        logger.info("Reloading PDF to PPTX converter configuration...")
+        # Force reinitialization with new license key
+        self._sdk_initialized = False
+        return self._initialize_sdk()
     
     def is_available(self) -> bool:
         """Check if the converter is available and ready to use"""
@@ -381,3 +401,15 @@ def get_pdf_to_pptx_converter() -> PDFToPPTXConverter:
     if _converter_instance is None:
         _converter_instance = PDFToPPTXConverter()
     return _converter_instance
+
+def reload_pdf_to_pptx_converter():
+    """Reload PDF to PPTX converter configuration"""
+    global _converter_instance
+    if _converter_instance is not None:
+        try:
+            _converter_instance.reload_config()
+            logger.info("PDF to PPTX converter configuration reloaded successfully")
+        except Exception as e:
+            logger.warning(f"Failed to reload PDF to PPTX converter config: {e}")
+            # If reload fails, recreate the converter
+            _converter_instance = None

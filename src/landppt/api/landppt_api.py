@@ -39,6 +39,29 @@ def get_research_service():
             logger.warning(f"Failed to initialize research service: {e}")
     return _research_service
 
+def reload_research_service():
+    """Reload research service to pick up new configuration"""
+    global _research_service
+    logger.info("Reloading research service...")
+
+    if _research_service is not None:
+        try:
+            _research_service.reload_config()
+            logger.info("Research service configuration reloaded successfully")
+
+            # Verify the service is still available after reload
+            if not _research_service.is_available():
+                logger.warning("Research service is not available after reload, will recreate on next access")
+                _research_service = None
+
+        except Exception as e:
+            logger.warning(f"Failed to reload research service config: {e}")
+            # If reload fails, recreate the service
+            _research_service = None
+    else:
+        # If service doesn't exist, force recreation on next access
+        logger.info("Research service will be recreated on next access with new configuration")
+
 def get_report_generator():
     """Get report generator instance (lazy initialization)"""
     global _report_generator

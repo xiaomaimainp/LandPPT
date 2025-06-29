@@ -38,16 +38,8 @@ class EnhancedPPTService(PPTService):
         self.global_template_service = GlobalMasterTemplateService(provider_name)
 
         # 配置属性，用于summeryanyfile集成
-        # 根据provider获取正确的模型名称
-        current_provider = self.provider_name or ai_config.default_ai_provider
-        model_name = self._get_model_name_for_provider(current_provider)
-
-        self.config = {
-            "llm_model": model_name,
-            "llm_provider": current_provider,
-            "temperature": getattr(ai_config, 'temperature', 0.7),
-            "max_tokens": getattr(ai_config, 'max_tokens', 2000)
-        }
+        # 初始化配置（将在需要时实时更新）
+        self.config = self._get_current_ai_config()
 
         # 初始化文件缓存管理器 - 设置缓存目录到项目根目录下的temp文件夹，每个模式的缓存分开管理
         try:
@@ -112,6 +104,17 @@ class EnhancedPPTService(PPTService):
             self.research_service = None
             self.report_generator = None
 
+    def reload_research_config(self):
+        """Reload research service configuration"""
+        if self.research_service:
+            try:
+                self.research_service.reload_config()
+                logger.info("Research service configuration reloaded in EnhancedPPTService")
+            except Exception as e:
+                logger.warning(f"Failed to reload research service config: {e}")
+                # If reload fails, reinitialize
+                self._initialize_research_services()
+
     def _get_model_name_for_provider(self, provider_name: str) -> str:
         """根据provider获取正确的模型名称"""
         if provider_name == "openai":
@@ -124,16 +127,39 @@ class EnhancedPPTService(PPTService):
             # 默认返回OpenAI模型
             return ai_config.openai_model
 
+    def _get_current_ai_config(self):
+        """获取当前最新的AI配置"""
+        current_provider = self.provider_name or ai_config.default_ai_provider
+        model_name = self._get_model_name_for_provider(current_provider)
+
+        return {
+            "llm_model": model_name,
+            "llm_provider": current_provider,
+            "temperature": getattr(ai_config, 'temperature', 0.7),
+            "max_tokens": getattr(ai_config, 'max_tokens', 2000)
+        }
+
+    def update_ai_config(self):
+        """更新AI配置到最新状态"""
+        self.config = self._get_current_ai_config()
+        logger.info(f"AI配置已更新: provider={self.config['llm_provider']}, model={self.config['llm_model']}")
+
     def _configure_summeryfile_api(self, generator):
         """配置summeryanyfile的API设置"""
         try:
+            import os
             # 获取当前provider的配置
             current_provider = self.provider_name or ai_config.default_ai_provider
             provider_config = ai_config.get_provider_config(current_provider)
 
+            # 设置通用配置参数
+            if provider_config.get("max_tokens"):
+                os.environ["MAX_TOKENS"] = str(provider_config["max_tokens"])
+            if provider_config.get("temperature"):
+                os.environ["TEMPERATURE"] = str(provider_config["temperature"])
+
             if current_provider == "openai":
                 # 设置OpenAI API配置
-                import os
                 if provider_config.get("api_key"):
                     os.environ["OPENAI_API_KEY"] = provider_config["api_key"]
                 if provider_config.get("base_url"):
@@ -143,11 +169,26 @@ class EnhancedPPTService(PPTService):
 
             elif current_provider == "anthropic":
                 # 设置Anthropic API配置
-                import os
                 if provider_config.get("api_key"):
                     os.environ["ANTHROPIC_API_KEY"] = provider_config["api_key"]
 
                 logger.info(f"已配置summeryanyfile Anthropic API: model={provider_config.get('model')}")
+
+            elif current_provider == "google":
+                # 设置Google API配置
+                if provider_config.get("api_key"):
+                    os.environ["GOOGLE_API_KEY"] = provider_config["api_key"]
+
+                logger.info(f"已配置summeryanyfile Google API: model={provider_config.get('model')}")
+
+            elif current_provider == "ollama":
+                # 设置Ollama API配置
+                if provider_config.get("base_url"):
+                    os.environ["OLLAMA_BASE_URL"] = provider_config["base_url"]
+
+                logger.info(f"已配置summeryanyfile Ollama API: model={provider_config.get('model')}, base_url={provider_config.get('base_url')}")
+
+            logger.info(f"已配置summeryanyfile通用参数: max_tokens={provider_config.get('max_tokens')}, temperature={provider_config.get('temperature')}")
 
         except Exception as e:
             logger.warning(f"配置summeryanyfile API时出错: {e}")
@@ -6545,15 +6586,20 @@ slide_type可选值：
                 from summeryanyfile.generators.ppt_generator import PPTOutlineGenerator
                 from summeryanyfile.core.models import ProcessingConfig, ChunkStrategy
 
-                # 创建配置 - temperature和max_tokens将从.env文件自动读取
+                # 获取最新的AI配置
+                current_ai_config = self._get_current_ai_config()
+                logger.info(f"使用最新AI配置: provider={current_ai_config['llm_provider']}, model={current_ai_config['llm_model']}")
+
+                # 创建配置 - 使用最新的AI配置
                 config = ProcessingConfig(
                     max_slides=self._get_max_slides_from_request(request),
                     chunk_size=self._get_chunk_size_from_request(request),
                     chunk_strategy=self._get_chunk_strategy_from_request(request),
-                    llm_model=self.config.get("llm_model", "gpt-4o-mini"),
-                    llm_provider=self.config.get("llm_provider", "openai"),
+                    llm_model=current_ai_config["llm_model"],
+                    llm_provider=current_ai_config["llm_provider"],
+                    temperature=current_ai_config["temperature"],
+                    max_tokens=current_ai_config["max_tokens"],
                     target_language=request.language  # 使用用户在表单中选择的语言
-                    # temperature和max_tokens将在ProcessingConfig.__post_init__中从.env文件读取
                 )
 
                 # 根据file_processing_mode设置use_magic_pdf参数

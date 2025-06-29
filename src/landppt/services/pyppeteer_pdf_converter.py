@@ -60,7 +60,24 @@ class PyppeteerPDFConverter:
                 '--disable-backgrounding-occluded-windows',
                 '--disable-renderer-backgrounding',
                 '--run-all-compositor-stages-before-draw',
-                '--disable-checker-imaging'
+                '--disable-checker-imaging',
+                # Additional Docker-friendly options
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--disable-ipc-flooding-protection',
+                '--disable-software-rasterizer',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--hide-scrollbars',
+                '--metrics-recording-only',
+                '--mute-audio',
+                '--no-default-browser-check',
+                '--no-pings',
+                '--password-store=basic',
+                '--use-mock-keychain',
+                '--single-process'  # Use single process mode for better container compatibility
             ]
         }
 
