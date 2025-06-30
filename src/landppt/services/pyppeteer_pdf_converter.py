@@ -36,16 +36,56 @@ class PyppeteerPDFConverter:
     def __init__(self):
         self.browser: Optional[Browser] = None
         self._browser_lock = asyncio.Lock()
-        
+
     def is_available(self) -> bool:
         """Check if Pyppeteer is available"""
         return PYPPETEER_AVAILABLE
+
+    @staticmethod
+    def install_chromium():
+        """手动安装 Chromium 的辅助方法"""
+        if not PYPPETEER_AVAILABLE:
+            raise ImportError("Pyppeteer is not available. Please install: pip install pyppeteer")
+
+        try:
+            logger.info("🔄 开始手动安装 Chromium...")
+
+            # 方法1: 使用 pyppeteer 的下载器
+            try:
+                from pyppeteer.chromium_downloader import download_chromium
+                download_chromium()
+                logger.info("✅ Chromium 安装成功")
+                return True
+            except Exception as e:
+                logger.warning(f"⚠️ 标准下载方法失败: {e}")
+
+            # 方法2: 尝试使用 pyppeteer install 命令
+            try:
+                import subprocess
+                result = subprocess.run([
+                    'python', '-m', 'pyppeteer', 'install'
+                ], capture_output=True, text=True, timeout=300)
+
+                if result.returncode == 0:
+                    logger.info("✅ Chromium 通过命令行安装成功")
+                    return True
+                else:
+                    logger.warning(f"⚠️ 命令行安装失败: {result.stderr}")
+            except Exception as e:
+                logger.warning(f"⚠️ 命令行安装出错: {e}")
+
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Chromium 安装失败: {e}")
+            return False
     
     async def _launch_browser(self) -> Browser:
         """Launch browser with enhanced settings optimized for chart rendering"""
         if not self.is_available():
             raise ImportError("Pyppeteer is not available. Please install: pip install pyppeteer")
 
+        # Enhanced launch options with better Windows compatibility
         launch_options = {
             'headless': True,
             'args': [
@@ -61,7 +101,7 @@ class PyppeteerPDFConverter:
                 '--disable-renderer-backgrounding',
                 '--run-all-compositor-stages-before-draw',
                 '--disable-checker-imaging',
-                # Additional Docker-friendly options
+                # Additional stability options for Windows
                 '--disable-web-security',
                 '--disable-features=VizDisplayCompositor',
                 '--disable-ipc-flooding-protection',
@@ -77,12 +117,34 @@ class PyppeteerPDFConverter:
                 '--no-pings',
                 '--password-store=basic',
                 '--use-mock-keychain',
-                '--single-process'  # Use single process mode for better container compatibility
-            ]
+                # Windows specific fixes
+                '--disable-logging',
+                '--disable-gpu-logging',
+                '--disable-crash-reporter',
+                '--disable-in-process-stack-traces',
+                '--disable-breakpad',
+                '--disable-component-extensions-with-background-pages',
+                '--disable-client-side-phishing-detection',
+                '--disable-hang-monitor',
+                '--disable-prompt-on-repost',
+                '--disable-domain-reliability',
+                '--disable-component-update',
+                '--no-service-autorun',
+                '--disable-background-mode'
+            ],
+            # Increase timeout for Windows
+            'timeout': 60000,  # 60 seconds
+            'slowMo': 0,
+            'devtools': False,
+            'autoClose': True,
+            'ignoreHTTPSErrors': True,
+            'handleSIGINT': False,
+            'handleSIGTERM': False,
+            'handleSIGHUP': False
         }
 
         try:
-            # First try to use system Chrome if available
+            # Method 1: Try system Chrome with enhanced error handling
             system_chrome_paths = [
                 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
                 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
@@ -96,33 +158,109 @@ class PyppeteerPDFConverter:
             for chrome_path in system_chrome_paths:
                 if os.path.exists(chrome_path):
                     logger.info(f"🔍 Found system Chrome at: {chrome_path}")
-                    launch_options['executablePath'] = chrome_path
+
+                    # Try different Chrome configurations
+                    chrome_configs = [
+                        # Config 1: Standard headless
+                        {
+                            'executablePath': chrome_path,
+                            'headless': True,
+                            'args': [
+                                '--no-sandbox',
+                                '--disable-setuid-sandbox',
+                                '--disable-dev-shm-usage',
+                                '--disable-gpu',
+                                '--headless',
+                                '--disable-extensions',
+                                '--disable-plugins'
+                            ],
+                            'timeout': 30000
+                        },
+                        # Config 2: Minimal args
+                        {
+                            'executablePath': chrome_path,
+                            'headless': True,
+                            'args': ['--no-sandbox', '--disable-setuid-sandbox', '--headless'],
+                            'timeout': 30000
+                        },
+                        # Config 3: No custom args
+                        {
+                            'executablePath': chrome_path,
+                            'headless': True,
+                            'timeout': 30000
+                        }
+                    ]
+
+                    for config_idx, config in enumerate(chrome_configs):
+                        try:
+                            logger.info(f"🔄 尝试 Chrome 配置 {config_idx + 1}/3")
+                            browser = await launch(config)
+                            logger.info(f"✅ Chrome 启动成功 (配置 {config_idx + 1})")
+                            return browser
+
+                        except Exception as e:
+                            logger.warning(f"❌ Chrome 配置 {config_idx + 1} 失败: {e}")
+                            if "远程主机强迫关闭" in str(e) or "Connection" in str(e):
+                                # 网络连接问题，等待后重试
+                                await asyncio.sleep(2)
+                            continue
+
+            # Method 2: Skip Chromium download, try portable Chrome
+            logger.info("🔄 System Chrome failed, trying portable solutions...")
+
+            # Try to use any available Chrome-like browser
+            portable_browsers = [
+                'chrome.exe',  # Portable Chrome in current directory
+                'chromium.exe',  # Portable Chromium
+            ]
+
+            for browser_exe in portable_browsers:
+                if os.path.exists(browser_exe):
+                    logger.info(f"🔍 Found portable browser: {browser_exe}")
                     try:
-                        browser = await launch(launch_options)
-                        logger.info("Browser launched successfully with system Chrome")
+                        portable_config = {
+                            'executablePath': os.path.abspath(browser_exe),
+                            'headless': True,
+                            'args': ['--no-sandbox', '--disable-setuid-sandbox', '--headless'],
+                            'timeout': 30000
+                        }
+                        browser = await launch(portable_config)
+                        logger.info(f"✅ Portable browser launched: {browser_exe}")
                         return browser
                     except Exception as e:
-                        logger.warning(f"Failed to launch with {chrome_path}: {e}")
-                        continue
+                        logger.warning(f"❌ Portable browser failed: {e}")
 
-            # If system Chrome not found, try default Pyppeteer Chromium
-            logger.info("System Chrome not found, trying Pyppeteer's bundled Chromium...")
-            if 'executablePath' in launch_options:
-                del launch_options['executablePath']
+            # Method 3: Final attempt with absolute minimal config
+            logger.info("🔄 Final attempt with minimal configuration...")
+            try:
+                minimal_options = {
+                    'headless': True,
+                    'timeout': 60000,  # Longer timeout
+                    'ignoreHTTPSErrors': True,
+                    'args': ['--no-sandbox']  # Only essential arg
+                }
 
-            browser = await launch(launch_options)
-            logger.info("Browser launched successfully with Pyppeteer's Chromium")
-            return browser
+                browser = await launch(minimal_options)
+                logger.info("✅ Browser launched with minimal configuration")
+                return browser
+
+            except Exception as minimal_error:
+                logger.error(f"❌ Minimal launch also failed: {minimal_error}")
 
         except Exception as e:
-            logger.error(f"Failed to launch browser: {e}")
-            # Provide helpful error message
-            if "Chromium downloadable not found" in str(e):
-                raise ImportError(
-                    "Pyppeteer's Chromium download failed. Please install Google Chrome manually or try: "
-                    "pip install --upgrade pyppeteer && python -m pyppeteer install"
-                )
-            raise
+            logger.error(f"❌ All browser launch methods failed: {e}")
+
+            # Provide comprehensive error message with solutions
+            error_msg = (
+                f"无法启动浏览器: {e}\n\n"
+                "解决方案:\n"
+                "1. 确保已安装 Google Chrome 浏览器\n"
+                "2. 运行: pip install --upgrade pyppeteer\n"
+                "3. 手动下载 Chromium: python -c \"from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()\"\n"
+                "4. 或者尝试安装 playwright: pip install playwright && playwright install chromium\n"
+                "5. 检查防火墙和杀毒软件是否阻止了浏览器启动"
+            )
+            raise ImportError(error_msg)
 
     async def _get_or_create_browser(self) -> Browser:
         """Get existing browser or create a new one (with thread safety)"""

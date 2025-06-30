@@ -294,7 +294,7 @@ isort src/
 ```
 
 ### 报告问题
-如果你发现了bug或有功能建议，请在 [Issues](https://github.com/your-username/LandPPT/issues) 页面创建新的issue。
+如果你发现了bug或有功能建议，请在 [Issues](https://github.com/sligter/LandPPT/issues) 页面创建新的issue。
 
 ## 📄 许可证
 
@@ -302,13 +302,13 @@ isort src/
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=your-username/LandPPT&type=Date)](https://star-history.com/#your-username/LandPPT&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=sligter/LandPPT&type=Date)](https://star-history.com/#sligter/LandPPT&Date)
 
 ## 📞 联系我们
 
-- **项目主页**: https://github.com/your-username/LandPPT
-- **问题反馈**: https://github.com/your-username/LandPPT/issues
-- **讨论区**: https://github.com/your-username/LandPPT/discussions
+- **项目主页**: https://github.com/sligter/LandPPT
+- **问题反馈**: https://github.com/sligter/LandPPT/issues
+- **讨论区**: https://github.com/sligter/LandPPT/discussions
 
 ---
 

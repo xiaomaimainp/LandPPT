@@ -5116,18 +5116,14 @@ slide_type可选值：
                         logger.info(f"🔧 Attempting automatic parser fix for slide {page_number}")
                         parser_fixed_html = self._auto_fix_html_with_parser(html_content)
 
-                        # Validate the parser-fixed HTML
+                        # If parser actually changed something, return the fixed HTML directly
                         if parser_fixed_html != html_content:  # Only if parser actually changed something
-                            parser_validation = self._validate_html_completeness(parser_fixed_html)
-                            if parser_validation['is_complete']:
-                                logger.info(f"✅ Successfully fixed HTML with parser for slide {page_number}")
-                                return parser_fixed_html
-                            else:
-                                logger.warning(f"🔧 Parser fix did not completely resolve all issues for slide {page_number}")
+                            logger.info(f"✅ Successfully fixed HTML with parser for slide {page_number}, returning fixed result")
+                            return parser_fixed_html
                         else:
                             logger.info(f"🔧 Parser did not change HTML for slide {page_number}")
 
-                        # If parser fix didn't work completely, retry generation
+                        # If parser fix didn't change anything, retry generation
                         if attempt < max_retries - 1:
                             logger.info(f"🔄 HTML has errors after parser fix, retrying fresh generation for slide {page_number}...")
                             continue

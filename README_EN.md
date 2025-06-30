@@ -294,7 +294,7 @@ isort src/
 ```
 
 ### Reporting Issues
-If you find bugs or have feature suggestions, please create a new issue on the [Issues](https://github.com/your-username/LandPPT/issues) page.
+If you find bugs or have feature suggestions, please create a new issue on the [Issues](https://github.com/sligter/LandPPT/issues) page.
 
 ## 📄 License
 
@@ -302,13 +302,13 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=your-username/LandPPT&type=Date)](https://star-history.com/#your-username/LandPPT&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=sligter/LandPPT&type=Date)](https://star-history.com/#sligter/LandPPT&Date)
 
 ## 📞 Contact Us
 
-- **Project Homepage**: https://github.com/your-username/LandPPT
-- **Issue Reporting**: https://github.com/your-username/LandPPT/issues
-- **Discussions**: https://github.com/your-username/LandPPT/discussions
+- **Project Homepage**: https://github.com/sligter/LandPPT
+- **Issue Reporting**: https://github.com/sligter/LandPPT/issues
+- **Discussions**: https://github.com/sligter/LandPPT/discussions
 
 ---
 
