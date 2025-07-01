@@ -592,7 +592,7 @@ class EnhancedPPTService(PPTService):
         ppt_style = getattr(request, 'ppt_style', None) or 'general'
         custom_style_prompt = getattr(request, 'custom_style_prompt', None)
         description = getattr(request, 'description', None)
-
+        language = getattr(request, 'language', None)
         # Create style description
         style_descriptions = {
             "general": "通用商务风格，简洁专业",
@@ -718,7 +718,7 @@ PPT风格：{style_desc}
 - 充分发挥AI的创意和设计能力，生成高质量内容
 - 时长控制在15-30分钟
 - 绝对不出现滚动条，内容布局完美
-- 严格使用目标语言：中文
+- 严格使用目标语言：{language}
 
 请确保返回有效的JSON格式，包含丰富的创意内容和专业的图表配置。"""
         else:
