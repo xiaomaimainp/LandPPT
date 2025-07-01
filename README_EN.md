@@ -1,8 +1,8 @@
 # LandPPT - AI-Powered PPT Generation Platform
 
-[![GitHub stars](https://img.shields.io/github/stars/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/network)
-[![GitHub issues](https://img.shields.io/github/issues/your-username/LandPPT?style=flat-square)](https://github.com/your-username/LandPPT/issues)
+[![GitHub stars](https://img.shields.io/github/stars/sligter/LandPPT?style=flat-square)](https://github.com/sligter/LandPPT/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/sligter/LandPPT?style=flat-square)](https://github.com/sligter/LandPPT/network)
+[![GitHub issues](https://img.shields.io/github/issues/sligter/LandPPT?style=flat-square)](https://github.com/sligter/LandPPT/issues)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg?style=flat-square)](https://fastapi.tiangolo.com)
@@ -15,6 +15,7 @@
 ## 📋 Table of Contents
 
 - [Project Overview](#-project-overview)
+- [System Architecture](#️-system-architecture)
 - [Key Features](#-key-features)
 - [Quick Start](#-quick-start)
 - [Usage Guide](#-usage-guide)
@@ -26,46 +27,47 @@
 
 ## 🎯 Project Overview
 
-LandPPT is an AI-powered presentation generation platform that automatically converts document content into professional PPT presentations. The platform supports multiple AI models and provides rich templates and style options, enabling users to quickly create high-quality presentations.
+LandPPT is an AI-powered presentation generation platform that automatically converts document content into professional PPT presentations. The platform supports multiple AI models and provides rich templates and style options, enabling users to create high-quality presentations.
+
+
+![image](https://img.pub/p/17ebc2a837fc02827d4a.png)
+
+![image](https://img.pub/p/3a7dff4a4b9aebedc260.png)
+
+![image](https://img.pub/p/56e2a5801875736f9fc5.png)
+
+## 🏗️ System Architecture
+
+![image](https://img.pub/p/906dd30aac5cbb27a4e5.svg)
 
 ## ✨ Key Features
 
 ### 🤖 Multi-AI Provider Support
-- **OpenAI GPT Series**: GPT-3.5/GPT-4 and other mainstream models
+- **OpenAI GPT Series**: GPT-4.5/GPT-5 and other mainstream models
 - **Anthropic Claude**: Claude-3 series models
-- **Google Gemini**: Gemini-1.5 series models
+- **Google Gemini**: Gemini-2.5 series models
 - **Azure OpenAI**: Enterprise-grade AI services
 - **Ollama**: Locally deployed open-source models
 
 ### 📄 Powerful File Processing
 - **Multi-format Support**: PDF, Word, Markdown, TXT, etc.
-- **Intelligent Parsing**: Content extraction using magic-pdf and markitdown
-- **Local Caching**: File caching system with MD5 hash verification
+- **Intelligent Parsing**: Content extraction using minueru and markitdown
 - **Deep Research**: DEEP research functionality with Tavily API integration
 
 ### 🎨 Rich Template System
 - **Global Master Templates**: Unified HTML template system
 - **Diverse Layouts**: AI-generated creative page layouts
-- **Scenario-based Design**: Professional templates for business, education, tech, etc.
 - **Custom Templates**: Support for importing and creating personalized templates
 
 ### 📊 Complete Project Management
 - **Three-stage Workflow**: Requirements confirmation → Outline generation → PPT generation
-- **Visual Editing**: Mind map-style outline editor
-- **Version Control**: Project version management and history tracking
+- **Visual Editing**: Outline editor
 - **Real-time Preview**: 16:9 responsive page preview
-
-### 🔧 Developer Friendly
-- **RESTful API**: Complete API interface
-- **OpenAI Compatible**: Compatible with OpenAI API format
-- **Real-time Configuration**: Configuration updates without restart
-- **Health Monitoring**: Comprehensive service monitoring
 
 ### 🌐 Modern Web Interface
 - **Intuitive Operation**: User-friendly web interface
 - **AI Chat Editing**: Sidebar AI editing functionality
 - **Multi-format Export**: PDF/HTML/PPTX export support
-- **Responsive Design**: Adaptive to various devices
 
 ## 🚀 Quick Start
 
@@ -76,34 +78,54 @@ LandPPT is an AI-powered presentation generation platform that automatically con
 
 ### Local Installation
 
+#### Method 1: One-Click Setup Script (Easiest)
+
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/LandPPT.git
+git clone https://github.com/sligter/LandPPT.git
 cd LandPPT
 
-# Install dependencies using uv (recommended)
-pip install uv
-uv pip install -e .
+# Windows users
+scripts\setup.bat
 
-# Or use pip
-pip install -e .
+# Linux/macOS users
+bash scripts/setup.sh
+
+# Or use Python script
+python scripts/setup.py
+```
+
+#### Method 2: Manual Setup with uv (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/sligter/LandPPT.git
+cd LandPPT
+
+# Install uv (if not already installed)
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Sync environment with uv
+uv sync
 
 # Configure environment variables
 cp .env.example .env
 # Edit .env file and configure your AI API keys
 
-# Initialize database
-python setup_database.py
-
 # Start the service
-python run.py
+uv run python run.py
 ```
 
 ### Docker Deployment
 
+#### Using Pre-built Image (Recommended)
+
 ```bash
-# Build image
-docker build -t landppt .
+# Pull the latest image
+docker pull bradleylzh/landppt:latest
 
 # Run container
 docker run -d \
@@ -111,56 +133,17 @@ docker run -d \
   -p 8000:8000 \
   -v $(pwd)/.env:/app/.env \
   -v landppt_data:/app/data \
-  -v landppt_uploads:/app/uploads \
-  landppt
+  -v landppt_reports:/app/research_reports \
+  -v landppt_cache:/app/temp \
+  bradleylzh/landppt:latest
 
 # View logs
 docker logs -f landppt
 ```
 
-### Using Docker Compose (Recommended)
+> **Note**: Make sure to create and configure the `.env` file with necessary API keys before running.
 
-Create `docker-compose.yml` file:
 
-```yaml
-version: '3.8'
-
-services:
-  landppt:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./.env:/app/.env
-      - landppt_data:/app/data
-      - landppt_uploads:/app/uploads
-      - landppt_reports:/app/research_reports
-    environment:
-      - PYTHONPATH=/app/src
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "./docker-healthcheck.sh"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  landppt_data:
-  landppt_uploads:
-  landppt_reports:
-```
-
-```bash
-# Start services
-docker-compose up -d
-
-# Check status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-```
 
 ## 📖 Usage Guide
 
@@ -220,26 +203,6 @@ After starting the service, visit:
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
 
-### Main API Endpoints
-
-```bash
-# Health Check
-GET /health
-
-# Project Management
-POST /api/projects          # Create project
-GET /api/projects           # Get project list
-GET /api/projects/{id}      # Get project details
-
-# File Processing
-POST /api/upload            # Upload file
-POST /api/files/upload-and-generate-outline  # Upload and generate outline
-
-# OpenAI Compatible Interface
-POST /v1/chat/completions   # Chat completion
-POST /v1/completions        # Text completion
-```
-
 ## 🛠️ Tech Stack
 
 ### Backend Technologies
@@ -255,15 +218,12 @@ POST /v1/completions        # Text completion
 - **LangChain**: AI application development framework
 
 ### File Processing
-- **magic-pdf**: Intelligent PDF parsing
+- **mineru**: Intelligent PDF parsing
 - **markitdown**: Multi-format document conversion
-- **python-docx**: Word document processing
-- **BeautifulSoup**: HTML parsing
 
 ### Export Functionality
 - **Pyppeteer**: HTML to PDF conversion
 - **Apryse SDK**: PPTX generation
-- **Jinja2**: Template rendering
 
 ## 🤝 Contributing
 
@@ -276,22 +236,7 @@ We welcome all forms of contributions!
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-### Development Environment Setup
-```bash
-# Clone your fork
-git clone https://github.com/your-username/LandPPT.git
-cd LandPPT
-
-# Install development dependencies
-uv pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Code formatting
-black src/
-isort src/
-```
+For details, please see [Contributing Guide](CONTRIBUTING.md).
 
 ### Reporting Issues
 If you find bugs or have feature suggestions, please create a new issue on the [Issues](https://github.com/sligter/LandPPT/issues) page.

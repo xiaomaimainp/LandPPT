@@ -80,7 +80,9 @@ class PPTService:
         topic = request.topic
         scenario = request.scenario
         language = request.language
-        
+        ppt_style = request.ppt_style
+        custom_style_prompt = request.custom_style_prompt
+        description = request.description
         # Generate slides based on scenario
         slides = []
         
@@ -99,7 +101,7 @@ class PPTService:
             "type": "agenda",
             "title": "目录" if language == "zh" else "Agenda",
             "subtitle": "",
-            "content": self._generate_agenda_content(scenario, language)
+            "content": self._generate_agenda_content(scenario, language,)
         })
         
         # Content slides based on scenario
