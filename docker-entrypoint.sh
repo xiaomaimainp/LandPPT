@@ -112,18 +112,6 @@ create_directories() {
     done
 }
 
-# Initialize database
-initialize_database() {
-    log "Initializing database..."
-    
-    if [ ! -f "/app/data/landppt.db" ]; then
-        log "Database not found, creating new database..."
-        python setup_database.py
-        log "✅ Database initialized"
-    else
-        info "Database already exists, skipping initialization"
-    fi
-}
 
 # Import default templates
 import_templates() {
@@ -178,7 +166,6 @@ main() {
     check_environment
     create_directories
     wait_for_dependencies
-    initialize_database
     import_templates
     
     log "🚀 Starting LandPPT application..."

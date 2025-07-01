@@ -111,8 +111,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY .env.example ./.env
+COPY run.py ./
 COPY src/ ./src/
-COPY run.py setup_database.py ./
 COPY template_examples/ ./template_examples/
 COPY docker-healthcheck.sh docker-entrypoint.sh ./
 
