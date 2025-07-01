@@ -3802,8 +3802,8 @@ slide_type可选值：
                             logger.info(f"Skipping slide {i+1} generation - user has edited this slide")
                             skip_message = f'第{i+1}页已被用户编辑，跳过重新生成'
                         else:
-                            logger.info(f"Skipping slide {i+1} generation - slide already exists (断点续生)")
-                            skip_message = f'第{i+1}页已存在，跳过生成（断点续生）'
+                            logger.info(f"Skipping slide {i+1} generation - slide already exists")
+                            skip_message = f'第{i+1}页已存在，跳过生成'
 
                         # Send skip message
                         skip_data = {
