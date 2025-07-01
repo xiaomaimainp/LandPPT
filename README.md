@@ -78,24 +78,7 @@ LandPPT 是一个基于人工智能的演示文稿生成平台，能够自动将
 
 ### 本地安装
 
-#### 方法一：一键设置脚本（最简单）
-
-```bash
-# 克隆项目
-git clone https://github.com/sligter/LandPPT.git
-cd LandPPT
-
-# Windows用户
-scripts\setup.bat
-
-# Linux/macOS用户
-bash scripts/setup.sh
-
-# 或使用Python脚本
-python scripts/setup.py
-```
-
-#### 方法二：使用uv手动设置（推荐）
+#### 方一：uv（推荐）
 
 ```bash
 # 克隆项目
@@ -111,6 +94,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 使用uv同步环境
 uv sync
 
+uv pip install apryse-sdk --extra-index-url=https://pypi.apryse.com
 # 配置环境变量
 cp .env.example .env
 # 编辑 .env 文件，配置你的AI API密钥

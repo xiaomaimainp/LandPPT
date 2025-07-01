@@ -78,24 +78,7 @@ LandPPT is an AI-powered presentation generation platform that automatically con
 
 ### Local Installation
 
-#### Method 1: One-Click Setup Script (Easiest)
-
-```bash
-# Clone the repository
-git clone https://github.com/sligter/LandPPT.git
-cd LandPPT
-
-# Windows users
-scripts\setup.bat
-
-# Linux/macOS users
-bash scripts/setup.sh
-
-# Or use Python script
-python scripts/setup.py
-```
-
-#### Method 2: Manual Setup with uv (Recommended)
+#### Method 1: Manual Setup with uv (Recommended)
 
 ```bash
 # Clone the repository
@@ -111,6 +94,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Sync environment with uv
 uv sync
 
+uv pip install apryse-sdk --extra-index-url=https://pypi.apryse.com
 # Configure environment variables
 cp .env.example .env
 # Edit .env file and configure your AI API keys
