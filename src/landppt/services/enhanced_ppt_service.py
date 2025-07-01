@@ -606,47 +606,49 @@ class EnhancedPPTService(PPTService):
             style_desc += f"，{custom_style_prompt}"
 
         if request.language == "zh":
-            prompt = f"""作为专业的PPT大纲设计师，请为以下主题生成一个详细、创意且专业的JSON格式大纲：
+            prompt = f"""你是一位专业的PPT大纲策划专家，请基于以下项目信息，生成一个**结构清晰、内容创意、专业严谨、格式规范的JSON格式PPT大纲**。
 
-**项目信息：**
-主题：{request.topic}
-场景：{scenario_desc}
-目标受众：{target_audience}
-PPT风格：{style_desc}
-特殊要求：{request.requirements or '无'}
-补充说明：{description or '无'}{research_section}
+### 📌【项目信息】：
+- **主题**：{request.topic}
+- **应用场景**：{scenario_desc}
+- **目标受众**：{target_audience}
+- **PPT风格**：{style_desc}
+- **特殊要求**：{request.requirements or '无'}
+- **补充说明**：{description or '无'}
+{research_section}
 
-**页数要求：**
+### 📄【页数要求】：
 {page_count_instruction}
 
-**大纲生成严格要求：**
+---
 
-1. **内容创意性与深度性**：每个要点要充分体现AI的创意和专业能力：
-   - 融入关键数据、精确数字、重要百分比、统计洞察
-   - 提供明确的结论、深度观点、创新思维、前瞻性分析
-   - 包含生动案例、成功实例、对比研究、行业标杆
-   - 运用富有表现力的语言，增强内容吸引力和说服力
-   - 避免空泛的概念性描述，确保每个要点都有实质内容
-   - 结合行业趋势、技术前沿、市场动态，展现专业深度
+### 📋【大纲生成规则】：
 
-2. **图表样式革新与完善**：为所有适合的数据内容添加创新的chart_config：
-   - 确保图表类型与数据完美匹配，选择最佳展示方式
-   - 提供完整的数据配置，包含丰富的样式设置
-   - 使用渐变色彩、动态效果、交互元素增强视觉冲击力
-   - 创新图表组合，如混合图表、多轴显示、层次结构
-   - 优化图表布局和配色方案，确保专业美观
+1. **内容契合度要求**：
+   - 所有幻灯片内容必须与上述项目信息严格匹配，确保主题明确、风格统一、内容相关。
+   - 信息表达要专业可信，同时具有吸引力与传播力。
 
-3. **布局严格控制**：绝对避免滚动条出现：
-   - 每页内容点：严格控制在3-6个
-   - 每个要点：不超过50字符
-   - 内容分布均匀，避免单页过载
+2. **页面结构规范**：
+   - 必须包含以下结构：封面页、目录页、内容页（若干）、结论页。
+   - 内容页应合理分层，逻辑清晰；封面和结论页需具备视觉冲击力或独特设计说明。
 
-4. **幻灯片结构要求**：
-   - 严格按照页数要求生成幻灯片（包含封面、目录、内容页、结论页）
-   - 封面页和结论页要有特别的视觉设计
-   - 内容页要逻辑清晰，层次分明
+3. **内容点控制**：
+   - 每页控制在3～6个内容要点之间。
+   - 每个要点内容简洁清晰，**不超过50字符**。
+   - 内容分布需均衡，避免信息堆积或重复。
 
-请严格按照以下JSON格式生成大纲，使用```json```代码块包裹：
+4. **图表展示优化**：
+   - 对适合可视化的信息，**建议并提供图表配置**，写入 `chart_config` 字段中。
+   - 图表需明确类型（如柱状图、饼图、折线图等）、说明含义、配置样式及数据结构。
+
+5. **语言风格与语境一致性**：
+   - 使用统一语言（{language}），保持语境一致，适合目标受众理解与接受。
+
+---
+
+### 🧾【输出格式要求】：
+
+请严格使用如下JSON格式进行输出，**使用代码块包裹，内容必须有效且结构完整**：
 
 ```json
 {{
@@ -656,36 +658,20 @@ PPT风格：{style_desc}
   "slides": [
     {{
       "page_number": 1,
-      "title": "封面页标题",
-      "content_points": ["副标题：专业且具体", "演示者信息", "日期和场合", "核心价值主张"],
-      "slide_type": "title",
-      "type": "title",
-      "description": "具有视觉冲击力的封面设计，突出主题价值"
-    }},
-    {{
-      "page_number": 2,
-      "title": "演示议程",
-      "content_points": ["核心议题一：具体描述", "核心议题二：具体描述", "核心议题三：具体描述", "预期成果与价值"],
-      "slide_type": "agenda",
-      "type": "agenda",
-      "description": "清晰的演示路线图，突出核心价值点"
-    }},
-    {{
-      "page_number": 3,
-      "title": "数据驱动的内容标题",
-      "content_points": ["关键数据：具体数字和百分比", "市场洞察：深度分析结论", "趋势预测：前瞻性观点", "实际案例：成功实例分析"],
-      "slide_type": "content",
+      "title": "页面标题",
+      "content_points": ["要点1", "要点2", "要点3"],
+      "slide_type": "title/content/conclusion",
       "type": "content",
-      "description": "数据丰富的内容页，展现专业分析能力",
+      "description": "此页的简要说明与目的",
       "chart_config": {{
         "type": "bar",
         "data": {{
-          "labels": ["指标A", "指标B", "指标C", "指标D"],
+          "labels": ["示例A", "示例B", "示例C"],
           "datasets": [{{
-            "label": "性能数据",
-            "data": [85, 92, 78, 96],
-            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
-            "borderColor": ["#FF5252", "#26A69A", "#2196F3", "#66BB6A"],
+            "label": "数据说明",
+            "data": [80, 95, 70],
+            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#FFD93D"],
+            "borderColor": ["#FF5252", "#26A69A", "#F4A261"],
             "borderWidth": 2
           }}]
         }},
@@ -693,7 +679,7 @@ PPT风格：{style_desc}
           "responsive": true,
           "plugins": {{
             "legend": {{"position": "top"}},
-            "title": {{"display": true, "text": "关键性能指标分析"}}
+            "title": {{"display": true, "text": "图表标题"}}
           }},
           "scales": {{"y": {{"beginAtZero": true}}}}
         }}
@@ -702,25 +688,14 @@ PPT风格：{style_desc}
   ],
   "metadata": {{
     "scenario": "{request.scenario}",
-    "language": "zh",
+    "language": "{language}",
     "total_slides": {expected_page_count},
     "generated_with_ai": true,
     "enhanced_with_charts": true,
     "content_depth": "professional"
   }}
 }}
-```
-
-**质量标准：**
-- 内容专业且易懂，信息丰富，充满创意和洞察力
-- 结构清晰有逻辑，数据支撑，具有强烈的说服力
-- 适合演示展示，视觉效果卓越，具有专业水准
-- 充分发挥AI的创意和设计能力，生成高质量内容
-- 时长控制在15-30分钟
-- 绝对不出现滚动条，内容布局完美
-- 严格使用目标语言：{language}
-
-请确保返回有效的JSON格式，包含丰富的创意内容和专业的图表配置。"""
+"""
         else:
             # Add research context for English version
             english_research_section = ""
@@ -750,86 +725,73 @@ Please utilize the above research information to enrich the PPT content, ensurin
             else:
                 english_page_count_instruction = "- Page Count Requirement: Decide appropriate page count based on content complexity (recommended 8-15 pages)"
 
-            prompt = f"""As a professional PPT outline designer, please generate a detailed, creative, and professional JSON format outline for the following topic:
+            prompt = f"""You are a **professional presentation outline designer**. Based on the following project details, please generate a **well-structured, creative, and professional JSON-format PowerPoint outline**.
 
-**Project Information:**
-Topic: {request.topic}
-Scenario: {request.scenario}
-Target Audience: {target_audience}
-PPT Style: {style_desc}
-Special Requirements: {request.requirements or 'None'}
-Additional Description: {description or 'None'}{english_research_section}
+### 📌【Project Details】:
+- **Topic**: {request.topic}
+- **Scenario**: {scenario_desc}
+- **Target Audience**: {target_audience}
+- **PPT Style**: {style_desc}
+- **Special Requirements**: {request.requirements or 'None'}
+- **Additional Notes**: {description or 'None'}
+{research_section}
 
 **Page Count Requirements:**
 {english_page_count_instruction}
 
-**Strict Outline Generation Requirements:**
+---
 
-1. **Content Creativity & Depth**: Each point should fully demonstrate AI's creativity and professional capabilities:
-   - Integrate key data, precise numbers, important percentages, statistical insights
-   - Provide clear conclusions, deep insights, innovative thinking, forward-looking analysis
-   - Include vivid cases, success stories, comparative studies, industry benchmarks
-   - Use expressive language to enhance content appeal and persuasiveness
-   - Avoid vague conceptual descriptions, ensure each point has substantial content
-   - Combine industry trends, cutting-edge technology, market dynamics to show professional depth
+### 📋【Outline Generation Rules】:
 
-2. **Chart Style Innovation & Enhancement**: Add innovative chart_config for all suitable data content:
-   - Ensure chart types perfectly match data, choose optimal display methods
-   - Provide complete data configuration with rich style settings
-   - Use gradient colors, dynamic effects, interactive elements to enhance visual impact
-   - Innovative chart combinations like mixed charts, multi-axis displays, hierarchical structures
-   - Optimize chart layout and color schemes to ensure professional aesthetics
+1. **Content Relevance**:
+   - All slide content must strictly align with the project details above.
+   - Ensure the theme is clear, the tone is consistent, and the message is well-targeted.
 
-3. **Layout Strict Control**: Absolutely avoid scrollbars:
-   - Content points per page: strictly control to 3-6 points
-   - Each point: no more than 50 characters
-   - Even content distribution, avoid single page overload
+2. **Slide Structure**:
+   - The deck must include: **Title Slide**, **Agenda Slide**, **Content Slides**, and **Conclusion Slide**.
+   - Title and Conclusion slides should be visually distinct or offer special design instructions.
+   - Content slides must follow a logical and clear structure.
 
-4. **Slide Structure Requirements**:
-   - Strictly follow page count requirements (including cover, agenda, content pages, conclusion)
-   - Cover and conclusion pages should have special visual design
-   - Content pages should be logically clear with distinct hierarchy
+3. **Content Density Control**:
+   - Each slide must contain **3–6 concise bullet points**.
+   - Each point should be **no more than 50 characters**.
+   - Distribute content evenly across slides to avoid overload or redundancy.
 
-Please strictly follow this JSON format and wrap it in ```json``` code block:
+4. **Chart Suggestions**:
+   - For any data, comparisons, or visual-friendly content, suggest a chart and include its configuration under `chart_config`.
+   - Specify chart type (e.g., bar, pie, line), provide sample data, and chart options.
+
+5. **Language & Tone**:
+   - The entire outline should be in **{language}** and aligned with the communication preferences of the target audience.
+
+---
+
+### 🧾【Required Output Format】:
+
+Please follow the exact JSON format below, and **wrap the result in a code block**. The JSON must be valid and complete.
 
 ```json
 {{
-  "title": "Professional and Engaging PPT Title",
+  "title": "A compelling and professional PPT title",
   "total_pages": {expected_page_count},
   "page_count_mode": "final",
   "slides": [
     {{
       "page_number": 1,
-      "title": "Title Slide",
-      "content_points": ["Subtitle: Professional and Specific", "Presenter Information", "Date and Occasion", "Core Value Proposition"],
-      "slide_type": "title",
-      "type": "title",
-      "description": "Visually impactful cover design highlighting theme value"
-    }},
-    {{
-      "page_number": 2,
-      "title": "Presentation Agenda",
-      "content_points": ["Core Topic 1: Specific Description", "Core Topic 2: Specific Description", "Core Topic 3: Specific Description", "Expected Outcomes & Value"],
-      "slide_type": "agenda",
-      "type": "agenda",
-      "description": "Clear presentation roadmap highlighting core value points"
-    }},
-    {{
-      "page_number": 3,
-      "title": "Data-Driven Content Title",
-      "content_points": ["Key Data: Specific Numbers and Percentages", "Market Insights: Deep Analysis Conclusions", "Trend Predictions: Forward-Looking Perspectives", "Real Cases: Success Story Analysis"],
-      "slide_type": "content",
+      "title": "Slide Title",
+      "content_points": ["Point 1", "Point 2", "Point 3"],
+      "slide_type": "title/content/conclusion",
       "type": "content",
-      "description": "Data-rich content page showcasing professional analytical capabilities",
+      "description": "Brief description of this slide",
       "chart_config": {{
         "type": "bar",
         "data": {{
-          "labels": ["Metric A", "Metric B", "Metric C", "Metric D"],
+          "labels": ["Metric A", "Metric B", "Metric C"],
           "datasets": [{{
             "label": "Performance Data",
-            "data": [85, 92, 78, 96],
-            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"],
-            "borderColor": ["#FF5252", "#26A69A", "#2196F3", "#66BB6A"],
+            "data": [80, 95, 70],
+            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#FFD93D"],
+            "borderColor": ["#FF5252", "#26A69A", "#F4A261"],
             "borderWidth": 2
           }}]
         }},
@@ -837,7 +799,7 @@ Please strictly follow this JSON format and wrap it in ```json``` code block:
           "responsive": true,
           "plugins": {{
             "legend": {{"position": "top"}},
-            "title": {{"display": true, "text": "Key Performance Indicators Analysis"}}
+            "title": {{"display": true, "text": "Chart Title"}}
           }},
           "scales": {{"y": {{"beginAtZero": true}}}}
         }}
@@ -846,25 +808,14 @@ Please strictly follow this JSON format and wrap it in ```json``` code block:
   ],
   "metadata": {{
     "scenario": "{request.scenario}",
-    "language": "en",
+    "language": "{language}",
     "total_slides": {expected_page_count},
     "generated_with_ai": true,
     "enhanced_with_charts": true,
     "content_depth": "professional"
   }}
 }}
-```
-
-**Quality Standards:**
-- Content professional yet accessible, information-rich, full of creativity and insights
-- Clear logical structure, data-supported, with strong persuasive power
-- Suitable for presentation, excellent visual effects, professional standards
-- Fully leverage AI's creativity and design capabilities to generate high-quality content
-- Duration controlled to 15-30 minutes
-- Absolutely no scrollbars, perfect content layout
-- Strictly use target language: English
-
-Please ensure valid JSON format with rich creative content and professional chart configurations."""
+"""
         
         return prompt
     
