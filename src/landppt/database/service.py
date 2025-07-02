@@ -287,7 +287,7 @@ class DatabaseService:
     
     async def save_project_slides(self, project_id: str, slides_html: str,
                                 slides_data: List[Dict[str, Any]] = None) -> bool:
-        """Save project slides - 安全的增量更新方式"""
+        """Save project slides - 优化的批量更新方式"""
         update_data = {"slides_html": slides_html}
         if slides_data:
             update_data["slides_data"] = slides_data
@@ -297,14 +297,10 @@ class DatabaseService:
             existing_count = len(existing_slides)
             new_count = len(slides_data)
 
-            logger.info(f"🔄 开始安全更新幻灯片: 现有{existing_count}页, 新数据{new_count}页")
+            logger.info(f"🔄 开始批量更新幻灯片: 现有{existing_count}页, 新数据{new_count}页")
 
-            # 如果新数据页数明显少于现有页数，可能是数据不完整，使用更安全的方式
-            if existing_count > 0 and new_count < existing_count:
-                logger.warning(f"⚠️ 检测到数据可能不完整: 现有{existing_count}页, 新数据仅{new_count}页")
-                logger.info("🛡️ 使用安全模式: 只更新提供的幻灯片，保留其他现有幻灯片")
-
-            # 使用upsert方式更新提供的幻灯片
+            # 准备幻灯片数据
+            slides_records = []
             for i, slide_data in enumerate(slides_data):
                 slide_record = {
                     "project_id": project_id,
@@ -316,13 +312,19 @@ class DatabaseService:
                     "slide_metadata": slide_data.get("metadata", {}),
                     "is_user_edited": slide_data.get("is_user_edited", False)
                 }
+                slides_records.append(slide_record)
 
-                try:
-                    await self.slide_repo.upsert_slide(project_id, i, slide_record)
-                    logger.debug(f"✅ 第{i+1}页幻灯片更新成功")
-                except Exception as e:
-                    logger.error(f"❌ 第{i+1}页幻灯片更新失败: {e}")
-                    # 继续处理其他幻灯片，不因单个失败而中断整个过程
+            # 使用批量upsert方式更新幻灯片
+            try:
+                batch_success = await self.slide_repo.batch_upsert_slides(project_id, slides_records)
+                if batch_success:
+                    logger.info(f"✅ 批量更新幻灯片成功: {new_count}页")
+                else:
+                    logger.error(f"❌ 批量更新幻灯片失败")
+                    return False
+            except Exception as e:
+                logger.error(f"❌ 批量更新幻灯片异常: {e}")
+                return False
 
         result = await self.project_repo.update(project_id, update_data)
         return result is not None

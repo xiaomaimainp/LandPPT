@@ -2200,6 +2200,71 @@ async def cleanup_excess_slides(
         return {"success": False, "error": str(e)}
 
 
+@router.post("/api/projects/{project_id}/slides/batch-save")
+async def batch_save_slides(
+    project_id: str,
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """批量保存所有幻灯片 - 高效版本"""
+    try:
+        logger.debug(f"🔄 开始批量保存项目 {project_id} 的所有幻灯片")
+
+        data = await request.json()
+        slides_data = data.get('slides_data', [])
+
+        if not slides_data:
+            logger.error("❌ 幻灯片数据为空")
+            raise HTTPException(status_code=400, detail="Slides data is required")
+
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            logger.error(f"❌ 项目 {project_id} 不存在")
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # 更新项目内存中的数据
+        project.slides_data = slides_data
+        project.updated_at = time.time()
+
+        # 重新生成完整HTML
+        outline_title = project.title
+        if hasattr(project, 'outline') and project.outline:
+            outline_title = project.outline.get('title', project.title)
+
+        project.slides_html = ppt_service._combine_slides_to_full_html(
+            project.slides_data, outline_title
+        )
+
+        # 使用批量保存到数据库
+        from ..services.db_project_manager import DatabaseProjectManager
+        db_manager = DatabaseProjectManager()
+
+        # 批量保存幻灯片
+        batch_success = await db_manager.batch_save_slides(project_id, slides_data)
+
+        # 更新项目信息
+        if batch_success:
+            await db_manager.update_project_data(project_id, {
+                "slides_html": project.slides_html,
+                "slides_data": project.slides_data,
+                "updated_at": project.updated_at
+            })
+
+        logger.debug(f"✅ 项目 {project_id} 批量保存完成，共 {len(slides_data)} 张幻灯片")
+
+        return {
+            "success": batch_success,
+            "message": f"Successfully batch saved {len(slides_data)} slides" if batch_success else "Batch save failed",
+            "slides_count": len(slides_data)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 批量保存幻灯片失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @router.get("/api/projects/{project_id}/export/pdf")
 async def export_project_pdf(project_id: str, individual: bool = False):
     """Export project as PDF using Pyppeteer"""

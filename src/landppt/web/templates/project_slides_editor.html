@@ -3673,9 +3673,54 @@
 
         async function saveToServer() {
             try {
-                console.log('🔄 开始保存幻灯片到服务器...', slidesData.length, '页');
+                console.log('🔄 开始批量保存幻灯片到服务器...', slidesData.length, '页');
 
-                // 使用单个幻灯片保存API逐个保存，避免删除所有幻灯片的风险
+                // 标记所有幻灯片为用户编辑状态
+                slidesData.forEach(slide => {
+                    slide.is_user_edited = true;
+                });
+
+                // 使用批量保存API
+                const response = await fetch(`/api/projects/{{ project.project_id }}/slides/batch-save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        slides_data: slidesData
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`❌ 批量保存请求失败:`, errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log(`✅ 批量保存响应:`, data);
+
+                if (data.success) {
+                    console.log(`✅ 批量保存成功: ${data.slides_count} 张幻灯片`);
+                    return true;
+                } else {
+                    console.error(`❌ 批量保存失败:`, data.error);
+                    throw new Error(data.error || 'Unknown batch save error');
+                }
+
+            } catch (error) {
+                console.error('❌ 批量保存幻灯片时发生错误:', error);
+                // 如果批量保存失败，回退到逐个保存
+                console.log('🔄 回退到逐个保存模式...');
+                return await saveToServerFallback();
+            }
+        }
+
+        // 回退保存方法 - 逐个保存
+        async function saveToServerFallback() {
+            try {
+                console.log('🔄 开始逐个保存幻灯片到服务器...', slidesData.length, '页');
+
                 let saveSuccessCount = 0;
                 let saveFailureCount = 0;
                 const saveErrors = [];
@@ -3706,7 +3751,7 @@
                     }
                 }
 
-                console.log(`📊 保存结果: 成功${saveSuccessCount}页, 失败${saveFailureCount}页`);
+                console.log(`📊 逐个保存结果: 成功${saveSuccessCount}页, 失败${saveFailureCount}页`);
 
                 if (saveFailureCount > 0) {
                     console.warn('⚠️ 部分幻灯片保存失败:', saveErrors);
@@ -3718,7 +3763,7 @@
                 }
 
             } catch (error) {
-                console.error('❌ 保存幻灯片到服务器时发生错误:', error);
+                console.error('❌ 逐个保存幻灯片时发生错误:', error);
                 throw error; // 重新抛出错误以便调用者处理
             }
         }
@@ -3749,9 +3794,6 @@
 
                 if (data.success) {
                     console.log(`✅ 成功清理了 ${data.deleted_count} 张多余的幻灯片`);
-                    if (data.deleted_count > 0) {
-                        showNotification(`已清理 ${data.deleted_count} 张多余的幻灯片`, 'info');
-                    }
                     return true;
                 } else {
                     console.error(`❌ 清理失败:`, data.error);
@@ -3761,7 +3803,6 @@
             } catch (error) {
                 console.error('❌ 清理多余幻灯片时发生错误:', error);
                 // 不抛出错误，因为这不应该阻止删除操作的完成
-                showNotification('清理多余幻灯片时出现问题，但删除操作已完成', 'warning');
                 return false;
             }
         }

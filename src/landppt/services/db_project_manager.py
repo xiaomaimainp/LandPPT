@@ -143,13 +143,42 @@ class DatabaseProjectManager:
     
     async def save_project_slides(self, project_id: str, slides_html: str,
                                 slides_data: List[Dict[str, Any]] = None) -> bool:
-        """Save project slides"""
+        """Save project slides using optimized batch update"""
         db_service = await self._get_db_service()
         try:
             success = await db_service.save_project_slides(project_id, slides_html, slides_data)
 
             if success:
                 logger.info(f"Saved slides for project {project_id}")
+
+            return success
+        finally:
+            await db_service.session.close()
+
+    async def batch_save_slides(self, project_id: str, slides_data: List[Dict[str, Any]]) -> bool:
+        """批量保存幻灯片 - 高效版本"""
+        db_service = await self._get_db_service()
+        try:
+            # 准备幻灯片数据
+            slides_records = []
+            for i, slide_data in enumerate(slides_data):
+                slide_record = {
+                    "project_id": project_id,
+                    "slide_index": i,
+                    "slide_id": slide_data.get("slide_id", f"slide_{i}"),
+                    "title": slide_data.get("title", f"Slide {i+1}"),
+                    "content_type": slide_data.get("content_type", "content"),
+                    "html_content": slide_data.get("html_content", ""),
+                    "slide_metadata": slide_data.get("metadata", {}),
+                    "is_user_edited": slide_data.get("is_user_edited", False)
+                }
+                slides_records.append(slide_record)
+
+            # 使用批量upsert
+            success = await db_service.slide_repo.batch_upsert_slides(project_id, slides_records)
+
+            if success:
+                logger.info(f"Batch saved {len(slides_data)} slides for project {project_id}")
 
             return success
         finally:

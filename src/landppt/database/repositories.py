@@ -6,7 +6,7 @@ import time
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, and_
 from sqlalchemy.orm import selectinload
 
 from .models import Project, TodoBoard, TodoStage, ProjectVersion, SlideData, PPTTemplate, GlobalMasterTemplate
@@ -285,7 +285,7 @@ class SlideDataRepository:
 
     async def delete_slides_after_index(self, project_id: str, start_index: int) -> int:
         """Delete slides with index >= start_index for a project"""
-        logger.info(f"🗑️ 删除项目 {project_id} 中索引 >= {start_index} 的幻灯片")
+        logger.debug(f"🗑️ 删除项目 {project_id} 中索引 >= {start_index} 的幻灯片")
         stmt = delete(SlideData).where(
             and_(
                 SlideData.project_id == project_id,
@@ -295,8 +295,63 @@ class SlideDataRepository:
         result = await self.session.execute(stmt)
         await self.session.commit()
         deleted_count = result.rowcount
-        logger.info(f"✅ 成功删除 {deleted_count} 张多余的幻灯片")
+        logger.debug(f"✅ 成功删除 {deleted_count} 张多余的幻灯片")
         return deleted_count
+
+    async def batch_upsert_slides(self, project_id: str, slides_data: List[Dict[str, Any]]) -> bool:
+        """批量插入或更新幻灯片 - 优化版本"""
+        logger.debug(f"🔄 开始批量upsert幻灯片: 项目ID={project_id}, 数量={len(slides_data)}")
+
+        try:
+            # 获取现有幻灯片
+            existing_slides_stmt = select(SlideData).where(SlideData.project_id == project_id)
+            result = await self.session.execute(existing_slides_stmt)
+            existing_slides = {slide.slide_index: slide for slide in result.scalars().all()}
+
+            updated_count = 0
+            created_count = 0
+            current_time = time.time()
+
+            # 批量处理幻灯片
+            for i, slide_data in enumerate(slides_data):
+                slide_index = i
+
+                if slide_index in existing_slides:
+                    # 更新现有幻灯片
+                    existing_slide = existing_slides[slide_index]
+                    slide_data['updated_at'] = current_time
+
+                    # 只更新有变化的字段
+                    has_changes = False
+                    for key, value in slide_data.items():
+                        if hasattr(existing_slide, key) and getattr(existing_slide, key) != value:
+                            setattr(existing_slide, key, value)
+                            has_changes = True
+
+                    if has_changes:
+                        updated_count += 1
+                else:
+                    # 创建新幻灯片
+                    slide_data.update({
+                        'project_id': project_id,
+                        'slide_index': slide_index,
+                        'created_at': current_time,
+                        'updated_at': current_time
+                    })
+                    new_slide = SlideData(**slide_data)
+                    self.session.add(new_slide)
+                    created_count += 1
+
+            # 一次性提交所有更改
+            await self.session.commit()
+
+            logger.debug(f"✅ 批量upsert完成: 更新={updated_count}, 创建={created_count}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ 批量upsert失败: {e}")
+            await self.session.rollback()
+            return False
 
     async def update_slide_user_edited_status(self, project_id: str, slide_index: int, is_user_edited: bool = True) -> bool:
         """Update the user edited status for a specific slide"""
