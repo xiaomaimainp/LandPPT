@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg?style=flat-square)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg?style=flat-square)](https://hub.docker.com)
 
 **English** | [中文](README.md)
 
@@ -15,7 +14,6 @@
 ## 📋 Table of Contents
 
 - [Project Overview](#-project-overview)
-- [System Architecture](#️-system-architecture)
 - [Key Features](#-key-features)
 - [Quick Start](#-quick-start)
 - [Usage Guide](#-usage-guide)
@@ -35,10 +33,6 @@ LandPPT is an AI-powered presentation generation platform that automatically con
 ![image](https://img.pub/p/3a7dff4a4b9aebedc260.png)
 
 ![image](https://img.pub/p/56e2a5801875736f9fc5.png)
-
-## 🏗️ System Architecture
-
-![image](https://img.pub/p/906dd30aac5cbb27a4e5.svg)
 
 ## ✨ Key Features
 

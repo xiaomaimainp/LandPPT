@@ -1506,6 +1506,7 @@ Notes should be:
                                 filename=f"research_{project.topic}.md",
                                 topic=confirmed_requirements.get('topic', project.topic),
                                 scenario=confirmed_requirements.get('type', project.scenario),
+                                requirements=confirmed_requirements.get('requirements', project.requirements),
                                 language="zh",
                                 page_count_mode=confirmed_requirements.get('page_count_settings', {}).get('mode', 'ai_decide'),
                                 min_pages=confirmed_requirements.get('page_count_settings', {}).get('min_pages', 8),
@@ -1513,6 +1514,8 @@ Notes should be:
                                 fixed_pages=confirmed_requirements.get('page_count_settings', {}).get('fixed_pages', 10),
                                 ppt_style=confirmed_requirements.get('ppt_style', 'general'),
                                 custom_style_prompt=confirmed_requirements.get('custom_style_prompt'),
+                                target_audience=confirmed_requirements.get('target_audience', '普通大众'),
+                                custom_audience=confirmed_requirements.get('custom_audience'),
                                 file_processing_mode="markitdown",  # 使用markitdown处理Markdown文件
                                 content_analysis_depth="fast"  # 使用快速分析策略，适合研究报告处理
                             )
@@ -6572,7 +6575,16 @@ slide_type可选值：
 
                 # 从文件生成大纲
                 logger.info(f"正在使用summeryanyfile处理文件: {request.file_path}")
-                outline = await generator.generate_from_file(request.file_path)
+                outline = await generator.generate_from_file(
+                    request.file_path,
+                    project_topic=request.topic or "",
+                    project_scenario=request.scenario or "general",
+                    project_requirements=getattr(request, 'requirements', '') or "",
+                    target_audience=getattr(request, 'target_audience', '普通大众'),
+                    custom_audience="",  # FileOutlineGenerationRequest 没有 custom_audience 属性
+                    ppt_style=getattr(request, 'ppt_style', 'general'),
+                    custom_style_prompt=getattr(request, 'custom_style_prompt', '')
+                )
 
                 logger.info(f"summeryanyfile生成成功: {outline.title}, 共{outline.total_pages}页")
 
@@ -6585,8 +6597,8 @@ slide_type可选值：
                 confirmed_requirements = {
                     'topic': request.topic or landppt_outline.get('title', '文档演示'),
                     'target_audience': getattr(request, 'target_audience', '通用受众'),
-                    'focus_content': getattr(request, 'focus_content', []),
-                    'tech_highlights': getattr(request, 'tech_highlights', []),
+                    'focus_content': [],  # FileOutlineGenerationRequest 没有 focus_content 属性
+                    'tech_highlights': [],  # FileOutlineGenerationRequest 没有 tech_highlights 属性
                     'page_count_settings': {
                         'mode': request.page_count_mode,
                         'min_pages': getattr(request, 'min_pages', None),
@@ -6777,8 +6789,8 @@ slide_type可选值：
         confirmed_requirements = {
             'topic': request.topic or landppt_outline.get('title', '文档演示'),
             'target_audience': getattr(request, 'target_audience', '通用受众'),
-            'focus_content': getattr(request, 'focus_content', []),
-            'tech_highlights': getattr(request, 'tech_highlights', []),
+            'focus_content': [],  # FileOutlineGenerationRequest 没有 focus_content 属性
+            'tech_highlights': [],  # FileOutlineGenerationRequest 没有 tech_highlights 属性
             'page_count_settings': {
                 'mode': request.page_count_mode,
                 'min_pages': getattr(request, 'min_pages', None),

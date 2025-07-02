@@ -104,6 +104,14 @@ class PPTState(TypedDict):
     page_count_mode: str
     document_structure: Dict[str, Any]
     accumulated_context: str
+    # 项目信息参数
+    project_topic: str
+    project_scenario: str
+    project_requirements: str
+    target_audience: str
+    custom_audience: str
+    ppt_style: str
+    custom_style_prompt: str
 
 
 @dataclass

@@ -647,6 +647,7 @@ async def upload_file_and_generate_outline(
                 filename=file.filename,
                 topic=topic,
                 scenario=scenario,
+                requirements="",  # API调用暂时没有requirements参数
                 page_count_mode=page_count_mode,
                 min_pages=min_pages,
                 max_pages=max_pages,
@@ -655,8 +656,6 @@ async def upload_file_and_generate_outline(
                 custom_style_prompt=custom_style_prompt,
                 file_processing_mode=file_processing_mode,
                 content_analysis_depth=content_analysis_depth,
-                focus_content=focus_content_list,
-                tech_highlights=tech_highlights_list,
                 target_audience=target_audience
             )
 

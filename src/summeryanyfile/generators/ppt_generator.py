@@ -70,7 +70,14 @@ class PPTOutlineGenerator(LoggerMixin):
         self,
         text: str,
         title: Optional[str] = None,
-        progress_callback: Optional[Callable[[str, float], None]] = None
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        project_topic: str = "",
+        project_scenario: str = "general",
+        project_requirements: str = "",
+        target_audience: str = "普通大众",
+        custom_audience: str = "",
+        ppt_style: str = "general",
+        custom_style_prompt: str = ""
     ) -> PPTOutline:
         """
         从文本生成PPT大纲
@@ -112,7 +119,15 @@ class PPTOutlineGenerator(LoggerMixin):
                 "total_pages": 0,
                 "page_count_mode": "estimated",
                 "document_structure": {},
-                "accumulated_context": ""
+                "accumulated_context": "",
+                # 项目信息参数
+                "project_topic": project_topic,
+                "project_scenario": project_scenario,
+                "project_requirements": project_requirements,
+                "target_audience": target_audience,
+                "custom_audience": custom_audience,
+                "ppt_style": ppt_style,
+                "custom_style_prompt": custom_style_prompt
             }
             
             # 执行工作流
@@ -135,7 +150,14 @@ class PPTOutlineGenerator(LoggerMixin):
         self,
         file_path: str,
         encoding: Optional[str] = None,
-        progress_callback: Optional[Callable[[str, float], None]] = None
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        project_topic: str = "",
+        project_scenario: str = "general",
+        project_requirements: str = "",
+        target_audience: str = "普通大众",
+        custom_audience: str = "",
+        ppt_style: str = "general",
+        custom_style_prompt: str = ""
     ) -> PPTOutline:
         """
         从文件生成PPT大纲
@@ -163,7 +185,14 @@ class PPTOutlineGenerator(LoggerMixin):
             return await self.generate_from_text(
                 document_info.content,
                 document_info.title,
-                progress_callback
+                progress_callback,
+                project_topic,
+                project_scenario,
+                project_requirements,
+                target_audience,
+                custom_audience,
+                ppt_style,
+                custom_style_prompt
             )
             
         except Exception as e:
@@ -242,7 +271,14 @@ class PPTOutlineGenerator(LoggerMixin):
         text: str,
         title: Optional[str] = None,
         max_retries: int = 3,
-        progress_callback: Optional[Callable[[str, float], None]] = None
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        project_topic: str = "",
+        project_scenario: str = "general",
+        project_requirements: str = "",
+        target_audience: str = "普通大众",
+        custom_audience: str = "",
+        ppt_style: str = "general",
+        custom_style_prompt: str = ""
     ) -> PPTOutline:
         """
         带重试的生成方法
@@ -263,7 +299,11 @@ class PPTOutlineGenerator(LoggerMixin):
                 if attempt > 0:
                     self.logger.info(f"第 {attempt + 1} 次尝试生成PPT大纲...")
                 
-                return await self.generate_from_text(text, title, progress_callback)
+                return await self.generate_from_text(
+                    text, title, progress_callback,
+                    project_topic, project_scenario, project_requirements,
+                    target_audience, custom_audience, ppt_style, custom_style_prompt
+                )
                 
             except Exception as e:
                 last_exception = e

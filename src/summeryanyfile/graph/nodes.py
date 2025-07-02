@@ -55,7 +55,16 @@ class GraphNodes(LoggerMixin):
                 # 调用结构分析链
                 structure_response = await self.chain_executor.execute_with_retry(
                     "structure_analysis",
-                    {"content": first_chunk},
+                    {
+                        "content": first_chunk,
+                        "project_topic": state.get("project_topic", ""),
+                        "project_scenario": state.get("project_scenario", "general"),
+                        "project_requirements": state.get("project_requirements", ""),
+                        "target_audience": state.get("target_audience", "普通大众"),
+                        "custom_audience": state.get("custom_audience", ""),
+                        "ppt_style": state.get("ppt_style", "general"),
+                        "custom_style_prompt": state.get("custom_style_prompt", "")
+                    },
                     config
                 )
                 
@@ -106,10 +115,17 @@ class GraphNodes(LoggerMixin):
             structure_json = json.dumps(state["document_structure"], ensure_ascii=False)
             first_chunk = state["document_chunks"][0] if state["document_chunks"] else ""
             
-            # 准备输入参数，包含页数范围和目标语言
+            # 准备输入参数，包含页数范围、目标语言和项目信息
             chain_inputs = {
                 "structure": structure_json,
-                "content": first_chunk
+                "content": first_chunk,
+                "project_topic": state.get("project_topic", ""),
+                "project_scenario": state.get("project_scenario", "general"),
+                "project_requirements": state.get("project_requirements", ""),
+                "target_audience": state.get("target_audience", "普通大众"),
+                "custom_audience": state.get("custom_audience", ""),
+                "ppt_style": state.get("ppt_style", "general"),
+                "custom_style_prompt": state.get("custom_style_prompt", "")
             }
 
             # 添加页数范围信息
@@ -195,11 +211,18 @@ class GraphNodes(LoggerMixin):
             }
             existing_outline_json = json.dumps(existing_outline, ensure_ascii=False)
             
-            # 准备输入参数，包含页数范围和目标语言
+            # 准备输入参数，包含页数范围、目标语言和项目信息
             chain_inputs = {
                 "existing_outline": existing_outline_json,
                 "new_content": current_content,
-                "context": state["accumulated_context"]
+                "context": state["accumulated_context"],
+                "project_topic": state.get("project_topic", ""),
+                "project_scenario": state.get("project_scenario", "general"),
+                "project_requirements": state.get("project_requirements", ""),
+                "target_audience": state.get("target_audience", "普通大众"),
+                "custom_audience": state.get("custom_audience", ""),
+                "ppt_style": state.get("ppt_style", "general"),
+                "custom_style_prompt": state.get("custom_style_prompt", "")
             }
 
             # 添加页数范围信息和目标语言
@@ -269,8 +292,17 @@ class GraphNodes(LoggerMixin):
             }
             outline_json = json.dumps(current_outline, ensure_ascii=False)
             
-            # 准备输入参数，包含页数范围和目标语言
-            chain_inputs = {"outline": outline_json}
+            # 准备输入参数，包含页数范围、目标语言和项目信息
+            chain_inputs = {
+                "outline": outline_json,
+                "project_topic": state.get("project_topic", ""),
+                "project_scenario": state.get("project_scenario", "general"),
+                "project_requirements": state.get("project_requirements", ""),
+                "target_audience": state.get("target_audience", "普通大众"),
+                "custom_audience": state.get("custom_audience", ""),
+                "ppt_style": state.get("ppt_style", "general"),
+                "custom_style_prompt": state.get("custom_style_prompt", "")
+            }
 
             # 添加页数范围信息和目标语言
             if self.config:

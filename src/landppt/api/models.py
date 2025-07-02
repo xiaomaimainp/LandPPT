@@ -189,6 +189,7 @@ class FileOutlineGenerationRequest(BaseModel):
     filename: str = Field(..., description="Original filename")
     topic: Optional[str] = Field(None, description="Custom topic override")
     scenario: str = Field("general", description="PPT scenario type")
+    requirements: Optional[str] = Field(None, description="Specific requirements from user")
     target_audience: Optional[str] = Field(None, description="Target audience for the PPT")
     language: str = Field("zh", description="Language for the PPT content: 'zh' for Chinese, 'en' for English")
     page_count_mode: str = Field("ai_decide", description="Page count mode: 'ai_decide', 'range', 'fixed'")

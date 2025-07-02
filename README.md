@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg?style=flat-square)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg?style=flat-square)](https://hub.docker.com)
 
 [English](README_EN.md) | **中文**
 
@@ -15,7 +14,6 @@
 ## 📋 目录
 
 - [项目简介](#-项目简介)
-- [系统架构](#️-系统架构)
 - [核心功能](#-核心功能)
 - [快速开始](#-快速开始)
 - [使用指南](#-使用指南)
@@ -36,9 +34,6 @@ LandPPT 是一个基于人工智能的演示文稿生成平台，能够自动将
 
 ![image](https://img.pub/p/56e2a5801875736f9fc5.png)
 
-## 🏗️ 系统架构
-
-![image](https://img.pub/p/906dd30aac5cbb27a4e5.svg)
 
 ## ✨ 核心功能
 

@@ -887,6 +887,7 @@ async def regenerate_outline(
                 filename=confirmed_requirements.get('filename', 'uploaded_file'),
                 topic=project_request.topic,
                 scenario=project_request.scenario,
+                requirements=confirmed_requirements.get('requirements', ''),
                 target_audience=confirmed_requirements.get('target_audience', '普通大众'),
                 page_count_mode=page_count_settings.get('mode', 'ai_decide'),
                 min_pages=page_count_settings.get('min_pages', 5),
@@ -1029,11 +1030,17 @@ async def generate_file_outline(
                     uploaded_files = project.confirmed_requirements.get('uploaded_files', [])
                     if uploaded_files:
                         file_info = uploaded_files[0]  # Use first file
+                        # 使用确认的要求或项目创建时的要求作为fallback
+                        confirmed_reqs = project.confirmed_requirements.get('requirements', '')
+                        project_reqs = project.requirements or ''
+                        final_reqs = confirmed_reqs or project_reqs
+
                         file_request = FileOutlineGenerationRequest(
                             filename=file_info.get('filename', 'uploaded_file'),
                             file_path=file_info.get('file_path', ''),
                             topic=project.topic,
                             scenario='general',
+                            requirements=final_reqs,
                             target_audience=project.confirmed_requirements.get('target_audience', '普通大众'),
                             page_count_mode=project.confirmed_requirements.get('page_count_settings', {}).get('mode', 'ai_decide'),
                             min_pages=project.confirmed_requirements.get('page_count_settings', {}).get('min_pages', 8),
@@ -1202,10 +1209,11 @@ async def confirm_project_requirements(
         file_outline = None
         if content_source == "file" and file_upload:
             # Process uploaded file and generate outline
+            # 使用项目创建时的具体要求而不是description
             file_outline = await _process_uploaded_file_for_outline(
                 file_upload, topic, target_audience, page_count_mode, min_pages, max_pages,
                 fixed_pages, ppt_style, custom_style_prompt,
-                file_processing_mode, content_analysis_depth
+                file_processing_mode, content_analysis_depth, project.requirements
             )
 
             # Update topic if it was extracted from file
@@ -1223,7 +1231,7 @@ async def confirm_project_requirements(
         # Update project with confirmed requirements
         confirmed_requirements = {
             "topic": topic,
-            "requirements": project.requirements,  # 保留原始的具体要求
+            "requirements": project.requirements,  # 使用项目创建时的具体要求
             "target_audience": target_audience,
             "audience_type": audience_type,
             "custom_audience": custom_audience if audience_type == "自定义" else None,
@@ -3285,7 +3293,8 @@ async def _process_uploaded_file_for_outline(
     ppt_style: str,
     custom_style_prompt: str,
     file_processing_mode: str,
-    content_analysis_depth: str
+    content_analysis_depth: str,
+    requirements: str = None
 ) -> Optional[Dict[str, Any]]:
     """处理上传的文件并生成PPT大纲"""
     try:
@@ -3315,6 +3324,7 @@ async def _process_uploaded_file_for_outline(
                 filename=file_upload.filename,
                 topic=topic if topic.strip() else None,
                 scenario="general",  # 默认场景，可以根据需要调整
+                requirements=requirements,
                 target_audience=target_audience,
                 page_count_mode=page_count_mode,
                 min_pages=min_pages,
