@@ -283,6 +283,21 @@ class SlideDataRepository:
         await self.session.commit()
         return result.rowcount > 0
 
+    async def delete_slides_after_index(self, project_id: str, start_index: int) -> int:
+        """Delete slides with index >= start_index for a project"""
+        logger.info(f"🗑️ 删除项目 {project_id} 中索引 >= {start_index} 的幻灯片")
+        stmt = delete(SlideData).where(
+            and_(
+                SlideData.project_id == project_id,
+                SlideData.slide_index >= start_index
+            )
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        deleted_count = result.rowcount
+        logger.info(f"✅ 成功删除 {deleted_count} 张多余的幻灯片")
+        return deleted_count
+
     async def update_slide_user_edited_status(self, project_id: str, slide_index: int, is_user_edited: bool = True) -> bool:
         """Update the user edited status for a specific slide"""
         stmt = update(SlideData).where(

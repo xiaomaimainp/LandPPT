@@ -34,6 +34,11 @@ LandPPT is an AI-powered presentation generation platform that automatically con
 
 ![image](https://img.pub/p/56e2a5801875736f9fc5.png)
 
+![image](https://img.pub/p/b6efaedcbff7c4f96d39.png)
+
+![image](https://img.pub/p/61800c015f600210e8c4.png)
+
+
 ## ✨ Key Features
 
 ### 🤖 Multi-AI Provider Support

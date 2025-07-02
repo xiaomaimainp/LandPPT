@@ -155,6 +155,30 @@ class DatabaseProjectManager:
         finally:
             await db_service.session.close()
 
+    async def replace_all_project_slides(self, project_id: str, slides_html: str,
+                                       slides_data: List[Dict[str, Any]] = None) -> bool:
+        """完全替换项目的所有幻灯片 - 用于重新生成PPT等场景"""
+        db_service = await self._get_db_service()
+        try:
+            success = await db_service.replace_all_project_slides(project_id, slides_html, slides_data)
+
+            if success:
+                logger.info(f"Replaced all slides for project {project_id}")
+
+            return success
+        finally:
+            await db_service.session.close()
+
+    async def cleanup_excess_slides(self, project_id: str, current_slide_count: int) -> int:
+        """清理多余的幻灯片"""
+        db_service = await self._get_db_service()
+        try:
+            deleted_count = await db_service.cleanup_excess_slides(project_id, current_slide_count)
+            logger.info(f"Cleaned up {deleted_count} excess slides for project {project_id}")
+            return deleted_count
+        finally:
+            await db_service.session.close()
+
     async def save_single_slide(self, project_id: str, slide_index: int, slide_data: Dict[str, Any]) -> bool:
         """Save a single slide to database immediately"""
         db_service = await self._get_db_service()

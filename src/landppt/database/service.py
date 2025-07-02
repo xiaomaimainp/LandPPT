@@ -287,12 +287,62 @@ class DatabaseService:
     
     async def save_project_slides(self, project_id: str, slides_html: str,
                                 slides_data: List[Dict[str, Any]] = None) -> bool:
-        """Save project slides"""
+        """Save project slides - 安全的增量更新方式"""
         update_data = {"slides_html": slides_html}
         if slides_data:
             update_data["slides_data"] = slides_data
 
-            # Also save individual slides to slide_data table
+            # 获取现有幻灯片数量，确保不会意外删除幻灯片
+            existing_slides = await self.slide_repo.get_slides_by_project_id(project_id)
+            existing_count = len(existing_slides)
+            new_count = len(slides_data)
+
+            logger.info(f"🔄 开始安全更新幻灯片: 现有{existing_count}页, 新数据{new_count}页")
+
+            # 如果新数据页数明显少于现有页数，可能是数据不完整，使用更安全的方式
+            if existing_count > 0 and new_count < existing_count:
+                logger.warning(f"⚠️ 检测到数据可能不完整: 现有{existing_count}页, 新数据仅{new_count}页")
+                logger.info("🛡️ 使用安全模式: 只更新提供的幻灯片，保留其他现有幻灯片")
+
+            # 使用upsert方式更新提供的幻灯片
+            for i, slide_data in enumerate(slides_data):
+                slide_record = {
+                    "project_id": project_id,
+                    "slide_index": i,
+                    "slide_id": slide_data.get("slide_id", f"slide_{i}"),
+                    "title": slide_data.get("title", f"Slide {i+1}"),
+                    "content_type": slide_data.get("content_type", "content"),
+                    "html_content": slide_data.get("html_content", ""),
+                    "slide_metadata": slide_data.get("metadata", {}),
+                    "is_user_edited": slide_data.get("is_user_edited", False)
+                }
+
+                try:
+                    await self.slide_repo.upsert_slide(project_id, i, slide_record)
+                    logger.debug(f"✅ 第{i+1}页幻灯片更新成功")
+                except Exception as e:
+                    logger.error(f"❌ 第{i+1}页幻灯片更新失败: {e}")
+                    # 继续处理其他幻灯片，不因单个失败而中断整个过程
+
+        result = await self.project_repo.update(project_id, update_data)
+        return result is not None
+
+    async def cleanup_excess_slides(self, project_id: str, current_slide_count: int) -> int:
+        """清理多余的幻灯片 - 删除索引 >= current_slide_count 的幻灯片"""
+        logger.info(f"🧹 开始清理项目 {project_id} 的多余幻灯片，保留前 {current_slide_count} 张")
+        deleted_count = await self.slide_repo.delete_slides_after_index(project_id, current_slide_count)
+        logger.info(f"✅ 清理完成，删除了 {deleted_count} 张多余的幻灯片")
+        return deleted_count
+
+    async def replace_all_project_slides(self, project_id: str, slides_html: str,
+                                       slides_data: List[Dict[str, Any]] = None) -> bool:
+        """完全替换项目的所有幻灯片 - 用于重新生成PPT等场景"""
+        update_data = {"slides_html": slides_html}
+        if slides_data:
+            update_data["slides_data"] = slides_data
+
+            # 删除所有现有幻灯片，然后重新创建
+            logger.info(f"🔄 完全替换项目 {project_id} 的所有幻灯片")
             await self.slide_repo.delete_slides_by_project_id(project_id)
 
             slide_records = []

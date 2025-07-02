@@ -3673,43 +3673,96 @@
 
         async function saveToServer() {
             try {
-                // 标记所有幻灯片为用户编辑状态
-                const updatedSlidesData = slidesData.map(slide => ({
-                    ...slide,
-                    is_user_edited: true
-                }));
+                console.log('🔄 开始保存幻灯片到服务器...', slidesData.length, '页');
 
-                console.log('Saving slides to server...', updatedSlidesData.length, 'slides');
+                // 使用单个幻灯片保存API逐个保存，避免删除所有幻灯片的风险
+                let saveSuccessCount = 0;
+                let saveFailureCount = 0;
+                const saveErrors = [];
 
-                const response = await fetch(`/api/projects/{{ project.project_id }}/slides`, {
-                    method: 'PUT',
+                for (let i = 0; i < slidesData.length; i++) {
+                    try {
+                        const slide = slidesData[i];
+
+                        // 标记为用户编辑状态
+                        slide.is_user_edited = true;
+
+                        console.log(`💾 保存第${i + 1}页: ${slide.title}`);
+
+                        const success = await saveSingleSlideToServer(i, slide.html_content);
+                        if (success) {
+                            saveSuccessCount++;
+                            console.log(`✅ 第${i + 1}页保存成功`);
+                        } else {
+                            saveFailureCount++;
+                            saveErrors.push(`第${i + 1}页保存失败`);
+                            console.error(`❌ 第${i + 1}页保存失败`);
+                        }
+                    } catch (error) {
+                        saveFailureCount++;
+                        const errorMsg = `第${i + 1}页保存异常: ${error.message}`;
+                        saveErrors.push(errorMsg);
+                        console.error(`❌ ${errorMsg}`);
+                    }
+                }
+
+                console.log(`📊 保存结果: 成功${saveSuccessCount}页, 失败${saveFailureCount}页`);
+
+                if (saveFailureCount > 0) {
+                    console.warn('⚠️ 部分幻灯片保存失败:', saveErrors);
+                    // 即使部分失败，也不抛出错误，让用户知道部分保存成功
+                    return saveSuccessCount > 0; // 只要有成功的就返回true
+                } else {
+                    console.log('✅ 所有幻灯片保存成功');
+                    return true;
+                }
+
+            } catch (error) {
+                console.error('❌ 保存幻灯片到服务器时发生错误:', error);
+                throw error; // 重新抛出错误以便调用者处理
+            }
+        }
+
+        // 清理数据库中多余的幻灯片
+        async function cleanupExcessSlides() {
+            try {
+                console.log(`🧹 开始清理多余的幻灯片，当前幻灯片数量: ${slidesData.length}`);
+
+                const response = await fetch(`/api/projects/{{ project.project_id }}/slides/cleanup`, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        slides_data: updatedSlidesData
+                        current_slide_count: slidesData.length
                     })
                 });
 
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`❌ 清理请求失败:`, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                console.log('Slides saved to server successfully:', data);
+                console.log(`✅ 清理响应:`, data);
 
-                // 验证保存是否成功
-                if (data.status === 'success' || data.success === true) {
-                    // 更新本地数据
-                    slidesData = updatedSlidesData;
+                if (data.success) {
+                    console.log(`✅ 成功清理了 ${data.deleted_count} 张多余的幻灯片`);
+                    if (data.deleted_count > 0) {
+                        showNotification(`已清理 ${data.deleted_count} 张多余的幻灯片`, 'info');
+                    }
                     return true;
                 } else {
-                    throw new Error(data.message || data.error || 'Unknown error occurred');
+                    console.error(`❌ 清理失败:`, data.error);
+                    throw new Error(data.error || 'Unknown cleanup error');
                 }
 
             } catch (error) {
-                console.error('Error saving slides to server:', error);
-                throw error; // 重新抛出错误以便调用者处理
+                console.error('❌ 清理多余幻灯片时发生错误:', error);
+                // 不抛出错误，因为这不应该阻止删除操作的完成
+                showNotification('清理多余幻灯片时出现问题，但删除操作已完成', 'warning');
+                return false;
             }
         }
 
@@ -4813,7 +4866,13 @@
                     // 刷新界面
                     refreshSidebar();
                     selectSlide(currentSlideIndex);
-                    saveToServer();
+
+                    // 保存当前幻灯片数据
+                    await saveToServer();
+
+                    // 清理数据库中多余的幻灯片
+                    await cleanupExcessSlides();
+
                     showNotification('幻灯片已删除', 'success');
                 } catch (error) {
                     console.error('删除幻灯片失败:', error);

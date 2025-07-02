@@ -2157,6 +2157,49 @@ async def stream_slides_generation(project_id: str):
     except Exception as e:
         return {"error": str(e)}
 
+
+@router.post("/api/projects/{project_id}/slides/cleanup")
+async def cleanup_excess_slides(
+    project_id: str,
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """清理项目中多余的幻灯片"""
+    try:
+        logger.info(f"🧹 开始清理项目 {project_id} 的多余幻灯片")
+
+        data = await request.json()
+        current_slide_count = data.get('current_slide_count', 0)
+
+        if current_slide_count <= 0:
+            logger.error("❌ 无效的幻灯片数量")
+            raise HTTPException(status_code=400, detail="Invalid slide count")
+
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            logger.error(f"❌ 项目 {project_id} 不存在")
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # 清理数据库中多余的幻灯片
+        from ..services.db_project_manager import DatabaseProjectManager
+        db_manager = DatabaseProjectManager()
+        deleted_count = await db_manager.cleanup_excess_slides(project_id, current_slide_count)
+
+        logger.info(f"✅ 项目 {project_id} 清理完成，删除了 {deleted_count} 张多余的幻灯片")
+
+        return {
+            "success": True,
+            "message": f"Successfully cleaned up {deleted_count} excess slides",
+            "deleted_count": deleted_count
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 清理幻灯片失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @router.get("/api/projects/{project_id}/export/pdf")
 async def export_project_pdf(project_id: str, individual: bool = False):
     """Export project as PDF using Pyppeteer"""
