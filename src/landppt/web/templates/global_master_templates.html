@@ -222,14 +222,14 @@ select {
     <!-- Filter and Search -->
     <div class="search-filter-container">
         <div class="search-input-wrapper">
-            <input type="text" id="searchInput" placeholder="🔍 搜索母版名称..." class="glass-input search-input">
+            <input type="text" id="searchInput" placeholder="搜索母版名称..." class="glass-input search-input">
         </div>
         <div class="filter-wrapper">
             <select id="tagFilter" class="glass-input filter-select">
-                <option value="">🏷️ 所有标签</option>
+                <option value="">所有标签</option>
             </select>
         </div>
-        <button id="refreshBtn" class="btn btn-info refresh-btn">🔄 刷新</button>
+        <button id="refreshBtn" class="btn btn-info refresh-btn"><i class="fas fa-sync-alt"></i> 刷新</button>
     </div>
 
     <!-- Templates Grid -->
@@ -1049,7 +1049,7 @@ function renderTemplates(templatesToRender) {
                     onload="adjustIframeContent(${template.id})"
                 ></iframe>
                 <div class="preview-overlay" onclick="previewTemplateById(${template.id})" title="点击查看完整预览">
-                    <div class="preview-overlay-text">🔍 点击放大预览</div>
+                    <div class="preview-overlay-text"><i class="fas fa-search-plus"></i> 点击放大预览</div>
                 </div>
             </div>
             <div class="template-info">
