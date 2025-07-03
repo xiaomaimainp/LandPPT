@@ -157,22 +157,49 @@ wait_for_dependencies() {
     fi
 }
 
+# Fix .env file permissions
+fix_env_permissions() {
+    log "Checking .env file permissions..."
+
+    if [ -f "/app/.env" ]; then
+        # Check if we can write to .env file
+        if [ ! -w "/app/.env" ]; then
+            warn "⚠️ .env file is not writable by current user"
+            info "Attempting to fix .env file permissions..."
+
+            # Try to make it writable (this will work if the file is owned by root or if we have sudo)
+            if chmod 666 "/app/.env" 2>/dev/null; then
+                log "✅ .env file permissions fixed"
+            else
+                warn "⚠️ Could not fix .env file permissions"
+                warn "   Configuration updates may fail"
+                warn "   Please ensure the mounted .env file is writable by UID 1000 (landppt user)"
+            fi
+        else
+            log "✅ .env file is writable"
+        fi
+    else
+        warn "⚠️ .env file not found, using default configuration"
+    fi
+}
+
 # Main initialization
 main() {
     print_banner
-    
+
     log "Starting LandPPT initialization..."
-    
+
     check_environment
+    fix_env_permissions
     create_directories
     wait_for_dependencies
     import_templates
-    
+
     log "🚀 Starting LandPPT application..."
     info "📍 Server will be available at: http://0.0.0.0:${PORT:-8000}"
     info "📚 API Documentation: http://0.0.0.0:${PORT:-8000}/docs"
     info "🌐 Web Interface: http://0.0.0.0:${PORT:-8000}/web"
-    
+
     # Execute the main command
     exec "$@"
 }

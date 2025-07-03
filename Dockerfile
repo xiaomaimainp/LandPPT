@@ -134,9 +134,6 @@ RUN mkdir -p temp/ai_responses_cache \
     && chmod -R 755 /app \
     && chmod -R 755 /home/landppt
 
-# Switch to non-root user
-USER landppt
-
 # Expose port
 EXPOSE 8000
 
