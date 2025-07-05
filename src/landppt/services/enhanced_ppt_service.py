@@ -123,6 +123,8 @@ class EnhancedPPTService(PPTService):
             return ai_config.anthropic_model
         elif provider_name == "ollama":
             return ai_config.ollama_model
+        elif provider_name == "google" or provider_name == "gemini":
+            return ai_config.google_model
         else:
             # 默认返回OpenAI模型
             return ai_config.openai_model
@@ -174,12 +176,12 @@ class EnhancedPPTService(PPTService):
 
                 logger.info(f"已配置summeryanyfile Anthropic API: model={provider_config.get('model')}")
 
-            elif current_provider == "google":
-                # 设置Google API配置
+            elif current_provider == "google" or current_provider == "gemini":
+                # 设置Google/Gemini API配置
                 if provider_config.get("api_key"):
                     os.environ["GOOGLE_API_KEY"] = provider_config["api_key"]
 
-                logger.info(f"已配置summeryanyfile Google API: model={provider_config.get('model')}")
+                logger.info(f"已配置summeryanyfile Google/Gemini API: model={provider_config.get('model')}")
 
             elif current_provider == "ollama":
                 # 设置Ollama API配置
@@ -332,7 +334,7 @@ class EnhancedPPTService(PPTService):
             
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 500),  # Use smaller limit for slide content
+                max_tokens=ai_config.max_tokens,  # Use smaller limit for slide content
                 temperature=ai_config.temperature
             )
             
@@ -350,7 +352,7 @@ class EnhancedPPTService(PPTService):
             
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 800),  # Use smaller limit for content enhancement
+                max_tokens=ai_config.max_tokens,  # Use smaller limit for content enhancement
                 temperature=max(ai_config.temperature - 0.1, 0.1)  # Slightly lower temperature for enhancement
             )
             
@@ -576,7 +578,7 @@ class EnhancedPPTService(PPTService):
         else:
             page_count_instruction = "- 页数要求：根据内容复杂度自主决定合适的页数"
             expected_page_count = 12
-
+        logger.debug(f"Page count instruction: {page_count_instruction}")
         # Add research context if available
         research_section = ""
         if research_context:
@@ -2657,114 +2659,6 @@ slide_type可选值：
             logger.error(f"Error confirming project outline: {e}")
             return False
 
-    async def generate_requirements_suggestions(self, project: PPTProject) -> Dict[str, Any]:
-        """Generate AI suggestions for project requirements based on scenario and uploaded content"""
-        try:
-            # 读取上传的文件内容（如果有）
-            file_content = ""
-            if hasattr(project, 'uploaded_files') and project.uploaded_files:
-                file_content = f"\n上传文件内容：{project.uploaded_files[:1000]}..."  # 限制长度
-
-            prompt = f"""
-作为专业的PPT生成助手，请根据以下项目信息生成个性化的需求确认建议：
-
-项目场景：{project.scenario}
-项目主题：{project.topic}
-项目要求：{project.requirements or '无特殊要求'}
-{file_content}
-
-请深入分析项目内容，生成以下建议：
-
-1. 建议的精确标题（基于主题优化，更具吸引力和专业性）
-2. 展示类型选项（如：技术分享、产品介绍、学术报告等，3-5个选项）
-
-要求：
-- 标题要具体、专业、有吸引力
-- 类型选项要贴合项目实际内容和场景
-- 提供多样化的展示类型选择
-
-请严格按照以下JSON格式返回，使用```json```代码块包裹：
-
-```json
-{{
-    "suggested_topic": "具体的建议标题",
-    "type_options": [
-        "展示类型1",
-        "展示类型2",
-        "展示类型3",
-        "展示类型4",
-        "展示类型5"
-    ]
-}}
-```
-"""
-
-            response = await self.ai_provider.text_completion(
-                prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 1500),  # Use smaller limit for suggestions
-                temperature=min(ai_config.temperature + 0.1, 1.0)  # Slightly higher temperature for creativity
-            )
-
-            # Try to parse JSON response
-            import json
-            import re
-
-            try:
-                # 改进的JSON提取逻辑
-                content = response.content.strip()
-                json_str = None
-
-                # 方法1: 尝试提取```json```代码块中的内容
-                json_block_match = re.search(r'```json\s*(\{.*?\})\s*```', content, re.DOTALL)
-                if json_block_match:
-                    json_str = json_block_match.group(1)
-                    logger.info("从```json```代码块中提取建议JSON")
-                else:
-                    # 方法2: 尝试提取```代码块中的内容（不带json标识）
-                    code_block_match = re.search(r'```\s*(\{.*?\})\s*```', content, re.DOTALL)
-                    if code_block_match:
-                        json_str = code_block_match.group(1)
-                        logger.info("从```代码块中提取建议JSON")
-                    else:
-                        # 方法3: 尝试提取完整的JSON对象
-                        json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
-                        if json_match:
-                            json_str = json_match.group()
-                            logger.info("使用正则表达式提取建议JSON")
-                        else:
-                            # 方法4: 假设整个内容就是JSON
-                            json_str = content
-                            logger.info("将整个响应内容作为建议JSON处理")
-
-                # 清理JSON字符串
-                if json_str:
-                    json_str = json_str.strip()
-                    json_str = re.sub(r',\s*}', '}', json_str)  # 移除}前的多余逗号
-                    json_str = re.sub(r',\s*]', ']', json_str)  # 移除]前的多余逗号
-
-                suggestions = json.loads(json_str)
-
-                # Validate required fields
-                required_fields = ['suggested_topic', 'type_options']
-                for field in required_fields:
-                    if field not in suggestions:
-                        raise ValueError(f"Missing required field: {field}")
-
-                # Ensure type_options is a list
-                if not isinstance(suggestions['type_options'], list):
-                    suggestions['type_options'] = [suggestions['type_options']]
-
-                return suggestions
-
-            except Exception as parse_error:
-                logger.warning(f"Failed to parse AI suggestions: {parse_error}")
-                # Fallback to default suggestions based on project
-                return self._get_default_suggestions(project)
-
-        except Exception as e:
-            logger.error(f"Error generating requirements suggestions: {e}")
-            return self._get_default_suggestions(project)
-
     def _get_default_suggestions(self, project: PPTProject) -> Dict[str, Any]:
         """Get default suggestions when AI generation fails"""
         # Generate basic suggestions based on project scenario
@@ -4267,8 +4161,8 @@ slide_type可选值：
             # 调用AI分析
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 600),
-                temperature=0.3  # 较低温度确保分析准确性
+                max_tokens=ai_config.max_tokens,
+                temperature=0.3  
             )
 
             ai_genes = response.content.strip()
@@ -4431,13 +4325,13 @@ slide_type可选值：
 - 平衡创新性与一致性，建议要有创新性，避免千篇一律
 - 每个建议以"- "开头，按照上述分类组织
 
-请生成统一的创意设计指导：
+请生成统一的创意设计指导
 """
 
             # 调用AI生成指导
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 1000),  # 增加token限制以容纳更全面的指导
+                max_tokens=ai_config.max_tokens,  
                 temperature=0.7  # 适中温度平衡创意性和实用性
             )
 
@@ -5029,7 +4923,7 @@ slide_type可选值：
                 response = await self.ai_provider.text_completion(
                     prompt=retry_context,
                     system_prompt=system_prompt,
-                    max_tokens=min(ai_config.max_tokens, 16000),  # Increase token limit for retries
+                    max_tokens=ai_config.max_tokens,  # Increase token limit for retries
                     temperature=max(0.1, ai_config.temperature)  # Reduce temperature for retries
                 )
 
@@ -6547,8 +6441,10 @@ slide_type可选值：
                 logger.info(f"使用最新AI配置: provider={current_ai_config['llm_provider']}, model={current_ai_config['llm_model']}")
 
                 # 创建配置 - 使用最新的AI配置
+                min_slides, max_slides = self._get_slides_range_from_request(request)
                 config = ProcessingConfig(
-                    max_slides=self._get_max_slides_from_request(request),
+                    min_slides=min_slides,
+                    max_slides=max_slides,
                     chunk_size=self._get_chunk_size_from_request(request),
                     chunk_strategy=self._get_chunk_strategy_from_request(request),
                     llm_model=current_ai_config["llm_model"],
@@ -6583,7 +6479,11 @@ slide_type可选值：
                     target_audience=getattr(request, 'target_audience', '普通大众'),
                     custom_audience="",  # FileOutlineGenerationRequest 没有 custom_audience 属性
                     ppt_style=getattr(request, 'ppt_style', 'general'),
-                    custom_style_prompt=getattr(request, 'custom_style_prompt', '')
+                    custom_style_prompt=getattr(request, 'custom_style_prompt', ''),
+                    page_count_mode=getattr(request, 'page_count_mode', 'ai_decide'),
+                    min_pages=getattr(request, 'min_pages', None),
+                    max_pages=getattr(request, 'max_pages', None),
+                    fixed_pages=getattr(request, 'fixed_pages', None)
                 )
 
                 logger.info(f"summeryanyfile生成成功: {outline.title}, 共{outline.total_pages}页")
@@ -6734,10 +6634,23 @@ slide_type可选值：
         """根据请求获取最大幻灯片数量"""
         if request.page_count_mode == "fixed":
             return request.fixed_pages or 20
-        elif request.page_count_mode == "range":
+        elif request.page_count_mode == "custom_range":
             return request.max_pages or 20
         else:  # ai_decide
             return 25  # 默认最大值
+
+    def _get_slides_range_from_request(self, request) -> tuple[int, int]:
+        """根据请求获取幻灯片数量范围"""
+        if request.page_count_mode == "fixed":
+            fixed_pages = request.fixed_pages or 10
+            return fixed_pages, fixed_pages
+        elif request.page_count_mode == "custom_range":
+            min_pages = request.min_pages or 8
+            max_pages = request.max_pages or 15
+            return min_pages, max_pages
+        else:  # ai_decide
+            # AI决定模式：设置一个宽泛的范围，但主要通过提示词让AI自主决定
+            return 5, 30  # 宽泛范围，实际由AI根据内容决定
 
     def _get_chunk_size_from_request(self, request) -> int:
         """根据请求获取分块大小"""

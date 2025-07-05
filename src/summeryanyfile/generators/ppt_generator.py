@@ -77,7 +77,11 @@ class PPTOutlineGenerator(LoggerMixin):
         target_audience: str = "普通大众",
         custom_audience: str = "",
         ppt_style: str = "general",
-        custom_style_prompt: str = ""
+        custom_style_prompt: str = "",
+        page_count_mode: str = "ai_decide",
+        min_pages: Optional[int] = None,
+        max_pages: Optional[int] = None,
+        fixed_pages: Optional[int] = None
     ) -> PPTOutline:
         """
         从文本生成PPT大纲
@@ -117,7 +121,7 @@ class PPTOutlineGenerator(LoggerMixin):
                 "ppt_title": title or "",
                 "slides": [],
                 "total_pages": 0,
-                "page_count_mode": "estimated",
+                "page_count_mode": page_count_mode,
                 "document_structure": {},
                 "accumulated_context": "",
                 # 项目信息参数
@@ -127,7 +131,11 @@ class PPTOutlineGenerator(LoggerMixin):
                 "target_audience": target_audience,
                 "custom_audience": custom_audience,
                 "ppt_style": ppt_style,
-                "custom_style_prompt": custom_style_prompt
+                "custom_style_prompt": custom_style_prompt,
+                # 页数设置参数
+                "min_pages": min_pages,
+                "max_pages": max_pages,
+                "fixed_pages": fixed_pages
             }
             
             # 执行工作流
@@ -157,7 +165,11 @@ class PPTOutlineGenerator(LoggerMixin):
         target_audience: str = "普通大众",
         custom_audience: str = "",
         ppt_style: str = "general",
-        custom_style_prompt: str = ""
+        custom_style_prompt: str = "",
+        page_count_mode: str = "ai_decide",
+        min_pages: Optional[int] = None,
+        max_pages: Optional[int] = None,
+        fixed_pages: Optional[int] = None
     ) -> PPTOutline:
         """
         从文件生成PPT大纲
@@ -192,7 +204,11 @@ class PPTOutlineGenerator(LoggerMixin):
                 target_audience,
                 custom_audience,
                 ppt_style,
-                custom_style_prompt
+                custom_style_prompt,
+                page_count_mode,
+                min_pages,
+                max_pages,
+                fixed_pages
             )
             
         except Exception as e:

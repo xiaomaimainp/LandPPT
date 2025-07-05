@@ -223,23 +223,91 @@ class GoogleProvider(AIProvider):
 
         try:
             # Configure generation parameters
+            # 确保max_tokens不会太小，至少1000个token用于生成内容
+            max_tokens = max(config.get("max_tokens", 16384), 1000)
             generation_config = {
                 "temperature": config.get("temperature", 0.7),
                 "top_p": config.get("top_p", 1.0),
-                "max_output_tokens": config.get("max_tokens", 8196),
+                "max_output_tokens": max_tokens,
             }
 
-            response = await self._generate_async(prompt, generation_config)
+            # 配置安全设置 - 设置为较宽松的安全级别以减少误拦截
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_ONLY_HIGH"
+                }
+            ]
+
+
+            response = await self._generate_async(prompt, generation_config, safety_settings)
+            logger.debug(f"Google Gemini API response: {response}")
+
+            # 检查响应状态和安全过滤
+            finish_reason = "stop"
+            content = ""
+
+            if response.candidates:
+                candidate = response.candidates[0]
+                finish_reason = candidate.finish_reason.name if hasattr(candidate.finish_reason, 'name') else str(candidate.finish_reason)
+
+                # 检查是否被安全过滤器阻止或其他问题
+                if finish_reason == "SAFETY":
+                    logger.warning("Content was blocked by safety filters")
+                    content = "[内容被安全过滤器阻止]"
+                elif finish_reason == "RECITATION":
+                    logger.warning("Content was blocked due to recitation")
+                    content = "[内容因重复而被阻止]"
+                elif finish_reason == "MAX_TOKENS":
+                    logger.warning("Response was truncated due to max tokens limit")
+                    # 尝试获取部分内容
+                    try:
+                        if hasattr(candidate, 'content') and candidate.content and hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            content = candidate.content.parts[0].text if candidate.content.parts[0].text else "[响应因token限制被截断，无内容]"
+                        else:
+                            content = "[响应因token限制被截断，无内容]"
+                    except Exception as text_error:
+                        logger.warning(f"Failed to get truncated response text: {text_error}")
+                        content = "[响应因token限制被截断，无法获取内容]"
+                elif finish_reason == "OTHER":
+                    logger.warning("Content was blocked for other reasons")
+                    content = "[内容被其他原因阻止]"
+                else:
+                    # 正常情况下获取文本
+                    try:
+                        if hasattr(candidate, 'content') and candidate.content and hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            content = candidate.content.parts[0].text if candidate.content.parts[0].text else ""
+                        else:
+                            # 回退到response.text
+                            content = response.text if hasattr(response, 'text') and response.text else ""
+                    except Exception as text_error:
+                        logger.warning(f"Failed to get response text: {text_error}")
+                        content = "[无法获取响应内容]"
+            else:
+                logger.warning("No candidates in response")
+                content = "[响应中没有候选内容]"
 
             return AIResponse(
-                content=response.text,
+                content=content,
                 model=self.model,
                 usage={
                     "prompt_tokens": response.usage_metadata.prompt_token_count if hasattr(response, 'usage_metadata') else 0,
                     "completion_tokens": response.usage_metadata.candidates_token_count if hasattr(response, 'usage_metadata') else 0,
                     "total_tokens": response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') else 0
                 },
-                finish_reason=response.candidates[0].finish_reason.name if response.candidates else "stop",
+                finish_reason=finish_reason,
                 metadata={"provider": "google"}
             )
 
@@ -247,15 +315,21 @@ class GoogleProvider(AIProvider):
             logger.error(f"Google Gemini API error: {e}")
             raise
 
-    async def _generate_async(self, prompt: str, generation_config: Dict[str, Any]):
+    async def _generate_async(self, prompt: str, generation_config: Dict[str, Any], safety_settings=None):
         """Async wrapper for Gemini generation"""
         import asyncio
         loop = asyncio.get_event_loop()
 
         def _generate_sync():
+            kwargs = {
+                "generation_config": generation_config
+            }
+            if safety_settings:
+                kwargs["safety_settings"] = safety_settings
+
             return self.model_instance.generate_content(
                 prompt,
-                generation_config=generation_config
+                **kwargs
             )
 
         return await loop.run_in_executor(None, _generate_sync)
@@ -330,6 +404,7 @@ class AIProviderFactory:
         "openai": OpenAIProvider,
         "anthropic": AnthropicProvider,
         "google": GoogleProvider,
+        "gemini": GoogleProvider,  # Alias for google
         "ollama": OllamaProvider
     }
 

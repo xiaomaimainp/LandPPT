@@ -228,9 +228,9 @@ TEMPERATURE=0.7
 
 本项目采用 Apache License 2.0 许可证。详情请见 [LICENSE](LICENSE) 文件。
 
-## 🌟 Star History
+## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sligter/LandPPT&type=Date)](https://star-history.com/#sligter/LandPPT&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=sligter/LandPPT&type=Date)](https://www.star-history.com/#sligter/LandPPT&Date)
 
 ## 📞 联系我们
 

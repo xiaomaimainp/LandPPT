@@ -112,6 +112,10 @@ class PPTState(TypedDict):
     custom_audience: str
     ppt_style: str
     custom_style_prompt: str
+    # 页数设置参数
+    min_pages: Optional[int]
+    max_pages: Optional[int]
+    fixed_pages: Optional[int]
 
 
 @dataclass

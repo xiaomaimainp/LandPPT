@@ -1778,19 +1778,9 @@
         <!-- Export Section -->
         <div class="export-section">
             <div class="btn-group-custom justify-content-center">
-                <div class="dropdown">
-                    <button class="btn btn-primary dropdown-toggle" type="button" id="pdfExportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-file-pdf"></i> 导出为PDF
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="pdfExportDropdown">
-                        <li><a class="dropdown-item" href="#" onclick="exportToPDF()">
-                            <i class="fas fa-file-pdf"></i> 整体导出PDF
-                        </a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportToPDFIndividual()">
-                            <i class="fas fa-copy"></i> 分页导出PDF
-                        </a></li>
-                    </ul>
-                </div>
+                <button class="btn btn-primary" onclick="exportToPDF()">
+                    <i class="fas fa-file-pdf"></i> 导出为PDF
+                </button>
                 <button class="btn btn-warning" onclick="exportToPPTX()">
                     <i class="fas fa-file-powerpoint"></i> 导出为PPTX
                 </button>
@@ -3900,26 +3890,7 @@
             }, 1000);
         }
 
-        function exportToPDFIndividual() {
-            // 显示提示信息
-            showNotification('正在生成分页PDF文件...', 'info');
 
-            // 直接下载分页PDF文件
-            const downloadLink = document.createElement('a');
-            downloadLink.href = `/api/projects/{{ project.project_id }}/export/pdf/individual`;
-            downloadLink.download = '';
-            downloadLink.style.display = 'none';
-
-            // 添加到页面并触发下载
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-
-            // 延迟显示成功消息
-            setTimeout(() => {
-                showNotification('分页PDF文件生成完成，正在下载...', 'success');
-            }, 1000);
-        }
 
         function exportToPDFClientSide() {
             // 显示提示信息

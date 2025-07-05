@@ -1223,8 +1223,8 @@ async def confirm_project_requirements(
         # Process page count settings
         page_count_settings = {
             "mode": page_count_mode,
-            "min_pages": min_pages if page_count_mode == "range" else None,
-            "max_pages": max_pages if page_count_mode == "range" else None,
+            "min_pages": min_pages if page_count_mode == "custom_range" else None,
+            "max_pages": max_pages if page_count_mode == "custom_range" else None,
             "fixed_pages": fixed_pages if page_count_mode == "fixed" else None
         }
 

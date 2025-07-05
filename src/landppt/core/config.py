@@ -103,6 +103,13 @@ class AIConfig(BaseSettings):
                 "temperature": self.temperature,
                 "top_p": self.top_p,
             },
+            "gemini": {  # Alias for google
+                "api_key": self.google_api_key,
+                "model": self.google_model,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+            },
             "azure_openai": {
                 "api_key": self.azure_openai_api_key,
                 "endpoint": self.azure_openai_endpoint,
@@ -132,7 +139,7 @@ class AIConfig(BaseSettings):
             return bool(config.get("api_key"))
         elif provider == "anthropic":
             return bool(config.get("api_key"))
-        elif provider == "google":
+        elif provider == "google" or provider == "gemini":
             return bool(config.get("api_key"))
         elif provider == "azure_openai":
             return bool(config.get("api_key") and config.get("endpoint"))
@@ -146,7 +153,7 @@ class AIConfig(BaseSettings):
         providers = []
 
         # Add built-in providers
-        for provider in ["openai", "anthropic", "google", "azure_openai", "ollama"]:
+        for provider in ["openai", "anthropic", "google", "gemini", "azure_openai", "ollama"]:
             if self.is_provider_available(provider):
                 providers.append(provider)
 

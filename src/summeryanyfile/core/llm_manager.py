@@ -19,6 +19,7 @@ class LLMManager:
         "azure": "langchain_openai",
         "ollama": "langchain_ollama",
         "gemini": "langchain_google_genai",
+        "google": "langchain_google_genai",  # Alias for gemini
     }
     
     SUPPORTED_MODELS = {
@@ -53,6 +54,12 @@ class LLMManager:
             "phi3",
         ],
         "gemini": [
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.0-pro",
+            "gemini-pro-vision",
+        ],
+        "google": [  # Alias for gemini
             "gemini-1.5-pro",
             "gemini-1.5-flash",
             "gemini-1.0-pro",
@@ -123,6 +130,8 @@ class LLMManager:
         elif provider == "ollama":
             return self._create_ollama_llm(model, temperature, max_tokens, **kwargs)
         elif provider == "google":
+            return self._create_gemini_llm(model, temperature, max_tokens, **kwargs)
+        elif provider == "gemini":
             return self._create_gemini_llm(model, temperature, max_tokens, **kwargs)
         else:
             raise ValueError(f"不支持的提供商: {provider}")
@@ -311,7 +320,7 @@ class LLMManager:
                 # Ollama通常不需要API密钥，只需要确保服务可访问
                 base_url = kwargs.get("base_url") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
                 return bool(base_url)
-            elif provider == "google":
+            elif provider == "google" or provider == "gemini":
                 api_key = kwargs.get("api_key") or os.getenv("GOOGLE_API_KEY")
                 return bool(api_key)
             else:

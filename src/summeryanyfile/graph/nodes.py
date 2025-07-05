@@ -23,6 +23,22 @@ class GraphNodes(LoggerMixin):
         self.chain_executor = ChainExecutor(chain_manager)
         self.json_parser = JSONParser()
         self.config = config  # 添加配置参数
+
+    def _get_slides_range_text(self, state: Dict[str, Any]) -> str:
+        """根据状态中的页数模式生成页数约束文本"""
+        page_count_mode = state.get("page_count_mode", "ai_decide")
+        min_pages = state.get("min_pages")
+        max_pages = state.get("max_pages")
+        fixed_pages = state.get("fixed_pages")
+
+        if page_count_mode == "fixed" and fixed_pages:
+            result = f"【强制要求】必须生成恰好{fixed_pages}页的PPT，不能多也不能少"
+        elif page_count_mode == "custom_range" and min_pages and max_pages:
+            result = f"【强制要求】必须严格控制在{min_pages}-{max_pages}页范围内，最少{min_pages}页，最多{max_pages}页，不能超出此范围"
+        else:  # ai_decide
+            result = "根据内容的复杂度、深度和逻辑结构，自主决定最合适的页数，确保内容充实且逻辑清晰"
+
+        return result
     
     async def analyze_structure(self, state: PPTState, config: RunnableConfig) -> Dict[str, Any]:
         """
@@ -129,11 +145,11 @@ class GraphNodes(LoggerMixin):
             }
 
             # 添加页数范围信息
+            slides_range_text = self._get_slides_range_text(state)
+            chain_inputs["slides_range"] = slides_range_text
             if self.config:
-                chain_inputs["slides_range"] = self.config.slides_range
                 chain_inputs["target_language"] = self.config.target_language
             else:
-                chain_inputs["slides_range"] = "10-25页"  # 默认范围
                 chain_inputs["target_language"] = "zh"  # 默认中文
 
             # 调用初始大纲生成链
@@ -152,9 +168,10 @@ class GraphNodes(LoggerMixin):
             self.logger.info(f"初始PPT框架生成完成: {outline.get('title', '未知标题')}")
             
             return {
+                **state,  # 保留所有原始状态
                 "ppt_title": outline.get("title", "学术演示"),
                 "total_pages": outline.get("total_pages", 15),
-                "page_count_mode": outline.get("page_count_mode", "estimated"),
+                "page_count_mode": state.get("page_count_mode", "estimated"),  # 保持原始页数模式
                 "slides": outline.get("slides", []),
                 "current_index": 1
             }
@@ -226,11 +243,11 @@ class GraphNodes(LoggerMixin):
             }
 
             # 添加页数范围信息和目标语言
+            slides_range_text = self._get_slides_range_text(state)
+            chain_inputs["slides_range"] = slides_range_text
             if self.config:
-                chain_inputs["slides_range"] = self.config.slides_range
                 chain_inputs["target_language"] = self.config.target_language
             else:
-                chain_inputs["slides_range"] = "10-25页"  # 默认范围
                 chain_inputs["target_language"] = "zh"  # 默认中文
 
             # 调用细化链
@@ -251,9 +268,8 @@ class GraphNodes(LoggerMixin):
             if len(new_context) > 2000:  # 限制上下文长度
                 new_context = new_context[-2000:]
             
-            self.logger.info(f"PPT大纲细化完成，当前页数: {len(refined_outline.get('slides', []))}")
-            
             return {
+                **state,  # 保留所有原始状态
                 "ppt_title": refined_outline.get("title", state["ppt_title"]),
                 "total_pages": refined_outline.get("total_pages", state["total_pages"]),
                 "slides": refined_outline.get("slides", state["slides"]),
@@ -305,11 +321,11 @@ class GraphNodes(LoggerMixin):
             }
 
             # 添加页数范围信息和目标语言
+            slides_range_text = self._get_slides_range_text(state)
+            chain_inputs["slides_range"] = slides_range_text
             if self.config:
-                chain_inputs["slides_range"] = self.config.slides_range
                 chain_inputs["target_language"] = self.config.target_language
             else:
-                chain_inputs["slides_range"] = "10-25页"  # 默认范围
                 chain_inputs["target_language"] = "zh"  # 默认中文
 
             # 调用最终优化链
@@ -335,6 +351,43 @@ class GraphNodes(LoggerMixin):
             if self.config:
                 if total_pages < self.config.min_slides:
                     self.logger.warning(f"生成的页数({total_pages})少于最小要求({self.config.min_slides})")
+                    # 自动扩展页数到最小要求
+                    needed_pages = self.config.min_slides - total_pages
+
+                    # 添加扩展页面
+                    for i in range(needed_pages):
+                        new_page_num = total_pages + i + 1
+                        if i < needed_pages // 2:
+                            # 前半部分添加详细内容页
+                            slides.append({
+                                "page_number": new_page_num,
+                                "title": f"详细分析 {i + 1}",
+                                "content_points": [
+                                    "深入分析相关概念和原理",
+                                    "提供具体案例和实践经验",
+                                    "探讨实施过程中的关键要点",
+                                    "分析可能遇到的挑战和解决方案"
+                                ],
+                                "slide_type": "content",
+                                "description": "扩展的详细分析内容页"
+                            })
+                        else:
+                            # 后半部分添加总结和展望页
+                            slides.append({
+                                "page_number": new_page_num,
+                                "title": f"总结与展望 {i - needed_pages // 2 + 1}",
+                                "content_points": [
+                                    "总结关键要点和核心价值",
+                                    "分析未来发展趋势和机遇",
+                                    "提出改进建议和优化方向",
+                                    "展望长期发展前景"
+                                ],
+                                "slide_type": "content",
+                                "description": "扩展的总结展望内容页"
+                            })
+
+                    total_pages = len(slides)
+
                 elif total_pages > self.config.max_slides:
                     self.logger.warning(f"生成的页数({total_pages})超过最大限制({self.config.max_slides})")
                     # 如果超过最大页数，截取到最大页数
@@ -344,9 +397,8 @@ class GraphNodes(LoggerMixin):
                     for i, slide in enumerate(slides):
                         slide["page_number"] = i + 1
 
-            self.logger.info(f"PPT大纲最终优化完成，总页数: {total_pages}")
-
             return {
+                **state,  # 保留所有原始状态
                 "ppt_title": final_outline.get("title", state["ppt_title"]),
                 "total_pages": total_pages,
                 "page_count_mode": "final",
@@ -361,6 +413,7 @@ class GraphNodes(LoggerMixin):
                 slide["page_number"] = i + 1
             
             return {
+                **state,  # 保留所有原始状态
                 "ppt_title": state["ppt_title"],
                 "total_pages": len(slides),
                 "page_count_mode": "final",
