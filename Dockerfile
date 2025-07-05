@@ -91,8 +91,16 @@ RUN apt-get update && \
     xdg-utils \
     # For netcat (health check)
     netcat-openbsd \
+    # Chinese fonts support for PDF export
+    fonts-noto-cjk \
+    fonts-noto-cjk-extra \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fontconfig \
     # Cleanup
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # Update font cache to ensure Chinese fonts are recognized
+    && fc-cache -fv
 
 # Create non-root user with proper home directory and permissions
 RUN groupadd -r landppt && \
