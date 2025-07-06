@@ -136,6 +136,8 @@ docker logs -f landppt
 - **API文档**: http://localhost:8000/docs
 - **健康检查**: http://localhost:8000/health
 
+(初始账号`admin`密码`admin123`)
+
 ### 2. 配置AI提供商
 在设置页面配置你的AI API密钥：
 - OpenAI API Key

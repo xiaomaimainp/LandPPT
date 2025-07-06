@@ -136,6 +136,11 @@ After starting the service, visit:
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 
+[Initial account:
+`admin`
+password:
+`admin123`]
+
 ### 2. Configure AI Providers
 Configure your AI API keys in the settings page:
 - OpenAI API Key
