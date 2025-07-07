@@ -24,6 +24,7 @@ from .db_project_manager import DatabaseProjectManager
 from .global_master_template_service import GlobalMasterTemplateService
 from .deep_research_service import DEEPResearchService
 from .research_report_generator import ResearchReportGenerator
+from .prompts import prompts_manager
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -362,23 +363,6 @@ class EnhancedPPTService(PPTService):
             logger.error(f"Error enhancing content: {str(e)}")
             return content  # Return original content if enhancement fails
     
-    async def generate_speaker_notes(self, slide_content: str, scenario: str, language: str = "zh") -> str:
-        """Generate speaker notes for a slide using AI"""
-        try:
-            prompt = self._create_speaker_notes_prompt(slide_content, scenario, language)
-            
-            response = await self.ai_provider.text_completion(
-                prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 400),  # Use smaller limit for speaker notes
-                temperature=ai_config.temperature
-            )
-            
-            return response.content.strip()
-            
-        except Exception as e:
-            logger.error(f"Error generating speaker notes: {str(e)}")
-            return ""
-    
     def _create_research_context(self, research_report) -> str:
         """Create comprehensive structured Markdown research context for outline generation"""
         if not research_report:
@@ -579,6 +563,7 @@ class EnhancedPPTService(PPTService):
             page_count_instruction = "- 页数要求：根据内容复杂度自主决定合适的页数"
             expected_page_count = 12
         logger.debug(f"Page count instruction: {page_count_instruction}")
+
         # Add research context if available
         research_section = ""
         if research_context:
@@ -595,6 +580,7 @@ class EnhancedPPTService(PPTService):
         custom_style_prompt = getattr(request, 'custom_style_prompt', None)
         description = getattr(request, 'description', None)
         language = getattr(request, 'language', None)
+
         # Create style description
         style_descriptions = {
             "general": "通用商务风格，简洁专业",
@@ -607,338 +593,47 @@ class EnhancedPPTService(PPTService):
         if custom_style_prompt and ppt_style != "custom":
             style_desc += f"，{custom_style_prompt}"
 
+        # Use the new prompts module
         if request.language == "zh":
-            prompt = f"""你是一位专业的PPT大纲策划专家，请基于以下项目信息，生成一个**结构清晰、内容创意、专业严谨、格式规范的JSON格式PPT大纲**。
-
-### 📌【项目信息】：
-- **主题**：{request.topic}
-- **应用场景**：{scenario_desc}
-- **目标受众**：{target_audience}
-- **PPT风格**：{style_desc}
-- **特殊要求**：{request.requirements or '无'}
-- **补充说明**：{description or '无'}
-{research_section}
-
-### 📄【页数要求】：
-{page_count_instruction}
-
----
-
-### 📋【大纲生成规则】：
-
-1. **内容契合度要求**：
-   - 所有幻灯片内容必须与上述项目信息严格匹配，确保主题明确、风格统一、内容相关。
-   - 信息表达要专业可信，同时具有吸引力与传播力。
-
-2. **页面结构规范**：
-   - 必须包含以下结构：封面页、目录页、内容页（若干）、结论页。
-   - 内容页应合理分层，逻辑清晰；封面和结论页需具备视觉冲击力或独特设计说明。
-
-3. **内容点控制**：
-   - 每页控制在3～6个内容要点之间。
-   - 每个要点内容简洁清晰，**不超过50字符**。
-   - 内容分布需均衡，避免信息堆积或重复。
-
-4. **图表展示优化**：
-   - 对适合可视化的信息，**建议并提供图表配置**，写入 `chart_config` 字段中。
-   - 图表需明确类型（如柱状图、饼图、折线图等）、说明含义、配置样式及数据结构。
-
-5. **语言风格与语境一致性**：
-   - 使用统一语言（{language}），保持语境一致，适合目标受众理解与接受。
-
----
-
-### 🧾【输出格式要求】：
-
-请严格使用如下JSON格式进行输出，**使用代码块包裹，内容必须有效且结构完整**：
-
-```json
-{{
-  "title": "专业且吸引人的PPT标题",
-  "total_pages": {expected_page_count},
-  "page_count_mode": "final",
-  "slides": [
-    {{
-      "page_number": 1,
-      "title": "页面标题",
-      "content_points": ["要点1", "要点2", "要点3"],
-      "slide_type": "title/content/conclusion",
-      "type": "content",
-      "description": "此页的简要说明与目的",
-      "chart_config": {{
-        "type": "bar",
-        "data": {{
-          "labels": ["示例A", "示例B", "示例C"],
-          "datasets": [{{
-            "label": "数据说明",
-            "data": [80, 95, 70],
-            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#FFD93D"],
-            "borderColor": ["#FF5252", "#26A69A", "#F4A261"],
-            "borderWidth": 2
-          }}]
-        }},
-        "options": {{
-          "responsive": true,
-          "plugins": {{
-            "legend": {{"position": "top"}},
-            "title": {{"display": true, "text": "图表标题"}}
-          }},
-          "scales": {{"y": {{"beginAtZero": true}}}}
-        }}
-      }}
-    }}
-  ],
-  "metadata": {{
-    "scenario": "{request.scenario}",
-    "language": "{language}",
-    "total_slides": {expected_page_count},
-    "generated_with_ai": true,
-    "enhanced_with_charts": true,
-    "content_depth": "professional"
-  }}
-}}
-"""
+            return prompts_manager.get_outline_prompt_zh(
+                topic=request.topic,
+                scenario_desc=scenario_desc,
+                target_audience=target_audience,
+                style_desc=style_desc,
+                requirements=request.requirements or '',
+                description=description or '',
+                research_section=research_section,
+                page_count_instruction=page_count_instruction,
+                expected_page_count=expected_page_count,
+                language=language or 'zh'
+            )
         else:
-            # Add research context for English version
-            english_research_section = ""
-            if research_context:
-                # Translate research context to English context
-                english_research_section = f"""
-
-Based on comprehensive research background:
-{research_context}
-
-Please utilize the above research information to enrich the PPT content, ensuring accuracy, authority, and depth."""
-
-            # Handle page count requirements for English
-            english_page_count_instruction = ""
-            if page_count_settings:
-                page_count_mode = page_count_settings.get('mode', 'ai_decide')
-
-                if page_count_mode == 'custom_range':
-                    min_pages = page_count_settings.get('min_pages', 8)
-                    max_pages = page_count_settings.get('max_pages', 15)
-                    english_page_count_instruction = f"- Page Count Requirement: Must strictly generate {min_pages}-{max_pages} pages PPT, ensure page count within this range"
-                elif page_count_mode == 'fixed':
-                    fixed_pages = page_count_settings.get('fixed_pages', 10)
-                    english_page_count_instruction = f"- Page Count Requirement: Must generate exactly {fixed_pages} pages PPT"
-                else:
-                    english_page_count_instruction = "- Page Count Requirement: Decide appropriate page count based on content complexity (recommended 8-15 pages)"
-            else:
-                english_page_count_instruction = "- Page Count Requirement: Decide appropriate page count based on content complexity (recommended 8-15 pages)"
-
-            prompt = f"""You are a **professional presentation outline designer**. Based on the following project details, please generate a **well-structured, creative, and professional JSON-format PowerPoint outline**.
-
-### 📌【Project Details】:
-- **Topic**: {request.topic}
-- **Scenario**: {scenario_desc}
-- **Target Audience**: {target_audience}
-- **PPT Style**: {style_desc}
-- **Special Requirements**: {request.requirements or 'None'}
-- **Additional Notes**: {description or 'None'}
-{research_section}
-
-**Page Count Requirements:**
-{english_page_count_instruction}
-
----
-
-### 📋【Outline Generation Rules】:
-
-1. **Content Relevance**:
-   - All slide content must strictly align with the project details above.
-   - Ensure the theme is clear, the tone is consistent, and the message is well-targeted.
-
-2. **Slide Structure**:
-   - The deck must include: **Title Slide**, **Agenda Slide**, **Content Slides**, and **Conclusion Slide**.
-   - Title and Conclusion slides should be visually distinct or offer special design instructions.
-   - Content slides must follow a logical and clear structure.
-
-3. **Content Density Control**:
-   - Each slide must contain **3–6 concise bullet points**.
-   - Each point should be **no more than 50 characters**.
-   - Distribute content evenly across slides to avoid overload or redundancy.
-
-4. **Chart Suggestions**:
-   - For any data, comparisons, or visual-friendly content, suggest a chart and include its configuration under `chart_config`.
-   - Specify chart type (e.g., bar, pie, line), provide sample data, and chart options.
-
-5. **Language & Tone**:
-   - The entire outline should be in **{language}** and aligned with the communication preferences of the target audience.
-
----
-
-### 🧾【Required Output Format】:
-
-Please follow the exact JSON format below, and **wrap the result in a code block**. The JSON must be valid and complete.
-
-```json
-{{
-  "title": "A compelling and professional PPT title",
-  "total_pages": {expected_page_count},
-  "page_count_mode": "final",
-  "slides": [
-    {{
-      "page_number": 1,
-      "title": "Slide Title",
-      "content_points": ["Point 1", "Point 2", "Point 3"],
-      "slide_type": "title/content/conclusion",
-      "type": "content",
-      "description": "Brief description of this slide",
-      "chart_config": {{
-        "type": "bar",
-        "data": {{
-          "labels": ["Metric A", "Metric B", "Metric C"],
-          "datasets": [{{
-            "label": "Performance Data",
-            "data": [80, 95, 70],
-            "backgroundColor": ["#FF6B6B", "#4ECDC4", "#FFD93D"],
-            "borderColor": ["#FF5252", "#26A69A", "#F4A261"],
-            "borderWidth": 2
-          }}]
-        }},
-        "options": {{
-          "responsive": true,
-          "plugins": {{
-            "legend": {{"position": "top"}},
-            "title": {{"display": true, "text": "Chart Title"}}
-          }},
-          "scales": {{"y": {{"beginAtZero": true}}}}
-        }}
-      }}
-    }}
-  ],
-  "metadata": {{
-    "scenario": "{request.scenario}",
-    "language": "{language}",
-    "total_slides": {expected_page_count},
-    "generated_with_ai": true,
-    "enhanced_with_charts": true,
-    "content_depth": "professional"
-  }}
-}}
-"""
-        
-        return prompt
+            return prompts_manager.get_outline_prompt_en(
+                topic=request.topic,
+                scenario_desc=scenario_desc,
+                target_audience=target_audience,
+                style_desc=style_desc,
+                requirements=request.requirements or '',
+                description=description or '',
+                research_section=research_section,
+                page_count_instruction=page_count_instruction,
+                expected_page_count=expected_page_count,
+                language=language or 'en'
+            )
     
     def _create_slide_content_prompt(self, slide_title: str, scenario: str, topic: str, language: str) -> str:
         """Create prompt for slide content generation"""
         if language == "zh":
-            prompt = f"""为PPT幻灯片生成内容：
-
-PPT主题：{topic}
-幻灯片标题：{slide_title}
-场景类型：{scenario}
-
-请生成这张幻灯片的具体内容，包括：
-- 3-5个要点
-- 每个要点的简短说明
-- 适合{scenario}场景的语言风格
-
-内容要求：
-- 简洁明了，适合幻灯片展示
-- 逻辑清晰，层次分明
-- 语言专业但易懂
-- 符合中文表达习惯
-
-请直接输出内容，不需要额外说明。"""
+            return prompts_manager.get_slide_content_prompt_zh(slide_title, scenario, topic)
         else:
-            prompt = f"""Generate content for a PPT slide:
-
-PPT Topic: {topic}
-Slide Title: {slide_title}
-Scenario: {scenario}
-
-Please generate specific content for this slide, including:
-- 3-5 key points
-- Brief explanation for each point
-- Language style appropriate for {scenario} scenario
-
-Content requirements:
-- Concise and suitable for slide presentation
-- Clear logic and structure
-- Professional but understandable language
-- Appropriate for the target audience
-
-Please output the content directly without additional explanations."""
-        
-        return prompt
+            return prompts_manager.get_slide_content_prompt_en(slide_title, scenario, topic)
     
     def _create_enhancement_prompt(self, content: str, scenario: str, language: str) -> str:
         """Create prompt for content enhancement"""
         if language == "zh":
-            prompt = f"""请优化以下PPT内容，使其更适合{scenario}场景：
-
-原始内容：
-{content}
-
-优化要求：
-- 保持原有信息的完整性
-- 改善语言表达和逻辑结构
-- 增加适合{scenario}场景的专业术语
-- 使内容更具吸引力和说服力
-- 保持简洁明了的风格
-
-请输出优化后的内容："""
+            return prompts_manager.get_enhancement_prompt_zh(content, scenario)
         else:
-            prompt = f"""Please enhance the following PPT content to make it more suitable for {scenario} scenario:
-
-Original content:
-{content}
-
-Enhancement requirements:
-- Maintain the completeness of original information
-- Improve language expression and logical structure
-- Add professional terminology suitable for {scenario} scenario
-- Make content more attractive and persuasive
-- Keep concise and clear style
-
-Please output the enhanced content:"""
-        
-        return prompt
-    
-    def _create_speaker_notes_prompt(self, slide_content: str, scenario: str, language: str) -> str:
-        """Create prompt for speaker notes generation"""
-        if language == "zh":
-            prompt = f"""为以下幻灯片内容生成演讲者备注：
-
-幻灯片内容：
-{slide_content}
-
-场景：{scenario}
-
-请生成演讲者备注，包括：
-- 如何介绍这张幻灯片
-- 需要强调的重点
-- 可能的互动或问题
-- 过渡到下一张幻灯片的方式
-
-备注应该：
-- 自然流畅，便于口头表达
-- 提供比幻灯片更详细的信息
-- 适合{scenario}场景的演讲风格
-- 长度适中，不超过200字"""
-        else:
-            prompt = f"""Generate speaker notes for the following slide content:
-
-Slide content:
-{slide_content}
-
-Scenario: {scenario}
-
-Please generate speaker notes including:
-- How to introduce this slide
-- Key points to emphasize
-- Possible interactions or questions
-- Transition to the next slide
-
-Notes should be:
-- Natural and fluent for verbal expression
-- Provide more detailed information than the slide
-- Suitable for {scenario} scenario presentation style
-- Moderate length, not exceeding 200 words"""
-        
-        return prompt
+            return prompts_manager.get_enhancement_prompt_en(content, scenario)
     
     def _parse_ai_outline(self, ai_response: str, request: PPTGenerationRequest) -> PPTOutline:
         """Parse AI response to create structured outline"""
@@ -1622,67 +1317,14 @@ Notes should be:
 
 请充分利用以上研究信息来丰富PPT内容，确保信息准确、权威、具有深度。"""
 
-            prompt = """
-作为专业的PPT大纲生成助手，请为以下项目生成详细的PPT大纲。
-
-项目信息：
-- 主题：""" + topic + """
-- 目标受众：""" + target_audience + """
-- PPT风格：""" + ppt_style + """
-""" + page_count_instruction + research_section + """
-
-请严格按照以下JSON格式生成PPT大纲：
-
-{
-    "title": "PPT标题",
-    "slides": [
-        {
-            "page_number": 1,
-            "title": "页面标题",
-            "content_points": ["要点1", "要点2", "要点3"],
-            "slide_type": "title"
-        },
-        {
-            "page_number": 2,
-            "title": "页面标题",
-            "content_points": ["要点1", "要点2", "要点3"],
-            "slide_type": "content"
-        }
-    ]
-}
-
-slide_type可选值：
-- "title": 标题页/封面页
-- "content": 内容页
-- "agenda": 目录页
-- "thankyou": 结束页/感谢页
-
-要求：
-1. 必须返回有效的JSON格式
-2. 严格遵守页数要求
-3. 第一页通常是标题页，最后一页是感谢页
-4. 每页至少包含2-5个内容要点
-5. 页面标题要简洁明确
-6. 内容要点要具体实用
-7. 根据重点内容和技术亮点安排页面内容
-
-请只返回JSON，使用```json```代码块包裹，不要包含其他文字说明。
-
-示例格式：
-```json
-{
-  "title": "PPT标题",
-  "slides": [
-    {
-      "page_number": 1,
-      "title": "页面标题",
-      "content_points": ["要点1", "要点2"],
-      "slide_type": "title"
-    }
-  ]
-}
-```
-"""
+            # 使用新的提示词模块
+            prompt = prompts_manager.get_streaming_outline_prompt(
+                topic=topic,
+                target_audience=target_audience,
+                ppt_style=ppt_style,
+                page_count_instruction=page_count_instruction,
+                research_section=research_section
+            )
 
             # Generate outline content directly without initial message
             response = await self.ai_provider.text_completion(
@@ -2085,90 +1727,7 @@ slide_type可选值：
 
     def _build_repair_prompt(self, outline_data: Dict[str, Any], validation_errors: List[str], confirmed_requirements: Dict[str, Any]) -> str:
         """构建AI修复提示词"""
-
-        # 获取页数要求
-        page_count_settings = confirmed_requirements.get('page_count_settings', {})
-        page_count_mode = page_count_settings.get('mode', 'ai_decide')
-
-        page_count_instruction = ""
-        if page_count_mode == 'custom_range':
-            min_pages = page_count_settings.get('min_pages', 8)
-            max_pages = page_count_settings.get('max_pages', 15)
-            page_count_instruction = f"- 页数要求：必须严格生成{min_pages}-{max_pages}页的PPT"
-        elif page_count_mode == 'fixed':
-            fixed_pages = page_count_settings.get('fixed_pages', 10)
-            page_count_instruction = f"- 页数要求：必须生成恰好{fixed_pages}页的PPT"
-        else:
-            page_count_instruction = "- 页数要求：根据内容复杂度自主决定合适的页数（建议8-15页）"
-
-        import json
-        current_json = json.dumps(outline_data, ensure_ascii=False, indent=2)
-        errors_text = '\n'.join(["- " + str(error) for error in validation_errors])
-
-        # 使用字符串拼接而不是f-string来避免花括号冲突
-        prompt = """
-作为专业的PPT大纲修复助手，请修复以下PPT大纲JSON数据中的错误。
-
-项目信息：
-- 主题：""" + confirmed_requirements.get('topic', '未知') + """
-- 类型：""" + confirmed_requirements.get('type', '未知') + """
-- 重点内容：""" + ', '.join(confirmed_requirements.get('focus_content', [])) + """
-- 技术亮点：""" + ', '.join(confirmed_requirements.get('tech_highlights', [])) + """
-- 目标受众：""" + confirmed_requirements.get('target_audience', '通用受众') + """
-""" + page_count_instruction + """
-
-当前大纲JSON（有错误）：
-```json
-""" + current_json + """
-```
-
-发现的错误：
-""" + errors_text + """
-
-请修复以上所有错误，并返回正确的JSON格式。修复要求：
-
-1. **结构要求**：
-   - 必须包含 "title" 和 "slides" 字段
-   - slides必须是数组格式
-   - 每个slide必须包含：page_number, title, content_points, slide_type
-
-2. **页码要求**：
-   - page_number必须从1开始连续递增
-   - 与数组索引保持一致
-
-3. **内容要求**：
-   - title必须是非空字符串
-   - content_points必须是非空字符串数组，每页至少2-5个要点
-   - slide_type必须是以下之一：title, content, agenda, thankyou
-
-4. **页数要求**：
-   """ + page_count_instruction + """
-
-5. **逻辑要求**：
-   - 第一页通常是title类型
-   - 最后一页通常是thankyou类型
-   - 中间页面主要是content类型
-   - 如果有目录页，通常在第二页
-
-请只返回修复后的JSON，使用```json```代码块包裹，不要包含其他文字说明。确保JSON格式完全正确且符合所有要求。
-
-示例格式：
-```json
-{
-  "title": "修复后的标题",
-  "slides": [
-    {
-      "page_number": 1,
-      "title": "页面标题",
-      "content_points": ["要点1", "要点2"],
-      "slide_type": "title"
-    }
-  ]
-}
-```
-"""
-
-        return prompt
+        return prompts_manager.get_repair_prompt(outline_data, validation_errors, confirmed_requirements)
 
 
 
@@ -2837,53 +2396,11 @@ slide_type可选值：
 
     def _load_prompts_md_system_prompt(self) -> str:
         """Load system prompt from prompts.md file"""
-        try:
-            import os
-            prompts_path = os.path.join(os.getcwd(), "prompts.md")
-            if os.path.exists(prompts_path):
-                with open(prompts_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    # Extract the main system prompt content
-                    return content
-            else:
-                logger.warning("prompts.md file not found, using default system prompt")
-                return self._get_default_ppt_system_prompt()
-        except Exception as e:
-            logger.error(f"Error loading prompts.md: {e}")
-            return self._get_default_ppt_system_prompt()
+        return prompts_manager.load_prompts_md_system_prompt()
 
     def _load_keynote_style_prompt(self) -> str:
         """Load keynote style prompt from keynote_style_prompt.md file"""
-        try:
-            import os
-            keynote_path = os.path.join(os.getcwd(), "keynote_style_prompt.md")
-            if os.path.exists(keynote_path):
-                with open(keynote_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    return content
-            else:
-                logger.warning("keynote_style_prompt.md file not found, using default keynote prompt")
-                return self._get_default_keynote_prompt()
-        except Exception as e:
-            logger.error(f"Error loading keynote_style_prompt.md: {e}")
-            return self._get_default_keynote_prompt()
-
-    def _get_default_keynote_prompt(self) -> str:
-        """Get default keynote style prompt"""
-        return """
-        请生成Apple风格的发布会PPT页面，具有以下特点：
-        1. 黑色背景，简洁现代的设计
-        2. 卡片式布局，突出重点信息
-        3. 使用科技蓝或品牌色作为高亮色
-        4. 大字号标题，清晰的视觉层级
-        5. 响应式设计，支持多设备显示
-        6. 使用Font Awesome图标和Chart.js图表
-        7. 平滑的动画效果
-
-        🌟 **特殊页面设计要求** 🌟：
-        - **首页（title类型）**：必须设计得非常亮眼！使用Apple风格的渐变背景、动画效果、特殊装饰元素、超大字体标题、光效等，营造强烈的视觉冲击力
-        - **结尾页（thankyou/conclusion类型）**：必须设计得令人印象深刻！使用Apple风格的特殊背景效果、发光文字、动态装饰、庆祝元素等，留下深刻的最后印象
-        """
+        return prompts_manager.get_keynote_style_prompt()
 
     def _get_style_prompt(self, confirmed_requirements: Dict[str, Any]) -> str:
         """Get style prompt based on confirmed requirements"""
@@ -2897,13 +2414,7 @@ slide_type可选值：
         elif ppt_style == 'custom':
             custom_prompt = confirmed_requirements.get('custom_style_prompt', '')
             if custom_prompt:
-                return f"""
-                请根据以下自定义风格要求生成PPT页面：
-
-                {custom_prompt}
-
-                请确保生成的HTML页面符合上述风格要求，同时保持良好的可读性和用户体验。
-                """
+                return prompts_manager.get_custom_style_prompt(custom_prompt)
             else:
                 return self._load_prompts_md_system_prompt()
         else:
@@ -2912,20 +2423,7 @@ slide_type可选值：
 
     def _get_default_ppt_system_prompt(self) -> str:
         """Get default PPT generation system prompt"""
-        return """
-你是一个专业的PPT设计师和HTML开发专家。
-
-核心职责：
-- 根据幻灯片内容生成高质量的HTML页面
-- 确保设计风格的一致性和专业性
-- 优化视觉表现和用户体验
-
-设计原则：
-- 内容驱动设计：让设计服务于内容表达
-- 视觉层次清晰：合理运用字体、颜色、间距建立信息层级
-- 用户体验优先：确保信息传达效率和阅读舒适度
-- 创意与一致性平衡：在保持风格一致性的前提下展现创意
-"""
+        return prompts_manager.get_default_ppt_system_prompt()
 
     async def _execute_outline_generation(self, project_id: str, confirmed_requirements: Dict[str, Any], system_prompt: str) -> str:
         """Execute outline generation as a complete task"""
@@ -2957,43 +2455,16 @@ slide_type可选值：
             custom_style = confirmed_requirements.get('custom_style_prompt', '无')
             description = confirmed_requirements.get('description', '无')
 
-            context = """
-项目信息：
-- 主题：""" + topic + """
-- 目标受众：""" + target_audience + """
-""" + page_count_instruction + """
-- PPT风格：""" + ppt_style + """
-- 自定义风格说明：""" + custom_style + """
-- 其他说明：""" + description + """
-
-任务：生成完整的PPT大纲
-
-请生成一个详细的PPT大纲，包括：
-1. PPT标题
-2. 各页面标题和主要内容要点
-3. 逻辑结构和流程
-4. 每页的内容重点
-5. 根据页数要求合理安排内容分布
-
-请以JSON格式返回大纲，使用```json```代码块包裹，格式如下：
-
-```json
-{
-    "title": "PPT标题",
-    "total_pages": 实际页数,
-    "page_count_mode": \"""" + page_count_mode + """\",
-    "slides": [
-        {
-            "page_number": 1,
-            "title": "页面标题",
-            "content_points": ["要点1", "要点2", "要点3"],
-            "slide_type": "title|content|conclusion",
-            "description": "页面内容描述"
-        }
-    ]
-}
-```
-"""
+            # 使用新的提示词模块
+            context = prompts_manager.get_outline_generation_context(
+                topic=topic,
+                target_audience=target_audience,
+                page_count_instruction=page_count_instruction,
+                ppt_style=ppt_style,
+                custom_style=custom_style,
+                description=description,
+                page_count_mode=page_count_mode
+            )
 
             response = await self.ai_provider.text_completion(
                 prompt=context,
@@ -3777,20 +3248,12 @@ slide_type可选值：
 
     async def _execute_general_subtask(self, project_id: str, stage, subtask: str, confirmed_requirements: Dict[str, Any], system_prompt: str) -> str:
         """Execute general subtask"""
-        context = f"""
-项目信息：
-- 主题：{confirmed_requirements['topic']}
-- 类型：{confirmed_requirements['type']}
-- 重点展示内容：{confirmed_requirements['focus_content']}
-- 技术亮点：{confirmed_requirements['tech_highlights']}
-- 目标受众：{confirmed_requirements['target_audience']}
-- 其他说明：{confirmed_requirements.get('description', '无')}
-
-当前阶段：{stage.name}
-当前子任务：{subtask}
-
-请根据以上信息执行当前子任务。
-"""
+        # 使用新的提示词模块
+        context = prompts_manager.get_general_subtask_prompt(
+            confirmed_requirements=confirmed_requirements,
+            stage_name=stage.name,
+            subtask=subtask
+        )
 
         response = await self.ai_provider.text_completion(
             prompt=context,
@@ -3837,103 +3300,11 @@ slide_type可选值：
             # Build context information for better coherence
             context_info = self._build_slide_context(page_number, total_pages)
 
-            # Create detailed context based on first step information and HTML style prompts
-            context = f"""
-根据项目信息，为第{page_number}页生成完整的HTML代码。
-
-项目信息：
-- 主题：{confirmed_requirements.get('topic', '')}
-- 目标受众：{confirmed_requirements.get('target_audience', '')}
-- 其他说明：{confirmed_requirements.get('description', '无')}
-
-当前页面信息：
-{slide_data}
-
-**严格内容约束（重要）**：
-1. **严格基于提供内容**：只能使用上述提供的标题和内容要点，不得添加、修改或编造任何内容
-2. **内容完整性**：必须包含所有提供的内容要点，不得遗漏任何一个
-3. **展示方式**：
-   - 根据内容特点选择最合适的展示方式
-   - 可以创新性地组合多种视觉元素
-   - 支持Chart.js、ECharts、D3.js图表、进度条、时间线、统计卡片、对比表格等任何您认为合适的组件
-   - **布局多样性**：通过颜色、字体、间距、图标等元素创造视觉变化，而非依赖图表
-4. **禁止编造**：严禁添加任何未在内容要点中明确提到的信息、数据或描述
-5. **布局优化**：
-   - 当内容要点少于3个时，使用居中布局，增大字体和间距
-   - 当内容要点为1个时，确保该内容在页面正中央显示
-   - 使用flexbox布局实现完美居中（justify-content: center, align-items: center）
-   - 适当增加padding确保内容不会过于紧凑
-
-{context_info}
-
-**设计平衡要求（一致性与创新并重）**：
-1. 使用16:9的响应式PPT尺寸，适配不同屏幕大小
-2. 页面右下角显示页码：{page_number}/{total_pages}
-3. **必须保持一致的核心元素**：
-   - 遵循提供的设计风格模板中的核心约束
-   - 保持主色调和字体系统的统一
-   - 维持整体视觉品牌的连贯性
-4. **鼓励创新的设计空间**：
-   - 根据内容特点创新布局结构
-   - 灵活运用视觉元素增强表达效果
-   - 适度融入当前设计趋势
-   - 优化信息层次和用户体验
-
-**内容连贯性要求**：
-1. 内容应与前后页面逻辑连贯
-2. 避免重复前面页面的内容
-3. 为后续页面做好铺垫
-4. 保持整体叙述的流畅性
-
-**技术规范**：
-- 生成完整的HTML页面（包含<!DOCTYPE html>、head、body，不包含style标签）
-- 使用Tailwind CSS或内联CSS，确保美观的设计
-- 使用16:9响应式设计，适配不同屏幕尺寸
-- 使用CSS的aspect-ratio属性保持16:9比例
-- 使用clamp()函数实现响应式字体大小
-- 使用百分比和vw/vh单位实现响应式布局
-- 内容布局清晰，重点突出
-- 确保文字清晰可读，颜色搭配协调
-- 根据页面类型调整布局：
-  - title页面：居中大标题设计
-  - content页面：标题+内容区域布局
-  - conclusion页面：总结性布局
-
-**富文本支持**：
-- 支持数学公式（使用MathJax）、代码高亮（使用Prism.js）、图表（使用Chart.js）等富文本元素
-- 根据内容需要自动添加相应的库和样式
-
-**严格的页面尺寸和高度控制**：
-- **页面尺寸**：html {{ height: 100%; display: flex; align-items: center; justify-content: center; }} body {{ width: 1280px; height: 720px; position: relative; overflow: hidden; }}
-- **内容高度分配**：
-  * 标题和页码与参考模板保持一致(包括字体、大小、位置和颜色)
-  * 主内容区域：580-620px（充分利用可用空间，根据内容动态调整）
-- **空间充分利用原则**：
-  * **垂直空间最大化**：确保内容区域占据页面的85-90%高度
-  * **内容自适应扩展**：根据内容数量和类型，动态调整各区域高度
-  * **避免大量留白**：合理分配空间，避免底部出现过多空余区域
-- **内容点数量自适应布局**：
-  * 1-2个内容点：大字体(1.8-2.2rem)，充分利用垂直空间，居中显示，增加行间距
-  * 3-4个内容点：中等字体(1.4-1.8rem)，适中间距，合理分布
-  * 5-6个内容点：标准字体(1.2-1.5rem)，紧凑间距，网格布局
-  * 7个以上：小字体(1.0-1.3rem)，最紧凑布局或分栏显示，充分利用空间
-- **图表高度优化**：图表容器高度根据可用空间动态调整（200-350px），确保图表清晰可见
-- **溢出处理**：绝对禁止滚动条，内容过多时优先使用分栏、网格布局或适当压缩字体
-
-**核心设计基因（必须保持）**：
-{style_genes}
-
-**统一创意设计指导**：
-{unified_design_guide}
-
-**重要输出格式要求：**
-- 必须使用markdown代码块格式返回HTML代码
-- 格式：```html\n[HTML代码]\n```
-- HTML代码必须以<!DOCTYPE html>开始，以</html>结束
-- 不要在代码块前后添加任何解释文字
-- 确保代码块标记正确且完整
-- 严格遵循上述风格要求生成HTML页面
-"""
+            # 使用新的提示词模块生成上下文
+            context = prompts_manager.get_single_slide_html_prompt(
+                slide_data, confirmed_requirements, page_number, total_pages,
+                context_info, style_genes, unified_design_guide
+            )
 
             # Try to generate HTML with retry mechanism for incomplete responses
             html_content = await self._generate_html_with_retry(
@@ -4010,159 +3381,36 @@ slide_type可选值：
         project_type = confirmed_requirements.get('type', '')
         project_audience = confirmed_requirements.get('target_audience', '')
         project_style = confirmed_requirements.get('ppt_style', 'general')
-        context = f"""
-你是一位富有创意的设计师，需要为第{page_number}页创建一个既保持风格一致性又充满创意的PPT页面。
-
-**严格内容约束**：
-- 页面标题：{slide_title}
-- 页面类型：{slide_type}
-- 总页数：{total_pages}
-
-**完整页面数据参考**：
-{slide_data}
-
-**参考模板（标题和页码完全保持原样）**：
-```html
-{template_html}
-```
-
-{context_info}
-
-**重要约束**：
-1. **严格基于提供的内容**：只能使用上述提供的slide_data中的内容，不得添加、修改或编造任何内容
-2. **内容完整性**：必须包含所有提供的内容要点，不得遗漏
-3. **页面完整性**: 必须确保页面中的文本和图表都完全可见，不能有任何内容被裁剪或隐藏
-
-**严格的页面尺寸和高度控制**：
-- **页面尺寸**：html {{ height: 100%; display: flex; align-items: center; justify-content: center; }} body {{ width: 1280px; height: 720px; position: relative; overflow: hidden; }}
-- **内容高度分配**：
-  * 标题和页码与参考模板保持一致(包括字体、大小、位置和颜色)
-  * 主内容区域：580-620px（充分利用可用空间，根据内容动态调整）
-- **空间充分利用原则**：
-  * **垂直空间最大化**：确保内容区域占据页面的85-90%高度
-  * **内容自适应扩展**：根据内容数量和类型，动态调整各区域高度
-  * **避免大量留白**：合理分配空间，避免底部出现过多空余区域
-- **内容点数量自适应布局**：
-  * 1-2个内容点：大字体(1.8-2.2rem)，充分利用垂直空间，居中显示，增加行间距
-  * 3-4个内容点：中等字体(1.4-1.8rem)，适中间距，合理分布
-  * 5-6个内容点：标准字体(1.2-1.5rem)，紧凑间距，网格布局
-  * 7个以上：小字体(1.0-1.3rem)，最紧凑布局或分栏显示，充分利用空间
-- **图表高度优化**：图表容器高度根据可用空间动态调整，确保图表清晰可见，不溢出页面和被遮挡
-- **溢出处理**：绝对禁止滚动条，内容过多时优先使用分栏、网格布局或适当压缩字体
-
-**展示方式**：
-- 根据内容特点选择最合适的展示方式
-- 可以创新性地组合多种视觉元素
-- 支持Chart.js、ECharts、D3.js图表、进度条、时间线、统计卡片、对比表格等任何您认为合适的组件
-- **布局多样性**：使用网格布局、卡片组合、图标配文字、图片配文字等多种方式增加视觉变化
-- **空间充分利用策略**：
-  * 使用flex布局的justify-content: space-between或space-around确保内容均匀分布
-  * 对于少量内容，增加元素尺寸和间距，充分利用垂直空间
-  * 对于大量内容，使用多列布局或网格系统，避免内容堆积在上半部分
-  * 合理使用padding和margin，确保内容区域占满可用空间
-  * 图表和视觉元素适当放大，提升视觉效果和空间利用率
-
-**核心设计基因（必须保持）**：
-{style_genes}
-
-**统一创意设计指导**：
-{unified_design_guide}
-
-**项目背景**：
-- 主题：{project_topic}
-- 类型：{project_type}
-- 目标受众：{project_audience}
-- PPT风格：{project_style}
-
-**设计哲学**：
-1. **一致性原则** - 严格遵循核心设计基因，确保品牌识别度
-2. **创新性原则** - 在一致性框架内大胆创新，避免千篇一律
-3. **内容适配原则** - 让设计服务于内容，而非内容迁就设计
-4. **用户体验原则** - 优化信息传达效率和视觉舒适度
-5. **空间最大化原则** - 充分利用页面的每一寸空间，避免大量留白浪费
-   * 内容应该垂直分布均匀，占满可用高度
-   * 使用合适的字体大小和间距，确保内容填充整个内容区域
-   * 底部不应该有超过50px的空余空间
-
-
-
-**创意要求**：
-- 在保持核心设计基因的前提下，创造独特的布局结构
-- 根据内容特点选择最佳的信息展示方式
-- 使用创新的视觉元素增强表达效果
-- 确保每一页都有独特的视觉亮点
-- **空间利用创意要求**：
-  * 设计时必须考虑内容如何填满整个可用空间
-  * 使用flex布局的flex-grow属性让内容区域自动扩展
-  * 对于内容较少的页面，通过增大字体、图标、间距等方式充分利用空间
-  * 避免所有内容都集中在页面上半部分，要有意识地分布到整个页面
-  * 底部区域也要合理利用，可以放置装饰元素或次要信息
-
-**富文本支持**：
-- 支持数学公式（使用MathJax）、代码高亮（使用Prism.js）、图表（使用Chart.js）等富文本元素
-- 根据内容需要自动添加相应的库和样式
-
-**技术规范**：
-- 生成完整的HTML页面（包含<!DOCTYPE html>、head、body）
-- 使用Tailwind CSS或内联CSS，确保美观的设计
-- 页面尺寸严格控制：html {{ height: 100%; display: flex; align-items: center; justify-content: center; }} body {{ width: 1280px; height: 720px; position: relative; overflow: hidden; }}
-- 支持使用Chart.js和Font Awesome库
-- 页码显示为：{page_number}/{total_pages}
-- **空间利用优化**：
-  * 主内容区域必须充分利用可用高度（580-620px）
-  * 避免内容区域底部出现大量空白
-  * 根据内容数量动态调整字体大小和间距
-  * 使用flex布局确保内容垂直分布均匀
-- 图表容器高度动态设置，确保所有图表内容完全可见且充分利用空间
-- 所有内容元素都必须在1280x720范围内，不能出现滚动条
-
-**重要输出格式要求**：
-- 必须使用markdown代码块格式返回HTML代码
-- 格式：```html\\n[HTML代码]\\n```
-- HTML代码必须以<!DOCTYPE html>开始，以</html>结束
-- 不要在代码块前后添加任何解释文字
-"""
+        # 使用新的提示词模块
+        context = prompts_manager.get_creative_template_context_prompt(
+            slide_data=slide_data,
+            template_html=template_html,
+            slide_title=slide_title,
+            slide_type=slide_type,
+            page_number=page_number,
+            total_pages=total_pages,
+            context_info=context_info,
+            style_genes=style_genes,
+            unified_design_guide=unified_design_guide,
+            project_topic=project_topic,
+            project_type=project_type,
+            project_audience=project_audience,
+            project_style=project_style
+        )
 
         return context
 
     async def _extract_style_genes(self, template_html: str) -> str:
         """使用AI从模板中提取核心设计基因"""
         try:
-            # 限制模板代码长度，避免token过多
-            template_code = template_html
-
-            prompt = f"""
-作为专业的UI/UX设计师，请分析以下HTML模板代码，提取其核心设计基因。
-
-**模板代码：**
-```html
-{template_code}
-```
-
-请从以下维度分析并提取设计基因：
-
-1. **色彩系统**：主色调、辅助色、背景色、文字色等
-2. **字体系统**：字体族、字重、字号层次等
-3. **布局方式**：Flexbox、Grid、定位方式等
-4. **间距系统**：padding、margin的规律和比例
-5. **视觉元素**：圆角、阴影、边框、渐变等
-6. **组件风格**：卡片、按钮、图标的设计特征
-7. **整体风格**：现代简约、商务专业、创意活泼等
-
-要求：
-- 提取最核心、最具识别性的设计特征
-- 每个特征要具体、可操作
-- 避免过于细节的描述，聚焦关键要素
-- 以简洁的要点形式返回，每个要点以"- "开头
-
-请返回核心设计基因分析：
-"""
+            # 使用新的提示词模块
+            prompt = prompts_manager.get_style_genes_extraction_prompt(template_html)
 
             # 调用AI分析
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
                 max_tokens=ai_config.max_tokens,
-                temperature=0.3  
+                temperature=0.3
             )
 
             ai_genes = response.content.strip()
@@ -4293,45 +3541,13 @@ slide_type可选值：
     async def _generate_unified_design_guide(self, slide_data: Dict[str, Any], page_number: int, total_pages: int) -> str:
         """生成统一的创意设计指导（合并创意变化指导和内容驱动的设计建议）"""
         try:
-            # 构建AI提示词
-            prompt = f"""
-作为资深的PPT设计师，请为以下幻灯片生成全面的创意设计指导，包含创意变化指导和内容驱动的设计建议：
-
-**完整幻灯片数据：**
-{slide_data}
-
-**页面位置：**第{page_number}页（共{total_pages}页）
-
-请从以下角度生成统一的设计指导：
-
-**A. 页面定位与创意策略**：
-1. **页面定位策略**：基于页面在整个演示中的位置（开头/中间/结尾）
-2. **视觉层次设计**：根据内容密度和重要性安排视觉层次
-3. **创新布局建议**：在保持一致性基础上的创新布局方案
-
-**B. 内容驱动的设计建议**：
-4. **视觉组件建议**：根据内容特点推荐最合适的视觉组件（图表、卡片、时间线等）
-5. **布局建议**：基于内容数量和复杂度推荐最佳布局方式
-6. **数据可视化建议**：如果内容包含数据，推荐最合适的图表类型
-
-**C. 视觉元素与交互体验**：
-7. **视觉元素运用**：图标、色彩、形状等视觉元素的创意运用
-8. **色彩和风格建议**：根据内容主题推荐合适的色彩搭配和设计风格
-9. **交互体验优化**：提升用户阅读和理解体验的设计建议
-
-要求：
-- 建议要具体可操作，避免空泛描述
-- 考虑内容特点和页面功能，每个建议都要说明选择理由
-- 平衡创新性与一致性，建议要有创新性，避免千篇一律
-- 每个建议以"- "开头，按照上述分类组织
-
-请生成统一的创意设计指导
-"""
+            # 使用新的提示词模块
+            prompt = prompts_manager.get_unified_design_guide_prompt(slide_data, page_number, total_pages)
 
             # 调用AI生成指导
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
-                max_tokens=ai_config.max_tokens,  
+                max_tokens=ai_config.max_tokens,
                 temperature=0.7  # 适中温度平衡创意性和实用性
             )
 
@@ -4412,44 +3628,9 @@ slide_type可选值：
         return "\n".join(guides)
 
 
-
-
-
-
-
     def _build_slide_context(self, page_number: int, total_pages: int) -> str:
         """Build context information for slide generation with style consistency and innovation balance"""
-        context_parts = []
-
-        if page_number == 1 or page_number == total_pages:
-            context_parts.append("**🌟 特殊页面设计要求 🌟**")
-
-            if page_number == 1:
-                context_parts.extend([
-                    "这是首页，在保持和参考模板一直的风格前提下，采用亮眼具有吸引力的设计。要求：",
-                    "- 使用渐变背景或特殊背景效果（如动态图案、光效等）",
-                    "- 标题要有强烈的视觉冲击力：大字体、渐变色彩、文字阴影或发光效果",
-                    "- 添加装饰性动画元素：浮动点、旋转圆圈、闪烁效果等",
-                    "- 使用现代的设计元素：几何图形、线条装饰、光圈效果",
-                    "- 整体色彩要丰富但协调，营造专业而吸引人的第一印象",
-                    "- 可以添加CSS动画让页面更生动",
-                    "- 不要出现图表"
-                ])
-            elif page_number == total_pages:
-                context_parts.extend([
-                    "这是结尾页，在保持和参考模板一直的风格前提下，采用亮眼具有吸引力的设计。要求：",
-                    "- 使用特殊的背景效果：星空、光圈、渐变等营造庆祝感",
-                    "- 标题要有庆祝和总结的感觉：发光效果、渐变文字、特殊字体",
-                    "- 添加动态装饰元素：旋转圆圈、闪烁星星、彩色点缀、弹跳动画",
-                    "- 呼应参考模板的设计元素，形成完整的视觉闭环",
-                    "- 营造感谢和总结的温暖氛围",
-                    "- 使用丰富的色彩和动画效果留下深刻的最后印象",
-                    "- 不要出现图表"
-                ])
-
-            context_parts.append("")
-
-        return "\n".join(context_parts) if context_parts else ""
+        return prompts_manager.get_slide_context_prompt(page_number, total_pages)
 
     def _extract_style_template(self, existing_slides: List[Dict[str, Any]]) -> List[str]:
         """Extract a comprehensive style template from existing slides"""
