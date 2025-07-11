@@ -15,6 +15,7 @@ from .api.landppt_api import router as landppt_router
 from .api.database_api import router as database_router
 from .api.global_master_template_api import router as template_api_router
 from .api.config_api import router as config_router
+from .api.image_api import router as image_router
 
 from .web import router as web_router
 from .auth import auth_router, create_auth_middleware
@@ -93,6 +94,7 @@ app.middleware("http")(auth_middleware)
 # Include routers
 app.include_router(auth_router, prefix="", tags=["Authentication"])
 app.include_router(config_router, prefix="", tags=["Configuration Management"])
+app.include_router(image_router, prefix="", tags=["Image Service"])
 
 app.include_router(openai_router, prefix="/v1", tags=["OpenAI Compatible"])
 app.include_router(landppt_router, prefix="/api", tags=["LandPPT API"])
@@ -104,6 +106,14 @@ app.include_router(web_router, prefix="", tags=["Web Interface"])
 import os
 static_dir = os.path.join(os.path.dirname(__file__), "web", "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Mount temp directory for image cache
+temp_dir = os.path.join(os.getcwd(), "temp")
+if os.path.exists(temp_dir):
+    app.mount("/temp", StaticFiles(directory=temp_dir), name="temp")
+    logger.info(f"Mounted temp directory: {temp_dir}")
+else:
+    logger.warning(f"Temp directory not found: {temp_dir}")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():

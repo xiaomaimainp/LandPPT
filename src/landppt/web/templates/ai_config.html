@@ -22,7 +22,9 @@
         <button class="tab-btn" onclick="switchTab('app-config')" data-tab="app-config">
             🔧 应用配置
         </button>
-
+        <button class="tab-btn" onclick="switchTab('image-service')" data-tab="image-service">
+            🎨 图片服务
+        </button>
     </div>
 </div>
 
@@ -353,39 +355,207 @@
     </div>
 </div>
 
+<!-- 图片服务配置标签页 -->
+<div id="image-service" class="tab-content" style="display: none;">
+    <div class="card">
+        <h3 style="color: #e67e22; margin-bottom: 20px;">🎨 图片服务配置</h3>
 
-
-<div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 15px;">
-    <h3 style="color: #2c3e50; margin-bottom: 20px; text-align: center;">📋 配置说明</h3>
-
-    <div class="grid">
-        <div>
-            <h4 style="color: #3498db; margin-bottom: 10px;">🔑 API 密钥配置</h4>
-            <p style="color: #7f8c8d; line-height: 1.6;">
-                所有配置都会保存到 <code>.env</code> 文件中。请确保妥善保管您的API密钥。
-            </p>
+        <!-- 服务状态显示 -->
+        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #dee2e6;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                <h4 style="color: #495057; margin: 0; font-size: 1.1em;">📊 服务状态</h4>
+                <span id="image-service-status" style="background: #95a5a6; color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 500;">
+                    检查中...
+                </span>
+            </div>
+            <div style="color: #6c757d; font-size: 0.9em; line-height: 1.5;">
+                <strong>可用提供者:</strong> <span id="available-image-providers">检查中...</span>
+                <br>
+                <span style="color: #868e96;">图片服务为PPT生成提供视觉内容支持，包括AI图片生成、网络图片搜索和本地图片管理</span>
+            </div>
         </div>
 
-        <div>
-            <h4 style="color: #27ae60; margin-bottom: 10px;">🏠 本地模型</h4>
-            <p style="color: #7f8c8d; line-height: 1.6;">
-                使用 Ollama 可以在本地运行开源模型，无需 API 密钥，保护数据隐私。
-            </p>
+        <!-- 主要配置区域 -->
+        <div style="display: grid; grid-template-columns: 1fr; gap: 25px;">
+
+            <!-- 基础设置 -->
+            <div style="background: #fff; padding: 25px; border-radius: 12px; border: 1px solid #e9ecef; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="color: #28a745; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                    <span>🎨</span> 图片服务设置
+                </h4>
+
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label style="display: flex; align-items: center; gap: 12px; font-weight: 500; color: #495057;">
+                        <input type="checkbox" name="enable_image_service" onchange="toggleImageServiceOptions()" style="transform: scale(1.2);">
+                        启用图片生成服务
+                    </label>
+                    <small style="color: #6c757d; margin-top: 8px; display: block;">在PPT生成时自动添加相关图片，提升视觉效果</small>
+                </div>
+
+                <div id="image-service-options" style="display: none;">
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <h5 style="color: #495057; margin-bottom: 15px; font-weight: 600;">图片获取方式 (可多选)</h5>
+                        <div style="display: grid; gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onclick="toggleImageSourceConfig()">
+                                <input type="checkbox" name="enable_local_images" value="true" style="transform: scale(1.1);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 500; color: #495057;">📁 本地图床</div>
+                                    <small style="color: #6c757d;">从本地图片库中智能选择合适的图片</small>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onclick="toggleImageSourceConfig()">
+                                <input type="checkbox" name="enable_network_search" value="true" style="transform: scale(1.1);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 500; color: #495057;">🌐 网络搜索</div>
+                                    <small style="color: #6c757d;">通过Pixabay API搜索高质量网络图片</small>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onclick="toggleImageSourceConfig()">
+                                <input type="checkbox" name="enable_ai_generation" value="true" style="transform: scale(1.1);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 500; color: #495057;">🎨 AI生成</div>
+                                    <small style="color: #6c757d;">使用AI模型生成定制化创意图片</small>
+                                </div>
+                            </label>
+                        </div>
+                        <div style="margin-top: 15px; padding: 12px; background: #e7f3ff; border-radius: 6px; border-left: 3px solid #007bff;">
+                            <small style="color: #0056b3; font-weight: 500;">💡 提示：可以同时启用多种方式，AI会根据页面内容智能选择最合适的图片来源</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API密钥配置 -->
+            <div style="background: #fff; padding: 25px; border-radius: 12px; border: 1px solid #e9ecef; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="color: #007bff; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                    <span>🔑</span> API密钥配置
+                </h4>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">DALL-E API Key (OpenAI):</label>
+                        <input type="password" name="openai_api_key_image" placeholder="sk-..." style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">用于DALL-E 3图片生成，与文本生成共用OpenAI密钥</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">SiliconFlow API Key:</label>
+                        <input type="password" name="siliconflow_api_key" placeholder="your-siliconflow-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">用于SiliconFlow Kolors图片生成</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">Pixabay API Key:</label>
+                        <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索免费图片和插图</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 详细配置 -->
+            <div style="background: #fff; padding: 25px; border-radius: 12px; border: 1px solid #e9ecef; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="color: #6f42c1; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                    <span>⚙️</span> 详细配置
+                </h4>
+
+                    <!-- 本地图床配置 -->
+                    <div id="local-images-config" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                        <h5 style="color: #27ae60; margin-bottom: 10px;">📁 本地图床配置</h5>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" name="local_images_smart_selection" checked>
+                                启用智能选择
+                            </label>
+                            <small style="color: #7f8c8d;">AI会根据内容智能匹配本地图片库中的图片</small>
+                        </div>
+                        <div class="form-group">
+                            <label>每页最大本地图片数量:</label>
+                            <input type="number" name="max_local_images_per_slide" value="2" min="1" max="5">
+                            <small style="color: #7f8c8d;">限制每页从本地图床选择的图片数量</small>
+                        </div>
+                    </div>
+
+                    <!-- 网络搜索配置 -->
+                    <div id="network-search-config" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                        <h5 style="color: #3498db; margin-bottom: 10px;">🌐 网络搜索配置</h5>
+                        <div class="form-group">
+                            <label>Pixabay API Key:</label>
+                            <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key"
+                                   style="font-family: monospace; font-size: 0.9em;">
+                            <small style="color: #7f8c8d;">用于搜索免费图片和插图</small>
+                        </div>
+                        <div class="form-group">
+                            <label>每页最大网络图片数量:</label>
+                            <input type="number" name="max_network_images_per_slide" value="2" min="1" max="5">
+                            <small style="color: #7f8c8d;">限制每页从网络搜索的图片数量</small>
+                        </div>
+                    </div>
+
+                    <!-- AI生成配置 -->
+                    <div id="ai-generation-config" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                        <h5 style="color: #9b59b6; margin-bottom: 10px;">🎨 AI生成配置</h5>
+                        <div class="form-group">
+                            <label>默认AI图片生成提供商:</label>
+                            <select name="default_ai_image_provider">
+                                <option value="dalle">DALL-E 3 (OpenAI)</option>
+                                <option value="stable_diffusion">Stable Diffusion</option>
+                                <option value="siliconflow">SiliconFlow (Kolors)</option>
+                            </select>
+                            <small style="color: #7f8c8d;">选择默认的AI图片生成服务</small>
+                        </div>
+                        <div class="form-group">
+                            <label>每页最大AI生成图片数量:</label>
+                            <input type="number" name="max_ai_images_per_slide" value="1" min="1" max="3">
+                            <small style="color: #7f8c8d;">限制每页AI生成的图片数量</small>
+                        </div>
+                        <div class="form-group">
+                            <label>图片生成质量:</label>
+                            <select name="ai_image_quality">
+                                <option value="standard">标准质量</option>
+                                <option value="hd">高清质量</option>
+                            </select>
+                            <small style="color: #7f8c8d;">更高质量的图片需要更多时间和成本</small>
+                        </div>
+                    </div>
+
+                    <!-- 全局图片配置 -->
+                    <div style="margin-top: 20px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <h5 style="color: #856404; margin-bottom: 15px; font-weight: 600;">⚙️ 全局图片配置</h5>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label style="font-weight: 500; color: #495057;">每页最大图片总数:</label>
+                                <input type="number" name="max_total_images_per_slide" value="3" min="1" max="8" style="margin-top: 5px;">
+                                <small style="color: #6c757d; margin-top: 5px; display: block;">限制每页图片的总数量，避免页面过于拥挤</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500; color: #495057;">
+                                    <input type="checkbox" name="enable_smart_image_selection" checked style="transform: scale(1.1);">
+                                    启用智能图片选择
+                                </label>
+                                <small style="color: #6c757d; margin-top: 8px; display: block;">AI会根据页面内容和设计需求智能决定图片数量和来源</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div>
-            <h4 style="color: #f39c12; margin-bottom: 10px;">📄 PPTX导出</h4>
-            <p style="color: #7f8c8d; line-height: 1.6;">
-                配置Apryse License Key以启用专业的PPTX文件导出功能。
-            </p>
-        </div>
-    </div>
 
-    <div style="margin-top: 30px; text-align: center;">
-        <a href="/" class="btn btn-primary" style="margin-right: 10px;">🏠 返回首页</a>
-        <a href="/scenarios" class="btn btn-success">🎯 开始创建 PPT</a>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="text-align: center; margin-top: 35px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e9ecef;">
+            <button onclick="testImageService()" class="btn btn-primary" style="margin-right: 15px; padding: 10px 20px; font-weight: 500;">
+                🧪 测试图片服务
+            </button>
+            <button onclick="saveImageServiceConfig()" class="btn btn-success" style="padding: 10px 20px; font-weight: 500;">
+                💾 保存配置
+            </button>
+        </div>
     </div>
 </div>
+
+
 
 <!-- Test Results Modal -->
 <div id="testModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
@@ -747,6 +917,8 @@ let availableProviders = ['openai', 'anthropic', 'google', 'azure_openai', 'olla
 document.addEventListener('DOMContentLoaded', function() {
     // 加载初始配置
     loadAllConfigs();
+    // 检查图片服务状态
+    checkImageServiceStatus();
 });
 
 // 标签页切换功能
@@ -785,7 +957,8 @@ async function loadTabConfig(tabName) {
         const categoryMap = {
             'ai-providers': 'ai_providers',
             'generation-params': 'generation_params',
-            'app-config': 'app_config'
+            'app-config': 'app_config',
+            'image-service': 'image_service'
         };
 
         const category = categoryMap[tabName];
@@ -819,6 +992,13 @@ function populateTabForm(tabName, config) {
             }
         }
     });
+
+    // 如果是图片服务标签页，触发选项显示更新
+    if (tabName === 'image-service') {
+        setTimeout(() => {
+            toggleImageServiceOptions();
+        }, 100);
+    }
 }
 
 // AI提供者测试功能
@@ -878,6 +1058,9 @@ function populateAllForms() {
 
     // 填充应用配置
     populateAppConfig();
+
+    // 填充图片服务配置
+    populateImageServiceConfig();
 }
 
 function populateProviderForms() {
@@ -956,6 +1139,36 @@ function populateAppConfig() {
             }
         }
     });
+}
+
+function populateImageServiceConfig() {
+    const tab = document.getElementById('image-service');
+    if (!tab) return;
+
+    const inputs = tab.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        const configKey = input.name;
+        if (currentConfig[configKey] !== undefined) {
+            if (input.type === 'checkbox') {
+                input.checked = currentConfig[configKey] === 'true' || currentConfig[configKey] === true;
+            } else if (input.type === 'password') {
+                // 对于密码字段，只更新placeholder，不覆盖value
+                if (!input.value) {
+                    input.placeholder = currentConfig[configKey] ? '••••••••' : input.placeholder;
+                }
+            } else {
+                // 只有当输入框为空时才设置值，避免覆盖模板中已设置的值
+                if (!input.value && currentConfig[configKey]) {
+                    input.value = currentConfig[configKey];
+                }
+            }
+        }
+    });
+
+    // 触发图片服务选项显示更新
+    setTimeout(() => {
+        toggleImageServiceOptions();
+    }, 100);
 }
 
 // 设置默认提供者
@@ -1362,6 +1575,226 @@ document.getElementById('testModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeTestModal();
     }
+});
+
+// 图片服务相关功能
+async function checkImageServiceStatus() {
+    try {
+        const response = await fetch('/api/image/status');
+        if (response.ok) {
+            const result = await response.json();
+            updateImageServiceStatus(result);
+        } else {
+            updateImageServiceStatus({
+                status: 'error',
+                available_providers: [],
+                message: '无法连接到图片服务'
+            });
+        }
+    } catch (error) {
+        updateImageServiceStatus({
+            status: 'error',
+            available_providers: [],
+            message: '检查图片服务状态失败: ' + error.message
+        });
+    }
+}
+
+function updateImageServiceStatus(status) {
+    const statusElement = document.getElementById('image-service-status');
+    const providersElement = document.getElementById('available-image-providers');
+
+    if (statusElement) {
+        if (status.status === 'ok' && status.available_providers.length > 0) {
+            statusElement.textContent = '✅ 正常运行';
+            statusElement.style.background = '#27ae60';
+        } else {
+            statusElement.textContent = '❌ 服务异常';
+            statusElement.style.background = '#e74c3c';
+        }
+    }
+
+    if (providersElement) {
+        if (status.available_providers && status.available_providers.length > 0) {
+            providersElement.textContent = status.available_providers.join(', ') + ` (${status.available_providers.length}个)`;
+        } else {
+            providersElement.textContent = '无可用提供者';
+        }
+    }
+}
+
+async function testImageService() {
+    showLoading('正在测试图片服务...');
+
+    try {
+        const response = await fetch('/api/image/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showImageTestResult(result, true);
+        } else {
+            showImageTestResult(result, false);
+        }
+    } catch (error) {
+        showImageTestResult({error: error.message}, false);
+    }
+}
+
+function showImageTestResult(result, success) {
+    const statusIcon = success ? '✅' : '❌';
+    const statusColor = success ? '#27ae60' : '#e74c3c';
+
+    let content = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 3em; margin-bottom: 10px;">${statusIcon}</div>
+            <h4 style="color: ${statusColor};">${success ? '图片服务测试成功' : '图片服务测试失败'}</h4>
+        </div>
+    `;
+
+    if (success) {
+        content += `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <p><strong>测试结果:</strong></p>
+                <ul style="margin-left: 20px;">
+        `;
+
+        if (result.providers) {
+            Object.entries(result.providers).forEach(([provider, status]) => {
+                const icon = status.available ? '✅' : '❌';
+                content += `<li>${icon} ${provider}: ${status.message}</li>`;
+            });
+        }
+
+        content += `
+                </ul>
+                <p style="margin-top: 15px;"><strong>缓存信息:</strong></p>
+                <ul style="margin-left: 20px;">
+                    <li>缓存目录: ${result.cache_info?.directory || 'temp/images_cache'}</li>
+                    <li>缓存大小: ${result.cache_info?.size || '0 MB'}</li>
+                    <li>文件数量: ${result.cache_info?.file_count || 0}</li>
+                </ul>
+            </div>
+        `;
+    } else {
+        content += `
+            <div style="background: #f8d7da; padding: 20px; border-radius: 8px; border-left: 4px solid #e74c3c;">
+                <p><strong>错误信息:</strong></p>
+                <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.9em;">
+                    ${result.detail || result.error || '未知错误'}
+                </div>
+            </div>
+        `;
+    }
+
+    document.getElementById('testResults').innerHTML = content;
+    document.getElementById('testModal').style.display = 'block';
+}
+
+
+async function saveImageServiceConfig() {
+    const tab = document.getElementById('image-service');
+    if (!tab) return;
+
+    const config = {};
+    const inputs = tab.querySelectorAll('input, select');
+
+    inputs.forEach(input => {
+        if (input.name) {
+            if (input.type === 'checkbox') {
+                config[input.name] = input.checked;
+            } else if (input.value) {
+                config[input.name] = input.value;
+            }
+        }
+    });
+
+    try {
+        const response = await fetch('/api/config/image_service', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ config: config })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                showNotification('图片服务配置保存成功，已实时生效', 'success');
+                // 重新检查图片服务状态
+                checkImageServiceStatus();
+                // 重新加载配置
+                loadAllConfigs();
+            } else {
+                showNotification('图片服务配置保存失败: ' + (result.errors || '未知错误'), 'error');
+            }
+        } else {
+            showNotification('图片服务配置保存失败', 'error');
+        }
+    } catch (error) {
+        showNotification('保存失败: ' + error.message, 'error');
+    }
+}
+
+// 图片服务选项控制函数
+function toggleImageServiceOptions() {
+    const enableCheckbox = document.querySelector('input[name="enable_image_service"]');
+    const optionsDiv = document.getElementById('image-service-options');
+
+    if (enableCheckbox && optionsDiv) {
+        if (enableCheckbox.checked) {
+            optionsDiv.style.display = 'block';
+            // 触发一次配置显示更新
+            toggleImageSourceConfig();
+        } else {
+            optionsDiv.style.display = 'none';
+        }
+    }
+}
+
+function toggleImageSourceConfig() {
+    const localCheckbox = document.querySelector('input[name="enable_local_images"]');
+    const networkCheckbox = document.querySelector('input[name="enable_network_search"]');
+    const aiCheckbox = document.querySelector('input[name="enable_ai_generation"]');
+
+    const localConfig = document.getElementById('local-images-config');
+    const networkConfig = document.getElementById('network-search-config');
+    const aiConfig = document.getElementById('ai-generation-config');
+
+    if (!localConfig || !networkConfig || !aiConfig) return;
+
+    // 根据复选框状态显示/隐藏对应配置
+    if (localCheckbox && localCheckbox.checked) {
+        localConfig.style.display = 'block';
+    } else {
+        localConfig.style.display = 'none';
+    }
+
+    if (networkCheckbox && networkCheckbox.checked) {
+        networkConfig.style.display = 'block';
+    } else {
+        networkConfig.style.display = 'none';
+    }
+
+    if (aiCheckbox && aiCheckbox.checked) {
+        aiConfig.style.display = 'block';
+    } else {
+        aiConfig.style.display = 'none';
+    }
+}
+
+// 页面加载时初始化图片服务选项显示
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟执行以确保DOM完全加载
+    setTimeout(() => {
+        toggleImageServiceOptions();
+    }, 100);
 });
 </script>
 {% endblock %}

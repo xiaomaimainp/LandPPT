@@ -3482,6 +3482,44 @@ async def global_master_templates_page(
         })
 
 
+@router.get("/image-gallery", response_class=HTMLResponse)
+async def image_gallery_page(
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """本地图床管理页面"""
+    try:
+        return templates.TemplateResponse("image_gallery.html", {
+            "request": request,
+            "user": user
+        })
+    except Exception as e:
+        logger.error(f"Error rendering image gallery page: {e}")
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": str(e)
+        })
+
+
+@router.get("/image-generation-test", response_class=HTMLResponse)
+async def image_generation_test_page(
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """AI图片生成测试页面"""
+    try:
+        return templates.TemplateResponse("image_generation_test.html", {
+            "request": request,
+            "user": user
+        })
+    except Exception as e:
+        logger.error(f"Error rendering image generation test page: {e}")
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": str(e)
+        })
+
+
 @router.get("/projects/{project_id}/template-selection", response_class=HTMLResponse)
 async def template_selection_page(
     request: Request,

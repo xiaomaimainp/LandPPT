@@ -129,11 +129,11 @@ class PPTPromptsManager:
 
     def get_single_slide_html_prompt(self, slide_data: Dict[str, Any], confirmed_requirements: Dict[str, Any],
                                    page_number: int, total_pages: int, context_info: str,
-                                   style_genes: str, unified_design_guide: str) -> str:
+                                   style_genes: str, unified_design_guide: str, template_html: str) -> str:
         """获取单页HTML生成提示词"""
         return self.design.get_single_slide_html_prompt(
             slide_data, confirmed_requirements, page_number, total_pages,
-            context_info, style_genes, unified_design_guide
+            context_info, style_genes, unified_design_guide, template_html
         )
 
     def get_slide_context_prompt(self, page_number: int, total_pages: int) -> str:

@@ -71,6 +71,7 @@ class ConfigService:
             # App Configuration
             "host": {"type": "text", "category": "app_config", "default": "0.0.0.0"},
             "port": {"type": "number", "category": "app_config", "default": "8000"},
+            "base_url": {"type": "url", "category": "app_config", "default": "http://localhost:8000"},
             "reload": {"type": "boolean", "category": "app_config", "default": "true"},
             "secret_key": {"type": "password", "category": "app_config", "default": "your-very-secure-secret-key"},
             "access_token_expire_minutes": {"type": "number", "category": "app_config", "default": "30"},
@@ -78,6 +79,46 @@ class ConfigService:
             "upload_dir": {"type": "text", "category": "app_config", "default": "uploads"},
             "cache_ttl": {"type": "number", "category": "app_config", "default": "3600"},
             "database_url": {"type": "text", "category": "app_config", "default": "sqlite:///./landppt.db"},
+
+            # Image Service Configuration
+            "enable_image_service": {"type": "boolean", "category": "image_service", "default": "false"},
+
+            # Multi-source Image Configuration
+            "enable_local_images": {"type": "boolean", "category": "image_service", "default": "true"},
+            "enable_network_search": {"type": "boolean", "category": "image_service", "default": "false"},
+            "enable_ai_generation": {"type": "boolean", "category": "image_service", "default": "false"},
+
+            # Local Images Configuration
+            "local_images_smart_selection": {"type": "boolean", "category": "image_service", "default": "true"},
+            "max_local_images_per_slide": {"type": "number", "category": "image_service", "default": "2"},
+
+            # Network Search Configuration
+            "max_network_images_per_slide": {"type": "number", "category": "image_service", "default": "2"},
+
+            # AI Generation Configuration
+            "default_ai_image_provider": {"type": "select", "category": "image_service", "default": "dalle"},
+            "max_ai_images_per_slide": {"type": "number", "category": "image_service", "default": "1"},
+            "ai_image_quality": {"type": "select", "category": "image_service", "default": "standard"},
+
+            # Global Image Configuration
+            "max_total_images_per_slide": {"type": "number", "category": "image_service", "default": "3"},
+            "enable_smart_image_selection": {"type": "boolean", "category": "image_service", "default": "true"},
+
+            # Image Generation Providers
+            "openai_api_key_image": {"type": "password", "category": "image_service"},
+            "stability_api_key": {"type": "password", "category": "image_service"},
+            "siliconflow_api_key": {"type": "password", "category": "image_service"},
+            "default_image_provider": {"type": "select", "category": "image_service", "default": "dalle"},
+
+            # Image Search Providers
+            "unsplash_access_key": {"type": "password", "category": "image_service"},
+            "pixabay_api_key": {"type": "password", "category": "image_service"},
+            "dalle_image_size": {"type": "select", "category": "image_service", "default": "1792x1024"},
+            "dalle_image_quality": {"type": "select", "category": "image_service", "default": "standard"},
+            "dalle_image_style": {"type": "select", "category": "image_service", "default": "natural"},
+            "siliconflow_image_size": {"type": "select", "category": "image_service", "default": "1024x1024"},
+            "siliconflow_steps": {"type": "number", "category": "image_service", "default": 20},
+            "siliconflow_guidance_scale": {"type": "number", "category": "image_service", "default": 7.5},
         }
         
 
@@ -157,6 +198,12 @@ class ConfigService:
             if app_related_keys:
                 self._reload_app_config()
 
+            # Reload image service configuration if any image-related config was updated
+            image_related_keys = [k for k in config.keys() if k in self.config_schema and
+                                self.config_schema[k]["category"] == "image_service"]
+            if image_related_keys:
+                self._reload_image_config()
+
             logger.info(f"Updated {len(config)} configuration values")
             return True
 
@@ -202,7 +249,19 @@ class ConfigService:
             logger.info("Application configuration reloaded successfully")
         except Exception as e:
             logger.error(f"Failed to reload application configuration: {e}")
-    
+
+    def _reload_image_config(self):
+        """Reload image service configuration"""
+        try:
+            from ..services.image.config.image_config import image_config
+
+            # 重新加载环境变量配置
+            image_config._load_env_config()
+
+            logger.info("Image service configuration reloaded")
+        except Exception as e:
+            logger.error(f"Failed to reload image service configuration: {e}")
+
     def update_config_by_category(self, category: str, config: Dict[str, Any]) -> bool:
         """Update configuration values for a specific category"""
         # Filter config to only include keys from the specified category

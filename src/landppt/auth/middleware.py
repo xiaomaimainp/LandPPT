@@ -34,6 +34,9 @@ class AuthMiddleware:
         # 不需要认证的路径前缀
         self.public_prefixes = [
             "/static/",
+            "/temp/",  # 添加temp目录用于图片缓存访问
+            "/api/image/view/",  # 图床图片访问无需认证
+            "/api/image/thumbnail/",  # 图片缩略图访问无需认证
             "/docs",
             "/redoc",
             "/openapi.json"
@@ -142,7 +145,7 @@ def require_admin(request: Request) -> User:
     return user
 
 
-async def get_current_user_optional(
+def get_current_user_optional(
     request: Request,
     db: Session = Depends(get_db)
 ) -> Optional[User]:
@@ -150,28 +153,28 @@ async def get_current_user_optional(
     session_id = request.cookies.get("session_id")
     if not session_id:
         return None
-    
+
     auth_service = get_auth_service()
     return auth_service.get_user_by_session(db, session_id)
 
 
-async def get_current_user_required(
+def get_current_user_required(
     request: Request,
     db: Session = Depends(get_db)
 ) -> User:
     """Get current user, raise exception if not authenticated"""
-    user = await get_current_user_optional(request, db)
+    user = get_current_user_optional(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
 
 
-async def get_current_admin_user(
+def get_current_admin_user(
     request: Request,
     db: Session = Depends(get_db)
 ) -> User:
     """Get current admin user, raise exception if not admin"""
-    user = await get_current_user_required(request, db)
+    user = get_current_user_required(request, db)
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return user

@@ -28,7 +28,7 @@ async def login_page(
 ):
     """Login page"""
     # Check if user is already logged in
-    user = await get_current_user_optional(request)
+    user = get_current_user_optional(request)
     if user:
         return RedirectResponse(url="/dashboard", status_code=302)
     
@@ -235,7 +235,7 @@ async def api_check_auth(
     db: Session = Depends(get_db)
 ):
     """Check authentication status"""
-    user = await get_current_user_optional(request, db)
+    user = get_current_user_optional(request, db)
     
     return {
         "authenticated": user is not None,

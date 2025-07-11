@@ -25,6 +25,8 @@ from .global_master_template_service import GlobalMasterTemplateService
 from .deep_research_service import DEEPResearchService
 from .research_report_generator import ResearchReportGenerator
 from .prompts import prompts_manager
+from .image.image_service import ImageService
+from .image.adapters.ppt_prompt_adapter import PPTSlideContext
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -83,6 +85,10 @@ class EnhancedPPTService(PPTService):
         self.report_generator = None
         self._initialize_research_services()
 
+        # 初始化图片服务
+        self.image_service = None
+        self._initialize_image_service()
+
     @property
     def ai_provider(self):
         """Dynamically get AI provider to ensure latest config"""
@@ -104,6 +110,38 @@ class EnhancedPPTService(PPTService):
             logger.warning(f"Failed to initialize research services: {e}")
             self.research_service = None
             self.report_generator = None
+
+    def _initialize_image_service(self):
+        """Initialize image service"""
+        try:
+            from .image.config.image_config import get_image_config
+
+            # 获取图片服务配置
+            config_manager = get_image_config()
+            image_config = config_manager.get_config()
+
+            # 更新缓存目录配置
+            if self.cache_dirs:
+                image_config['cache']['base_dir'] = str(self.cache_dirs['ai_responses'] / 'images_cache')
+
+            # 验证配置
+            config_errors = config_manager.validate_config()
+            if config_errors:
+                logger.warning(f"Image service configuration errors: {config_errors}")
+
+            # 检查已配置的提供者
+            configured_providers = config_manager.get_configured_providers()
+            if configured_providers:
+                logger.info(f"Configured image providers: {configured_providers}")
+            else:
+                logger.warning("No image providers configured. Please set API keys in environment variables.")
+
+            self.image_service = ImageService(image_config)
+            logger.info("Image service initialized successfully")
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize image service: {e}")
+            self.image_service = None
 
     def reload_research_config(self):
         """Reload research service configuration"""
@@ -3290,9 +3328,26 @@ class EnhancedPPTService(PPTService):
                     slide_data, selected_template, page_number, total_pages, confirmed_requirements
                 )
 
+
+
+            
+            template_html = selected_template.get('html_template', '') if selected_template else ""  # 获取模板HTML作为风格参考
+
             # 否则使用原有的生成方式，但应用新的设计基因缓存和统一创意指导
             # 获取或提取设计基因（只在第一页提取一次）
-            style_genes = await self._get_or_extract_style_genes(project_id, "", page_number)
+            style_genes = await self._get_or_extract_style_genes(project_id, template_html, page_number)
+
+            # 检查是否启用图片生成服务并处理多图片
+            images_collection = await self._process_slide_image(slide_data, confirmed_requirements, page_number, total_pages, template_html)
+            if images_collection and images_collection.total_count > 0:
+                # 将图片集合信息添加到slide_data中，供后续生成使用
+                slide_data['images_collection'] = images_collection
+                slide_data['images_info'] = images_collection.to_dict()
+                slide_data['images_summary'] = images_collection.get_summary_for_ai()
+                logger.info(f"为第{page_number}页添加{images_collection.total_count}张图片: "
+                          f"本地{images_collection.local_count}张, "
+                          f"网络{images_collection.network_count}张, "
+                          f"AI生成{images_collection.ai_generated_count}张")
 
             # 生成统一的创意设计指导
             unified_design_guide = await self._generate_unified_design_guide(slide_data, page_number, total_pages)
@@ -3303,7 +3358,7 @@ class EnhancedPPTService(PPTService):
             # 使用新的提示词模块生成上下文
             context = prompts_manager.get_single_slide_html_prompt(
                 slide_data, confirmed_requirements, page_number, total_pages,
-                context_info, style_genes, unified_design_guide
+                context_info, style_genes, unified_design_guide, template_html
             )
 
             # Try to generate HTML with retry mechanism for incomplete responses
@@ -3317,6 +3372,30 @@ class EnhancedPPTService(PPTService):
             logger.error(f"Error generating single slide HTML with prompts: {e}")
             # Return a fallback HTML
             return self._generate_fallback_slide_html(slide_data, page_number, total_pages)
+
+    async def _process_slide_image(self, slide_data: Dict[str, Any], confirmed_requirements: Dict[str, Any],
+                                 page_number: int, total_pages: int, template_html: str = ""):
+        """使用图片处理器处理幻灯片多图片"""
+        try:
+            # 初始化图片处理器
+            from .ppt_image_processor import PPTImageProcessor
+            from .models.slide_image_info import SlideImagesCollection
+
+            image_processor = PPTImageProcessor(
+                image_service=self.image_service,
+                ai_provider=self.ai_provider
+            )
+
+            # 处理图片，返回图片集合
+            return await image_processor.process_slide_image(
+                slide_data, confirmed_requirements, page_number, total_pages, template_html
+            )
+
+        except Exception as e:
+            logger.error(f"图片处理器处理失败: {e}")
+            return None
+
+
 
     async def _generate_slide_with_template(self, slide_data: Dict[str, Any], template: Dict[str, Any],
                                           page_number: int, total_pages: int,
@@ -3365,6 +3444,15 @@ class EnhancedPPTService(PPTService):
 
         # 设计基因只在第一页提取一次，后续都使用第一页的
         style_genes = await self._get_or_extract_style_genes(project_id, template_html, page_number)
+
+        # 检查是否启用图片生成服务并处理多图片
+        images_collection = await self._process_slide_image(slide_data, confirmed_requirements, page_number, total_pages, template_html)
+        if images_collection and images_collection.total_count > 0:
+            # 将图片集合信息添加到slide_data中，供后续生成使用
+            slide_data['images_collection'] = images_collection
+            slide_data['images_info'] = images_collection.to_dict()
+            slide_data['images_summary'] = images_collection.get_summary_for_ai()
+            logger.info(f"为模板生成的第{page_number}页添加{images_collection.total_count}张图片")
 
         # 生成统一的创意设计指导（合并创意变化指导和内容驱动的设计建议）
         unified_design_guide = await self._generate_unified_design_guide(slide_data, page_number, total_pages)
@@ -5102,7 +5190,7 @@ class EnhancedPPTService(PPTService):
         """Generate enhanced content for each slide"""
         enhanced_slides = []
 
-        for slide_data in outline.slides:
+        for i, slide_data in enumerate(outline.slides):
             try:
                 # Generate detailed content using AI
                 content = await self.generate_slide_content(
@@ -5112,14 +5200,21 @@ class EnhancedPPTService(PPTService):
                     request.language
                 )
 
-                # Create enhanced slide content
+                # Create enhanced slide content with improved image suggestions
                 slide_content = SlideContent(
                     type=self._normalize_slide_type(slide_data.get("type", "content")),
                     title=slide_data["title"],
                     subtitle=slide_data.get("subtitle", ""),
                     content=content,
                     bullet_points=self._extract_bullet_points(content),
-                    image_suggestions=await self._suggest_images(slide_data["title"], request.scenario),
+                    image_suggestions=await self._suggest_images(
+                        slide_data["title"],
+                        request.scenario,
+                        content,
+                        request.topic,
+                        i + 1,
+                        len(outline.slides)
+                    ),
                     layout="default"
                 )
 
@@ -5230,21 +5325,124 @@ class EnhancedPPTService(PPTService):
 
         return bullet_points[:5]  # Limit to 5 bullet points
 
-    async def _suggest_images(self, slide_title: str, scenario: str) -> List[str]:
+    async def _suggest_images(self, slide_title: str, scenario: str, content: str = "", topic: str = "", page_number: int = 1, total_pages: int = 1) -> List[str]:
         """Suggest images for a slide based on title and scenario"""
-        # This would integrate with image search APIs in a real implementation
-        # For now, return scenario-based suggestions
-        image_suggestions = {
-            "general": ["business-meeting.jpg", "professional-chart.jpg", "office-space.jpg"],
-            "tourism": ["landscape.jpg", "travel-destination.jpg", "cultural-site.jpg"],
-            "education": ["classroom.jpg", "learning-materials.jpg", "students.jpg"],
-            "analysis": ["data-visualization.jpg", "analytics-dashboard.jpg", "research.jpg"],
-            "history": ["historical-artifact.jpg", "ancient-building.jpg", "timeline.jpg"],
-            "technology": ["innovation.jpg", "digital-technology.jpg", "futuristic.jpg"],
-            "business": ["corporate-building.jpg", "business-strategy.jpg", "team-meeting.jpg"]
-        }
+        try:
+            # 如果图片服务可用，使用智能图片推荐
+            if self.image_service:
+                # 创建幻灯片上下文
+                slide_context = PPTSlideContext(
+                    title=slide_title,
+                    content=content,
+                    scenario=scenario,
+                    topic=topic,
+                    page_number=page_number,
+                    total_pages=total_pages,
+                    language="zh"
+                )
 
-        return image_suggestions.get(scenario, image_suggestions["general"])
+                # 获取图片建议
+                suggested_images = await self.image_service.suggest_images_for_ppt_slide(
+                    slide_context, max_suggestions=5
+                )
+
+                # 如果找到了图片，返回图片路径
+                if suggested_images:
+                    return [img.local_path for img in suggested_images if img.local_path]
+
+            # 回退到基础建议
+            image_suggestions = {
+                "general": ["business-meeting.jpg", "professional-chart.jpg", "office-space.jpg"],
+                "tourism": ["landscape.jpg", "travel-destination.jpg", "cultural-site.jpg"],
+                "education": ["classroom.jpg", "learning-materials.jpg", "students.jpg"],
+                "analysis": ["data-visualization.jpg", "analytics-dashboard.jpg", "research.jpg"],
+                "history": ["historical-artifact.jpg", "ancient-building.jpg", "timeline.jpg"],
+                "technology": ["innovation.jpg", "digital-technology.jpg", "futuristic.jpg"],
+                "business": ["corporate-building.jpg", "business-strategy.jpg", "team-meeting.jpg"]
+            }
+
+            return image_suggestions.get(scenario, image_suggestions["general"])
+
+        except Exception as e:
+            logger.error(f"Failed to suggest images: {e}")
+            # 返回基础建议作为回退
+            return ["professional-slide.jpg", "business-background.jpg", "presentation-template.jpg"]
+
+    async def generate_slide_image(self,
+                                 slide_title: str,
+                                 slide_content: str,
+                                 scenario: str,
+                                 topic: str,
+                                 page_number: int = 1,
+                                 total_pages: int = 1,
+                                 provider: str = "dalle") -> Optional[str]:
+        """为PPT幻灯片生成AI图片"""
+        try:
+            if not self.image_service:
+                logger.warning("Image service not available")
+                return None
+
+            # 创建幻灯片上下文
+            slide_context = PPTSlideContext(
+                title=slide_title,
+                content=slide_content,
+                scenario=scenario,
+                topic=topic,
+                page_number=page_number,
+                total_pages=total_pages,
+                language="zh"
+            )
+
+            # 选择图片提供者
+            from .image.models import ImageProvider
+            image_provider = ImageProvider.DALLE if provider.lower() == "dalle" else ImageProvider.STABLE_DIFFUSION
+
+            # 生成图片
+            result = await self.image_service.generate_ppt_slide_image(
+                slide_context, image_provider
+            )
+
+            if result.success and result.image_info:
+                logger.info(f"Generated AI image for slide '{slide_title}': {result.image_info.local_path}")
+                return result.image_info.local_path
+            else:
+                logger.warning(f"Failed to generate AI image: {result.message}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error generating slide image: {e}")
+            return None
+
+    async def create_image_prompt_for_slide(self,
+                                          slide_title: str,
+                                          slide_content: str,
+                                          scenario: str,
+                                          topic: str,
+                                          page_number: int = 1,
+                                          total_pages: int = 1) -> str:
+        """为PPT幻灯片创建图片生成提示词"""
+        try:
+            if not self.image_service:
+                return f"Professional PPT slide background for {slide_title}, {scenario} style"
+
+            # 创建幻灯片上下文
+            slide_context = PPTSlideContext(
+                title=slide_title,
+                content=slide_content,
+                scenario=scenario,
+                topic=topic,
+                page_number=page_number,
+                total_pages=total_pages,
+                language="zh"
+            )
+
+            # 生成提示词
+            prompt = await self.image_service.create_ppt_image_prompt(slide_context)
+            return prompt
+
+        except Exception as e:
+            logger.error(f"Error creating image prompt: {e}")
+            return f"Professional PPT slide background for {slide_title}, {scenario} style"
 
     def _generate_basic_html(self, slides: List[SlideContent], theme_config: Dict[str, Any]) -> str:
         """Generate basic HTML as fallback"""
