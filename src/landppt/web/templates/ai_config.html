@@ -479,12 +479,6 @@
                     <div id="network-search-config" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
                         <h5 style="color: #3498db; margin-bottom: 10px;">🌐 网络搜索配置</h5>
                         <div class="form-group">
-                            <label>Pixabay API Key:</label>
-                            <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key"
-                                   style="font-family: monospace; font-size: 0.9em;">
-                            <small style="color: #7f8c8d;">用于搜索免费图片和插图</small>
-                        </div>
-                        <div class="form-group">
                             <label>每页最大网络图片数量:</label>
                             <input type="number" name="max_network_images_per_slide" value="2" min="1" max="5">
                             <small style="color: #7f8c8d;">限制每页从网络搜索的图片数量</small>
@@ -498,7 +492,6 @@
                             <label>默认AI图片生成提供商:</label>
                             <select name="default_ai_image_provider">
                                 <option value="dalle">DALL-E 3 (OpenAI)</option>
-                                <option value="stable_diffusion">Stable Diffusion</option>
                                 <option value="siliconflow">SiliconFlow (Kolors)</option>
                             </select>
                             <small style="color: #7f8c8d;">选择默认的AI图片生成服务</small>

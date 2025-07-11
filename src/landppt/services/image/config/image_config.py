@@ -81,7 +81,9 @@ class ImageServiceConfig:
             
             # 缓存配置 - 简化配置，图片永久有效
             'cache': {
-                'base_dir': 'temp/images_cache'
+                'base_dir': 'temp/images_cache',
+                'max_size_gb': 5.0,  # 默认最大缓存大小5GB
+                'cleanup_interval_hours': 24  # 默认24小时清理一次（虽然图片永久有效，但保留配置项）
             },
             
             # 图片处理配置
@@ -221,17 +223,25 @@ class ImageServiceConfig:
     def validate_config(self) -> Dict[str, List[str]]:
         """验证配置并返回错误信息"""
         errors = {}
-        
+
         # 验证缓存配置
         cache_config = self._config.get('cache', {})
         cache_errors = []
-        
-        if cache_config.get('max_size_gb', 0) <= 0:
+
+        # 检查max_size_gb（如果存在的话）
+        max_size_gb = cache_config.get('max_size_gb')
+        if max_size_gb is not None and max_size_gb <= 0:
             cache_errors.append("max_size_gb must be greater than 0")
-        
-        if cache_config.get('cleanup_interval_hours', 0) <= 0:
+
+        # 检查cleanup_interval_hours（如果存在的话）
+        cleanup_interval = cache_config.get('cleanup_interval_hours')
+        if cleanup_interval is not None and cleanup_interval <= 0:
             cache_errors.append("cleanup_interval_hours must be greater than 0")
-        
+
+        # 检查base_dir是否存在
+        if not cache_config.get('base_dir'):
+            cache_errors.append("base_dir is required")
+
         if cache_errors:
             errors['cache'] = cache_errors
         

@@ -26,7 +26,11 @@ class ImageCacheManager:
         self.config = config
 
         # 缓存配置 - 移除过期和清理设置，图片永久有效
-        self.cache_root = Path(config.get('cache_root', 'temp/images_cache'))
+        self.cache_root = Path(config.get('base_dir', config.get('cache_root', 'temp/images_cache')))
+
+        # 缓存大小和清理配置（虽然图片永久有效，但保留配置项）
+        self.max_size_gb = config.get('max_size_gb', 100.0)
+        self.cleanup_interval_hours = config.get('cleanup_interval_hours', 240000)
 
         # 缓存目录结构
         self.ai_generated_dir = self.cache_root / 'ai_generated'
@@ -226,7 +230,7 @@ class ImageCacheManager:
     async def _save_image_metadata(self, cache_key: str, image_info: ImageInfo):
         """保存图片元数据"""
         metadata_path = self.metadata_dir / f"{cache_key}.json"
-        metadata = image_info.dict()
+        metadata = image_info.model_dump()
         
         def _save():
             with open(metadata_path, 'w', encoding='utf-8') as f:
@@ -275,7 +279,7 @@ class ImageCacheManager:
         
         def _save():
             data = {
-                cache_key: cache_info.dict() 
+                cache_key: cache_info.model_dump()
                 for cache_key, cache_info in self._cache_index.items()
             }
             with open(index_path, 'w', encoding='utf-8') as f:

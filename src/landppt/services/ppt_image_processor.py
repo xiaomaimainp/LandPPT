@@ -485,6 +485,11 @@ class PPTImageProcessor:
             # 获取默认AI图片提供商
             default_provider = image_config.get('default_ai_image_provider', 'dalle')
 
+            # 让AI决定图片尺寸（对于多张图片，使用相同尺寸保持一致性）
+            width, height = await self._ai_decide_image_dimensions(
+                slide_title, slide_content, project_topic, project_scenario, requirement
+            )
+
             # 为每张图片生成不同的提示词
             for i in range(requirement.count):
                 # 让AI生成图片提示词
@@ -510,8 +515,8 @@ class PPTImageProcessor:
                 generation_request = ImageGenerationRequest(
                     prompt=image_prompt,
                     provider=provider,
-                    width=1024,
-                    height=1024,
+                    width=width,
+                    height=height,
                     quality="standard"
                 )
 
@@ -531,8 +536,8 @@ class PPTImageProcessor:
                         generation_prompt=image_prompt,
                         alt_text=f"AI生成图片 {i+1}",
                         title=f"AI生成图片 {i+1}",
-                        width=1024,
-                        height=1024,
+                        width=width,
+                        height=height,
                         format=getattr(result.image_info, 'format', 'png')
                     )
                     images.append(slide_image)
@@ -615,9 +620,12 @@ class PPTImageProcessor:
                 return None
             
             # 构建Pixabay API请求URL
+            # 确保搜索查询不超过100字符限制
+            truncated_query = self._truncate_search_query(search_query, 100)
             # 将空格替换为+号，这是Pixabay API的标准格式
-            encoded_query = search_query.replace(' ', '+')
+            encoded_query = truncated_query.replace(' ', '+')
             pixabay_url = f"https://pixabay.com/api/?key={pixabay_api_key}&q={encoded_query}&image_type=photo&pretty=true&per_page=3"
+            logger.info(f"Pixabay API请求URL (查询长度: {len(encoded_query)}): {pixabay_url}")
 
             # 发送请求
             async with aiohttp.ClientSession() as session:
@@ -656,30 +664,35 @@ class PPTImageProcessor:
             # 获取默认AI图片提供商
             default_provider = image_config.get('default_ai_image_provider', 'dalle')
             
+            # 让AI决定图片尺寸
+            width, height = await self._ai_decide_image_dimensions(
+                slide_title, slide_content, project_topic, project_scenario
+            )
+
             # 让AI生成图片提示词
             image_prompt = await self._ai_generate_image_prompt(
                 slide_title, slide_content, project_topic, project_scenario, page_number, total_pages, template_html
             )
-            
+
             if not image_prompt:
                 logger.warning("无法生成图片提示词")
                 return None
-            
+
             # 创建图片生成请求
             from .image.models import ImageGenerationRequest, ImageProvider
-            
+
             # 解析提供商
             provider = ImageProvider.DALLE
             if default_provider == 'siliconflow':
                 provider = ImageProvider.SILICONFLOW
             elif default_provider == 'stable_diffusion':
                 provider = ImageProvider.STABLE_DIFFUSION
-            
+
             generation_request = ImageGenerationRequest(
                 prompt=image_prompt,
                 provider=provider,
-                width=1024,
-                height=1024,
+                width=width,
+                height=height,
                 quality="standard"
             )
             
@@ -736,10 +749,12 @@ class PPTImageProcessor:
         """搜索多张网络图片"""
         try:
             # 构建Pixabay API请求URL，请求更多图片
+            # 确保搜索查询不超过100字符限制
+            truncated_query = self._truncate_search_query(query, 100)
             # 将空格替换为+号，这是Pixabay API的标准格式
-            encoded_query = query.replace(' ', '+')
+            encoded_query = truncated_query.replace(' ', '+')
             pixabay_url = f"https://pixabay.com/api/?key={api_key}&q={encoded_query}&image_type=photo&pretty=true&per_page={min(count * 3, 20)}"
-            logger.info(f"Pixabay API请求URL: {pixabay_url}")
+            logger.info(f"Pixabay API请求URL (查询长度: {len(encoded_query)}): {pixabay_url}")
 
             # 发送请求
             async with aiohttp.ClientSession() as session:
@@ -1019,6 +1034,22 @@ class PPTImageProcessor:
 
 
 
+    def _truncate_search_query(self, query: str, max_length: int = 100) -> str:
+        """截断搜索查询以符合API限制，保持单词完整性"""
+        if not query or len(query) <= max_length:
+            return query
+
+        # 在最大长度内找到最后一个空格
+        truncated = query[:max_length]
+        last_space = truncated.rfind(' ')
+
+        if last_space > 0:
+            # 在最后一个空格处截断，保持单词完整
+            return truncated[:last_space]
+        else:
+            # 如果没有空格，直接截断
+            return truncated
+
     async def _ai_generate_search_query(self, slide_title: str, slide_content: str,
                                       project_topic: str, project_scenario: str,
                                       requirement: ImageRequirement = None) -> Optional[str]:
@@ -1047,7 +1078,7 @@ class PPTImageProcessor:
 {requirement_info}
 
 要求：
-1. 生成3-5个英文关键词，用空格分隔
+1. 生成3-5个英文关键词，用空格分隔，总长度不超过80个字符
 2. 关键词要准确描述所需图片的内容和用途
 3. 考虑项目场景和图片用途，选择合适的图片风格
 4. 避免过于抽象的词汇，优先选择具体的视觉元素
@@ -1062,12 +1093,90 @@ class PPTImageProcessor:
             )
 
             search_query = response.content.strip()
-            logger.info(f"AI生成搜索关键词: {search_query}")
-            return search_query
+
+            # 截断查询以符合Pixabay API的100字符限制
+            truncated_query = self._truncate_search_query(search_query, 100)
+
+            if len(search_query) > 100:
+                logger.warning(f"搜索关键词过长，已截断: '{search_query}' -> '{truncated_query}'")
+
+            logger.info(f"AI生成搜索关键词: {truncated_query}")
+            return truncated_query
 
         except Exception as e:
             logger.error(f"AI生成搜索关键词失败: {e}")
             return None
+
+    async def _ai_decide_image_dimensions(self, slide_title: str, slide_content: str,
+                                        project_topic: str, project_scenario: str,
+                                        requirement: ImageRequirement = None) -> tuple:
+        """使用AI决定图片的最佳尺寸"""
+        try:
+            if not self.ai_provider:
+                logger.warning("AI提供者未初始化，使用默认尺寸")
+                return (2048, 1152)  # 默认16:9横向
+
+            # 构建需求信息
+            requirement_info = ""
+            if requirement:
+                requirement_info = f"""
+图片需求信息：
+- 用途：{requirement.purpose.value}
+- 描述：{requirement.description}
+- 优先级：{requirement.priority}
+"""
+
+            prompt = f"""作为专业的PPT设计师，请根据以下信息为图片选择最佳的尺寸规格。
+
+项目信息：
+- 主题：{project_topic}
+- 场景：{project_scenario}
+
+幻灯片信息：
+- 标题：{slide_title}
+- 内容：{slide_content}
+
+{requirement_info}
+
+可选尺寸规格：
+1. 2048x1152 (16:9横向) - 适合：横向展示、风景、全屏背景、宽屏演示
+2. 1152x2048 (9:16竖向) - 适合：人物肖像、竖向图表、移动端展示
+3. 2048x2048 (1:1正方形) - 适合：产品展示、图标、对称构图、社交媒体
+4. 1920x1080 (16:9标准) - 适合：标准演示、视频截图、常规横向内容
+5. 1080x1920 (9:16标准) - 适合：手机屏幕、竖向海报、故事模式
+
+请根据内容特点、用途和展示效果选择最合适的尺寸。
+
+要求：
+1. 考虑内容的视觉特点（横向/竖向/方形更适合）
+2. 考虑图片用途（背景/装饰/说明/图标等）
+3. 考虑PPT演示的整体效果
+4. 只回复对应的数字编号（1-5），不要其他内容"""
+
+            response = await self.ai_provider.text_completion(
+                prompt=prompt,
+                temperature=0.3
+            )
+
+            choice = response.content.strip()
+
+            # 解析AI的选择
+            dimensions_map = {
+                "1": (2048, 1152),  # 16:9横向
+                "2": (1152, 2048),  # 9:16竖向
+                "3": (1024, 1024),  # 1:1正方形
+                "4": (1920, 1080),  # 16:9标准
+                "5": (1080, 1920),  # 9:16标准
+            }
+
+            selected_dimensions = dimensions_map.get(choice, (2048, 1152))
+            logger.info(f"AI选择图片尺寸: {selected_dimensions[0]}x{selected_dimensions[1]} (选项{choice})")
+
+            return selected_dimensions
+
+        except Exception as e:
+            logger.error(f"AI决定图片尺寸失败: {e}")
+            return (2048, 1152)  # 默认尺寸
 
     async def _ai_generate_image_prompt(self, slide_title: str, slide_content: str, project_topic: str,
                                       project_scenario: str, page_number: int, total_pages: int,

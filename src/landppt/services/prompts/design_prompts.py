@@ -207,6 +207,23 @@ class DesignPrompts:
                                            unified_design_guide: str, project_topic: str,
                                            project_type: str, project_audience: str, project_style: str) -> str:
         """获取创意模板上下文提示词"""
+
+      # 处理图片信息
+        images_info = ""
+        if 'images_summary' in slide_data:
+            images_info = f"""
+
+**图片资源信息：**
+{slide_data['images_summary']}
+
+**图片使用要求：**
+- 请在HTML中合理使用这些图片资源
+- 图片地址已经是绝对地址，可以直接使用
+- 根据图片用途和内容描述选择合适的位置和样式
+- 确保图片与页面内容和设计风格协调
+- 可以使用CSS对图片进行适当的样式调整（大小、位置、边框等）
+"""
+
         return f"""你是一位富有创意的设计师，需要为第{page_number}页创建一个既保持风格一致性又充满创意的PPT页面。
 
 **严格内容约束**：
@@ -216,6 +233,8 @@ class DesignPrompts:
 
 **完整页面数据参考**：
 {slide_data}
+
+{images_info}
 
 **风格模板（标题和页码完全保持原样）**：
 ```html
@@ -508,6 +527,22 @@ class DesignPrompts:
                                            unified_design_guide: str, project_topic: str,
                                            project_type: str, project_audience: str, project_style: str) -> str:
         """获取创意模板上下文提示词"""
+
+        # 处理图片信息
+        images_info = ""
+        if 'images_summary' in slide_data:
+            images_info = f"""
+
+**图片资源信息：**
+{slide_data['images_summary']}
+
+**图片使用要求：**
+- 请在HTML中合理使用这些图片资源
+- 图片地址已经是绝对地址，可以直接使用
+- 根据图片用途和内容描述选择合适的位置和样式
+- 确保图片与页面内容和设计风格协调
+- 可以使用CSS对图片进行适当的样式调整（大小、位置、边框等）
+"""
         return f"""你是一位富有创意的设计师，需要为第{page_number}页创建一个既保持风格一致性又充满创意的PPT页面。
 
 **严格内容约束**：
@@ -518,8 +553,7 @@ class DesignPrompts:
 **完整页面数据参考**：
 {slide_data}
 
-**图片资源**：
-{f"- 可用图片：{slide_data.get('image_url', '无')}" if slide_data.get('image_url') else "- 无图片资源"}
+{images_info}
 
 **风格模板（标题和页码完全保持原样）**：
 ```html
