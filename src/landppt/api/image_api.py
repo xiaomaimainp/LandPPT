@@ -483,6 +483,47 @@ async def get_image_detail(
         raise HTTPException(status_code=500, detail=f"Failed to get image detail: {str(e)}")
 
 
+@router.get("/api/image/{image_id}/info")
+async def get_image_info(
+    image_id: str,
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """获取图片信息，包括绝对URL"""
+    try:
+        image_service = get_image_service()
+        image_info = await image_service.get_image(image_id)
+
+        if not image_info:
+            raise HTTPException(status_code=404, detail="Image not found")
+
+        # 构建绝对URL
+        absolute_url = f"{request.url.scheme}://{request.url.netloc}/api/image/view/{image_id}"
+
+        return {
+            "success": True,
+            "image_info": {
+                "image_id": image_info.image_id,
+                "title": image_info.title,
+                "filename": image_info.filename,
+                "absolute_url": absolute_url,
+                "file_size": image_info.metadata.file_size,
+                "width": image_info.metadata.width,
+                "height": image_info.metadata.height,
+                "format": image_info.metadata.format.value,
+                "source_type": image_info.source_type.value,
+                "provider": image_info.provider.value,
+                "created_at": image_info.created_at
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get image info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get image info: {str(e)}")
+
+
 @router.get("/api/image/view/{image_id}")
 async def view_image(
     image_id: str

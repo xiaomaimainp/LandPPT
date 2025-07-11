@@ -73,8 +73,9 @@ class AISlideEditRequest(BaseModel):
     slideContent: str
     userRequest: str
     projectInfo: Dict[str, Any]
-    slideOutline: Optional[Dict[str, Any]] = None  
-    chatHistory: Optional[List[Dict[str, str]]] = None  
+    slideOutline: Optional[Dict[str, Any]] = None
+    chatHistory: Optional[List[Dict[str, str]]] = None
+    images: Optional[List[Dict[str, str]]] = None  # 新增：图片信息列表
 
 # Helper function to extract slides from HTML content
 async def _extract_slides_from_html(slides_html: str, existing_slides_data: list) -> list:
@@ -1904,6 +1905,21 @@ async def ai_slide_edit_stream(
 {request.slideOutline}
 """
 
+        # 构建图片信息
+        images_info = ""
+        if request.images and len(request.images) > 0:
+            images_info = f"""
+
+用户上传的图片信息：
+"""
+            for i, image in enumerate(request.images, 1):
+                images_info += f"""
+- 图片{i}：{image.get('name', '未知')}
+  - URL：{image.get('url', '')}
+  - 大小：{image.get('size', '未知')}
+  - 说明：请分析这张图片的内容，理解用户的意图，并根据编辑要求进行相应的处理
+"""
+
         context = f"""
 你是一位专业的PPT设计师和编辑助手。用户想要对当前幻灯片进行编辑修改。
 
@@ -1912,7 +1928,7 @@ async def ai_slide_edit_stream(
 - 标题：{request.slideTitle}
 - 项目主题：{request.projectInfo.get('title', '未知')}
 - 项目场景：{request.projectInfo.get('scenario', '未知')}
-{outline_info}
+{outline_info}{images_info}
 用户的编辑要求：
 {request.userRequest}
 
