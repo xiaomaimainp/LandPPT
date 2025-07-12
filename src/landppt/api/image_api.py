@@ -464,6 +464,9 @@ async def get_image_detail(
             "image": {
                 "image_id": image_info.image_id,
                 "title": image_info.title,
+                "description": image_info.description,
+                "tags": ','.join([tag.name for tag in image_info.tags]) if image_info.tags else '',
+                "category": image_info.source_type.value,
                 "filename": image_info.filename,
                 "file_size": image_info.metadata.file_size,
                 "width": image_info.metadata.width,
@@ -781,3 +784,100 @@ async def upload_image(
     except Exception as e:
         logger.error(f"Image upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
+
+
+class ImageUpdateRequest(BaseModel):
+    """图片信息更新请求"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[str] = None
+    category: Optional[str] = None
+
+
+@router.put("/api/image/{image_id}/update")
+async def update_image_info(
+    image_id: str,
+    request: ImageUpdateRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """更新图片信息"""
+    try:
+        image_service = get_image_service()
+        image_info = await image_service.get_image(image_id)
+
+        if not image_info:
+            raise HTTPException(status_code=404, detail="Image not found")
+
+        # 更新图片信息
+        if request.title is not None:
+            image_info.title = request.title
+
+        if request.description is not None:
+            image_info.description = request.description
+
+        if request.tags is not None:
+            # 清除现有标签
+            image_info.tags = []
+            # 添加新标签
+            if request.tags.strip():
+                tag_names = [tag.strip() for tag in request.tags.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    image_info.add_tag(tag_name)
+
+        if request.category is not None:
+            # 更新分类（通过source_type）
+            from ..services.image.models import ImageSourceType
+            try:
+                image_info.source_type = ImageSourceType(request.category)
+            except ValueError:
+                # 如果分类无效，保持原有分类
+                pass
+
+        # 更新时间戳
+        import time
+        image_info.updated_at = time.time()
+
+        # 保存更新后的图片信息
+        # 通过重新保存元数据来更新信息
+        cache_key = image_service.cache_manager._generate_cache_key(image_info)
+        await image_service.cache_manager._save_image_metadata(cache_key, image_info)
+
+        return {
+            "success": True,
+            "message": "图片信息已更新",
+            "image": {
+                "image_id": image_info.image_id,
+                "title": image_info.title,
+                "description": image_info.description,
+                "tags": ','.join([tag.name for tag in image_info.tags]) if image_info.tags else '',
+                "category": image_info.source_type.value
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update image info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update image info: {str(e)}")
+
+
+@router.post("/api/image/gallery/deduplicate")
+async def deduplicate_gallery(
+    user: User = Depends(get_current_user_required)
+):
+    """去重图库中的重复图片"""
+    try:
+        image_service = get_image_service()
+
+        # 执行去重操作
+        result = await image_service.deduplicate_cache()
+
+        return {
+            "success": True,
+            "message": f"已去重 {result['duplicates_removed']} 张重复图片",
+            "duplicates_removed": result['duplicates_removed']
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to deduplicate gallery: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to deduplicate gallery: {str(e)}")

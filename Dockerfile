@@ -40,6 +40,9 @@ COPY pyproject.toml uv.lock* ./
 RUN uv pip install --system apryse-sdk>=11.5.0 --extra-index-url=https://pypi.apryse.com
 RUN uv pip install --system -r pyproject.toml
 
+# Install Playwright browsers
+RUN python -m playwright install chromium --with-deps
+
 # Production stage
 FROM python:3.11-slim AS production
 
@@ -47,9 +50,7 @@ FROM python:3.11-slim AS production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
-    PYPPETEER_CHROMIUM_REVISION=1263111 \
-    PYPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    PYPPETEER_HOME=/home/landppt/.local/share/pyppeteer \
+    PLAYWRIGHT_BROWSERS_PATH=/home/landppt/.cache/ms-playwright \
     HOME=/home/landppt
 
 # --- MODIFICATION v2 START ---
@@ -72,7 +73,7 @@ RUN apt-get update && \
     # For network requests
     ca-certificates \
     curl \
-    # For pyppeteer (Chromium dependencies)
+    # For Playwright (Chromium dependencies)
     chromium \
     chromium-driver \
     # For onnxruntime

@@ -567,13 +567,13 @@ class EnhancedPPTService(PPTService):
     def _create_outline_prompt(self, request: PPTGenerationRequest, research_context: str = "", page_count_settings: Dict[str, Any] = None) -> str:
         """Create prompt for AI outline generation - Enhanced with professional templates"""
         scenario_descriptions = {
-            "general": "通用商务演示",
+            "general": "通用演示",
             "tourism": "旅游观光介绍",
             "education": "儿童科普教育",
             "analysis": "深入数据分析",
             "history": "历史文化主题",
             "technology": "科技技术展示",
-            "business": "商业方案汇报"
+            "business": "方案汇报"
         }
 
         scenario_desc = scenario_descriptions.get(request.scenario, "通用演示")
@@ -621,11 +621,11 @@ class EnhancedPPTService(PPTService):
 
         # Create style description
         style_descriptions = {
-            "general": "通用商务风格，简洁专业",
+            "general": "通用风格，详细专业",
             "conference": "学术会议风格，严谨正式",
             "custom": custom_style_prompt or "自定义风格"
         }
-        style_desc = style_descriptions.get(ppt_style, "通用商务风格")
+        style_desc = style_descriptions.get(ppt_style, "通用风格")
 
         # Add custom style prompt if provided (regardless of ppt_style)
         if custom_style_prompt and ppt_style != "custom":

@@ -200,8 +200,72 @@
                     <img id="detail-image" style="width: 100%; height: auto; border-radius: 8px;">
                 </div>
                 <div class="image-info">
+                    <!-- 可编辑的图片信息 -->
                     <div class="info-section">
-                        <h4>基本信息</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4>图片信息</h4>
+                            <button id="edit-toggle-btn" onclick="toggleEditMode()" class="btn btn-sm btn-outline">
+                                <i class="fas fa-edit"></i> 编辑
+                            </button>
+                        </div>
+
+                        <!-- 显示模式 -->
+                        <div id="info-display-mode">
+                            <div class="info-item">
+                                <label>标题:</label>
+                                <span id="display-title">-</span>
+                            </div>
+                            <div class="info-item">
+                                <label>描述:</label>
+                                <span id="display-description">-</span>
+                            </div>
+                            <div class="info-item">
+                                <label>标签:</label>
+                                <span id="display-tags">-</span>
+                            </div>
+                            <div class="info-item">
+                                <label>分类:</label>
+                                <span id="display-category">-</span>
+                            </div>
+                        </div>
+
+                        <!-- 编辑模式 -->
+                        <div id="info-edit-mode" style="display: none;">
+                            <div class="edit-item">
+                                <label for="edit-title">标题:</label>
+                                <input type="text" id="edit-title" class="form-input" placeholder="请输入图片标题">
+                            </div>
+                            <div class="edit-item">
+                                <label for="edit-description">描述:</label>
+                                <textarea id="edit-description" class="form-textarea" rows="3" placeholder="请输入图片描述"></textarea>
+                            </div>
+                            <div class="edit-item">
+                                <label for="edit-tags">标签:</label>
+                                <input type="text" id="edit-tags" class="form-input" placeholder="用逗号分隔多个标签">
+                                <small class="form-help">例如: 风景, 自然, 山水</small>
+                            </div>
+                            <div class="edit-item">
+                                <label for="edit-category">分类:</label>
+                                <select id="edit-category" class="form-select">
+                                    <option value="">请选择分类</option>
+                                    <option value="ai_generated">AI生成</option>
+                                    <option value="web_search">网络搜索</option>
+                                    <option value="local_storage">本地上传</option>
+                                </select>
+                            </div>
+                            <div class="edit-actions">
+                                <button onclick="saveImageInfo()" class="btn btn-success btn-sm">
+                                    <i class="fas fa-save"></i> 保存
+                                </button>
+                                <button onclick="cancelEdit()" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-times"></i> 取消
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <h4>文件信息</h4>
                         <div class="info-item">
                             <label>文件名:</label>
                             <span id="detail-filename">-</span>
@@ -231,7 +295,7 @@
                             <span id="detail-access-count">-</span>
                         </div>
                     </div>
-                    
+
                     <div class="info-section">
                         <h4>操作</h4>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -787,10 +851,19 @@ async function showImageDetail(imageId) {
 
         if (data.success) {
             currentImageDetail = data.image;
+            console.log('当前图片详情:', currentImageDetail);
 
             // 填充详情信息
             document.getElementById('image-detail-title').textContent = data.image.title || data.image.filename;
             document.getElementById('detail-image').src = `${window.location.origin}/api/image/view/${imageId}`;
+
+            // 填充可编辑的图片信息
+            document.getElementById('display-title').textContent = data.image.title || '未设置';
+            document.getElementById('display-description').textContent = data.image.description || '未设置';
+            document.getElementById('display-tags').textContent = data.image.tags || '未设置';
+            document.getElementById('display-category').textContent = getCategoryLabel(data.image.category) || '未设置';
+
+            // 填充文件信息
             document.getElementById('detail-filename').textContent = data.image.filename;
             document.getElementById('detail-size').textContent = formatFileSize(data.image.file_size);
             document.getElementById('detail-dimensions').textContent = `${data.image.width} × ${data.image.height}`;
@@ -798,6 +871,9 @@ async function showImageDetail(imageId) {
             document.getElementById('detail-source').textContent = getSourceLabel(data.image.source_type);
             document.getElementById('detail-created').textContent = new Date(data.image.created_at * 1000).toLocaleString();
             document.getElementById('detail-access-count').textContent = data.image.access_count || 0;
+
+            // 重置编辑模式
+            exitEditMode();
 
             // 显示模态框
             document.getElementById('image-detail-modal').style.display = 'flex';
@@ -811,6 +887,9 @@ async function showImageDetail(imageId) {
 }
 
 function closeImageDetailModal() {
+    // 退出编辑模式
+    exitEditMode();
+
     document.getElementById('image-detail-modal').style.display = 'none';
     currentImageDetail = null;
 }
@@ -845,6 +924,136 @@ async function deleteImage() {
 
     await deleteSingleImage(currentImageDetail.image_id);
     closeImageDetailModal();
+}
+
+// 图片信息编辑功能
+function toggleEditMode() {
+    const displayMode = document.getElementById('info-display-mode');
+    const editMode = document.getElementById('info-edit-mode');
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+
+    if (editMode.style.display === 'none') {
+        // 进入编辑模式
+        enterEditMode();
+    } else {
+        // 退出编辑模式
+        exitEditMode();
+    }
+}
+
+function enterEditMode() {
+    if (!currentImageDetail) return;
+
+    const displayMode = document.getElementById('info-display-mode');
+    const editMode = document.getElementById('info-edit-mode');
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+
+    // 填充编辑表单
+    document.getElementById('edit-title').value = currentImageDetail.title || '';
+    document.getElementById('edit-description').value = currentImageDetail.description || '';
+    document.getElementById('edit-tags').value = currentImageDetail.tags || '';
+    document.getElementById('edit-category').value = currentImageDetail.category || '';
+
+    // 切换显示模式
+    displayMode.style.display = 'none';
+    editMode.style.display = 'block';
+    toggleBtn.innerHTML = '<i class="fas fa-eye"></i> 查看';
+}
+
+function exitEditMode() {
+    const displayMode = document.getElementById('info-display-mode');
+    const editMode = document.getElementById('info-edit-mode');
+    const toggleBtn = document.getElementById('edit-toggle-btn');
+
+    displayMode.style.display = 'block';
+    editMode.style.display = 'none';
+    toggleBtn.innerHTML = '<i class="fas fa-edit"></i> 编辑';
+}
+
+function cancelEdit() {
+    exitEditMode();
+}
+
+async function saveImageInfo() {
+    if (!currentImageDetail) return;
+
+    const title = document.getElementById('edit-title').value.trim();
+    const description = document.getElementById('edit-description').value.trim();
+    const tags = document.getElementById('edit-tags').value.trim();
+    const category = document.getElementById('edit-category').value;
+
+    try {
+        const response = await fetch(`/api/image/${currentImageDetail.image_id}/update`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: title,
+                description: description,
+                tags: tags,
+                category: category
+            })
+        });
+
+        console.log('API响应状态:', response.status);
+
+        if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+                const errorResult = await response.json();
+                errorMessage += ': ' + (errorResult.detail || errorResult.message || '未知错误');
+            } catch (e) {
+                errorMessage += ': ' + response.statusText;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const result = await response.json();
+        console.log('API响应数据:', result);
+
+        if (result.success) {
+            // 更新当前图片详情数据
+            currentImageDetail.title = title;
+            currentImageDetail.description = description;
+            currentImageDetail.tags = tags;
+            currentImageDetail.category = category;
+
+            // 更新显示内容
+            document.getElementById('display-title').textContent = title || '未设置';
+            document.getElementById('display-description').textContent = description || '未设置';
+            document.getElementById('display-tags').textContent = tags || '未设置';
+            document.getElementById('display-category').textContent = getCategoryLabel(category) || '未设置';
+            document.getElementById('image-detail-title').textContent = title || currentImageDetail.filename;
+
+            // 退出编辑模式
+            exitEditMode();
+
+            // 刷新图片列表以显示更新后的信息
+            loadImages();
+
+            showSuccess('图片信息已更新');
+        } else {
+            showError('更新失败: ' + (result.message || '未知错误'));
+        }
+    } catch (error) {
+        console.error('Failed to update image info:', error);
+        if (error.message) {
+            showError('更新失败: ' + error.message);
+        } else {
+            showError('更新失败，请重试');
+        }
+    }
+}
+
+// 获取分类标签
+function getCategoryLabel(category) {
+    const categoryLabels = {
+        'ai_generated': 'AI生成',
+        'web_search': '网络搜索',
+        'local_storage': '本地上传'
+    };
+    return categoryLabels[category] || category;
 }
 
 // 键盘快捷键
@@ -1100,6 +1309,95 @@ document.addEventListener('keydown', function(event) {
 .info-item label {
     font-weight: 600;
     color: var(--text-secondary);
+}
+
+/* 编辑表单样式 */
+.edit-item {
+    margin-bottom: 15px;
+}
+
+.edit-item label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: white;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.form-help {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.edit-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-success {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+    border-color: #1e7e34;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    border-color: #545b62;
 }
 
 /* 分页样式 */

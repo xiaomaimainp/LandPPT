@@ -1,6 +1,6 @@
 """
-Pyppeteer-based PDF converter for LandPPT
-Replaces the Node.js Puppeteer implementation with Python Pyppeteer
+Playwright-based PDF converter for LandPPT
+Replaces the Pyppeteer implementation with Python Playwright for better stability and performance
 """
 
 import asyncio
@@ -12,67 +12,75 @@ from typing import List, Optional, Dict, Any, Tuple
 import time
 
 try:
-    from pyppeteer import launch
-    from pyppeteer.browser import Browser
-    from pyppeteer.page import Page
-    PYPPETEER_AVAILABLE = True
+    from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+    PLAYWRIGHT_AVAILABLE = True
 except ImportError:
-    PYPPETEER_AVAILABLE = False
-    # Create dummy types for type hints when pyppeteer is not available
+    PLAYWRIGHT_AVAILABLE = False
+    # Create dummy types for type hints when playwright is not available
     class Browser:
         pass
     class Page:
+        pass
+    class BrowserContext:
         pass
 
 logger = logging.getLogger(__name__)
 
 
-class PyppeteerPDFConverter:
+class PlaywrightPDFConverter:
     """
-    PDF converter using Pyppeteer (Python port of Puppeteer)
+    PDF converter using Playwright
     Optimized for 16:9 PPT slides with complete style preservation
     """
 
     def __init__(self):
         self.browser: Optional[Browser] = None
+        self.context: Optional[BrowserContext] = None
+        self.playwright = None
         self._browser_lock = asyncio.Lock()
 
     def is_available(self) -> bool:
-        """Check if Pyppeteer is available"""
-        return PYPPETEER_AVAILABLE
+        """Check if Playwright is available"""
+        return PLAYWRIGHT_AVAILABLE
 
     @staticmethod
     def install_chromium():
         """手动安装 Chromium 的辅助方法"""
-        if not PYPPETEER_AVAILABLE:
-            raise ImportError("Pyppeteer is not available. Please install: pip install pyppeteer")
+        if not PLAYWRIGHT_AVAILABLE:
+            raise ImportError("Playwright is not available. Please install: pip install playwright")
 
         try:
             logger.info("🔄 开始手动安装 Chromium...")
 
-            # 方法1: 使用 pyppeteer 的下载器
-            try:
-                from pyppeteer.chromium_downloader import download_chromium
-                download_chromium()
-                logger.info("✅ Chromium 安装成功")
-                return True
-            except Exception as e:
-                logger.warning(f"⚠️ 标准下载方法失败: {e}")
-
-            # 方法2: 尝试使用 pyppeteer install 命令
+            # 方法1: 使用 playwright install 命令
             try:
                 import subprocess
                 result = subprocess.run([
-                    'python', '-m', 'pyppeteer', 'install'
+                    'python', '-m', 'playwright', 'install', 'chromium'
                 ], capture_output=True, text=True, timeout=300)
 
                 if result.returncode == 0:
-                    logger.info("✅ Chromium 通过命令行安装成功")
+                    logger.info("✅ Chromium 通过 Playwright 安装成功")
                     return True
                 else:
-                    logger.warning(f"⚠️ 命令行安装失败: {result.stderr}")
+                    logger.warning(f"⚠️ Playwright 安装失败: {result.stderr}")
             except Exception as e:
-                logger.warning(f"⚠️ 命令行安装出错: {e}")
+                logger.warning(f"⚠️ Playwright 安装出错: {e}")
+
+            # 方法2: 尝试安装所有浏览器
+            try:
+                import subprocess
+                result = subprocess.run([
+                    'python', '-m', 'playwright', 'install'
+                ], capture_output=True, text=True, timeout=600)
+
+                if result.returncode == 0:
+                    logger.info("✅ 所有浏览器通过 Playwright 安装成功")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Playwright 全量安装失败: {result.stderr}")
+            except Exception as e:
+                logger.warning(f"⚠️ Playwright 全量安装出错: {e}")
 
             return False
 
@@ -83,67 +91,59 @@ class PyppeteerPDFConverter:
     async def _launch_browser(self) -> Browser:
         """Launch browser with enhanced settings optimized for chart rendering"""
         if not self.is_available():
-            raise ImportError("Pyppeteer is not available. Please install: pip install pyppeteer")
+            raise ImportError("Playwright is not available. Please install: pip install playwright")
 
         # Enhanced launch options with better Windows compatibility
-        launch_options = {
-            'headless': True,
-            'args': [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--run-all-compositor-stages-before-draw',
-                '--disable-checker-imaging',
-                # Additional stability options for Windows
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--disable-ipc-flooding-protection',
-                '--disable-software-rasterizer',
-                '--disable-background-networking',
-                '--disable-default-apps',
-                '--disable-sync',
-                '--disable-translate',
-                '--hide-scrollbars',
-                '--metrics-recording-only',
-                '--mute-audio',
-                '--no-default-browser-check',
-                '--no-pings',
-                '--password-store=basic',
-                '--use-mock-keychain',
-                # Windows specific fixes
-                '--disable-logging',
-                '--disable-gpu-logging',
-                '--disable-crash-reporter',
-                '--disable-in-process-stack-traces',
-                '--disable-breakpad',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-client-side-phishing-detection',
-                '--disable-hang-monitor',
-                '--disable-prompt-on-repost',
-                '--disable-domain-reliability',
-                '--disable-component-update',
-                '--no-service-autorun',
-                '--disable-background-mode'
-            ],
-            # Increase timeout for Windows
-            'timeout': 60000,  # 60 seconds
-            'slowMo': 0,
-            'devtools': False,
-            'autoClose': True,
-            'ignoreHTTPSErrors': True,
-            'handleSIGINT': False,
-            'handleSIGTERM': False,
-            'handleSIGHUP': False
-        }
+        launch_args = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-first-run',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--run-all-compositor-stages-before-draw',
+            '--disable-checker-imaging',
+            # Additional stability options for Windows
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-ipc-flooding-protection',
+            '--disable-software-rasterizer',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--hide-scrollbars',
+            '--metrics-recording-only',
+            '--mute-audio',
+            '--no-default-browser-check',
+            '--no-pings',
+            '--password-store=basic',
+            '--use-mock-keychain',
+            # Windows specific fixes
+            '--disable-logging',
+            '--disable-gpu-logging',
+            '--disable-crash-reporter',
+            '--disable-in-process-stack-traces',
+            '--disable-breakpad',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-client-side-phishing-detection',
+            '--disable-hang-monitor',
+            '--disable-prompt-on-repost',
+            '--disable-domain-reliability',
+            '--disable-component-update',
+            '--no-service-autorun',
+            '--disable-background-mode'
+        ]
 
         try:
+            # Initialize Playwright
+            if self.playwright is None:
+                self.playwright = await async_playwright().start()
+
             # Method 1: Try system Chrome with enhanced error handling
             system_chrome_paths = [
                 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -161,40 +161,37 @@ class PyppeteerPDFConverter:
 
                     # Try different Chrome configurations
                     chrome_configs = [
-                        # Config 1: Standard headless
+                        # Config 1: Standard headless with custom executable
                         {
-                            'executablePath': chrome_path,
+                            'executable_path': chrome_path,
                             'headless': True,
                             'args': [
                                 '--no-sandbox',
                                 '--disable-setuid-sandbox',
                                 '--disable-dev-shm-usage',
                                 '--disable-gpu',
-                                '--headless',
                                 '--disable-extensions',
                                 '--disable-plugins'
-                            ],
-                            'timeout': 30000
+                            ]
                         },
                         # Config 2: Minimal args
                         {
-                            'executablePath': chrome_path,
+                            'executable_path': chrome_path,
                             'headless': True,
-                            'args': ['--no-sandbox', '--disable-setuid-sandbox', '--headless'],
-                            'timeout': 30000
+                            'args': ['--no-sandbox', '--disable-setuid-sandbox']
                         },
                         # Config 3: No custom args
                         {
-                            'executablePath': chrome_path,
+                            'executable_path': chrome_path,
                             'headless': True,
-                            'timeout': 30000
+                            'args': []
                         }
                     ]
 
                     for config_idx, config in enumerate(chrome_configs):
                         try:
                             logger.info(f"🔄 尝试 Chrome 配置 {config_idx + 1}/3")
-                            browser = await launch(config)
+                            browser = await self.playwright.chromium.launch(**config)
                             logger.info(f"✅ Chrome 启动成功 (配置 {config_idx + 1})")
                             return browser
 
@@ -205,7 +202,7 @@ class PyppeteerPDFConverter:
                                 await asyncio.sleep(2)
                             continue
 
-            # Method 2: Skip Chromium download, try portable Chrome
+            # Method 2: Try portable Chrome
             logger.info("🔄 System Chrome failed, trying portable solutions...")
 
             # Try to use any available Chrome-like browser
@@ -219,28 +216,36 @@ class PyppeteerPDFConverter:
                     logger.info(f"🔍 Found portable browser: {browser_exe}")
                     try:
                         portable_config = {
-                            'executablePath': os.path.abspath(browser_exe),
+                            'executable_path': os.path.abspath(browser_exe),
                             'headless': True,
-                            'args': ['--no-sandbox', '--disable-setuid-sandbox', '--headless'],
-                            'timeout': 30000
+                            'args': ['--no-sandbox', '--disable-setuid-sandbox']
                         }
-                        browser = await launch(portable_config)
+                        browser = await self.playwright.chromium.launch(**portable_config)
                         logger.info(f"✅ Portable browser launched: {browser_exe}")
                         return browser
                     except Exception as e:
                         logger.warning(f"❌ Portable browser failed: {e}")
 
-            # Method 3: Final attempt with absolute minimal config
+            # Method 3: Try default Playwright Chromium
+            logger.info("🔄 Trying default Playwright Chromium...")
+            try:
+                browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=launch_args
+                )
+                logger.info("✅ Default Playwright Chromium launched successfully")
+                return browser
+
+            except Exception as default_error:
+                logger.warning(f"❌ Default Chromium launch failed: {default_error}")
+
+            # Method 4: Final attempt with minimal config
             logger.info("🔄 Final attempt with minimal configuration...")
             try:
-                minimal_options = {
-                    'headless': True,
-                    'timeout': 60000,  # Longer timeout
-                    'ignoreHTTPSErrors': True,
-                    'args': ['--no-sandbox']  # Only essential arg
-                }
-
-                browser = await launch(minimal_options)
+                browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=['--no-sandbox']  # Only essential arg
+                )
                 logger.info("✅ Browser launched with minimal configuration")
                 return browser
 
@@ -255,9 +260,9 @@ class PyppeteerPDFConverter:
                 f"无法启动浏览器: {e}\n\n"
                 "解决方案:\n"
                 "1. 确保已安装 Google Chrome 浏览器\n"
-                "2. 运行: pip install --upgrade pyppeteer\n"
-                "3. 手动下载 Chromium: python -c \"from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()\"\n"
-                "4. 或者尝试安装 playwright: pip install playwright && playwright install chromium\n"
+                "2. 运行: pip install --upgrade playwright\n"
+                "3. 手动安装 Chromium: python -m playwright install chromium\n"
+                "4. 或者安装所有浏览器: python -m playwright install\n"
                 "5. 检查防火墙和杀毒软件是否阻止了浏览器启动"
             )
             raise ImportError(error_msg)
@@ -267,6 +272,12 @@ class PyppeteerPDFConverter:
         async with self._browser_lock:
             if self.browser is None:
                 self.browser = await self._launch_browser()
+                # Create a browser context for better isolation
+                self.context = await self.browser.new_context(
+                    viewport={'width': 1280, 'height': 720},
+                    device_scale_factor=2,
+                    ignore_https_errors=True
+                )
             return self.browser
     
     async def _wait_for_charts_and_dynamic_content(self, page: Page, max_wait_time: int = 15000):
@@ -281,7 +292,7 @@ class PyppeteerPDFConverter:
         max_attempts = 30  # 进一步增加尝试次数以确保所有动态内容完全加载
 
         # 首先等待基础DOM和资源加载
-        await page.waitForSelector('body', {'timeout': 5000})
+        await page.wait_for_selector('body', timeout=5000)
 
         # 等待所有图片加载完成
         await page.evaluate('''() => {
@@ -1432,12 +1443,12 @@ class PyppeteerPDFConverter:
             }
         '''
 
-        await page.addStyleTag({'content': pdf_styles})
+        await page.add_style_tag(content=pdf_styles)
 
     async def _inject_javascript_optimizations(self, page: Page):
         """Enhanced JavaScript optimizations for Chart.js, ECharts, and D3.js"""
         # Pre-load optimizations
-        await page.evaluateOnNewDocument('''() => {
+        await page.add_init_script('''() => {
             // Override animation-related functions globally
             window.requestAnimationFrame = function(callback) {
                 return setTimeout(callback, 0);
@@ -1686,25 +1697,20 @@ class PyppeteerPDFConverter:
         try:
             # Get or create shared browser
             browser = await self._get_or_create_browser()
-            page = await browser.newPage()
+            page = await self.context.new_page()
 
             # Set viewport for 16:9 aspect ratio (1280x720)
             viewport_width = options.get('viewportWidth', 1280)
             viewport_height = options.get('viewportHeight', 720)
-            await page.setViewport({
-                'width': viewport_width,
-                'height': viewport_height,
-                'deviceScaleFactor': 2  # High DPI for better quality
-            })
+            await page.set_viewport_size({'width': viewport_width, 'height': viewport_height})
 
             # Navigate to the HTML file
             absolute_html_path = Path(html_file_path).resolve()
             logger.debug(f"📄 Navigating to: file://{absolute_html_path}")
 
-            await page.goto(f"file://{absolute_html_path}", {
-                'waitUntil': 'networkidle0',  # 等待网络空闲，确保所有资源加载完成
-                'timeout': 20000  # 增加超时时间以确保完整加载
-            })
+            await page.goto(f"file://{absolute_html_path}",
+                          wait_until='networkidle',  # 等待网络空闲，确保所有资源加载完成
+                          timeout=20000)  # 增加超时时间以确保完整加载
 
             # 智能等待：根据页面复杂度动态调整等待时间
             page_complexity = await page.evaluate('''() => {
@@ -1796,7 +1802,7 @@ class PyppeteerPDFConverter:
                 'path': pdf_output_path,
                 'width': '338.67mm',  # 1280px at 96dpi = 338.67mm (landscape width)
                 'height': '190.5mm',  # 720px at 96dpi = 190.5mm (landscape height)
-                'printBackground': True,  # Include background colors and images
+                'print_background': True,  # Include background colors and images
                 'landscape': False,  # Set to false since we're manually setting dimensions
                 'margin': {
                     'top': '0mm',
@@ -1804,15 +1810,14 @@ class PyppeteerPDFConverter:
                     'bottom': '0mm',
                     'left': '0mm'
                 },
-                'preferCSSPageSize': False,  # Use our custom dimensions
-                'displayHeaderFooter': False,  # No header/footer
-                'omitBackground': False,  # Include background colors
+                'prefer_css_page_size': False,  # Use our custom dimensions
+                'display_header_footer': False,  # No header/footer
                 'scale': 1  # No scaling
             }
 
             logger.debug(f"📑 Generating PDF with options: {pdf_options['width']} x {pdf_options['height']}")
 
-            await page.pdf(pdf_options)
+            await page.pdf(**pdf_options)
 
             logger.info(f"✅ PDF generated successfully: {pdf_output_path}")
             return True
@@ -1823,7 +1828,7 @@ class PyppeteerPDFConverter:
         finally:
             if page:
                 await page.close()
-                logger.debug("� Page closed.")
+                logger.debug("📄 Page closed.")
 
     async def html_to_pdf_with_browser(self, browser: Browser, html_file_path: str,
                                      pdf_output_path: str, options: Optional[Dict[str, Any]] = None) -> bool:
@@ -1842,23 +1847,20 @@ class PyppeteerPDFConverter:
 
         page = None
         try:
-            page = await browser.newPage()
-
-            # Set viewport for 16:9 aspect ratio (1280x720)
-            viewport_width = options.get('viewportWidth', 1280)
-            viewport_height = options.get('viewportHeight', 720)
-            await page.setViewport({
-                'width': viewport_width,
-                'height': viewport_height,
-                'deviceScaleFactor': 2
-            })
+            # Create a new context for this conversion to ensure isolation
+            context = await browser.new_context(
+                viewport={'width': options.get('viewportWidth', 1280),
+                         'height': options.get('viewportHeight', 720)},
+                device_scale_factor=2,
+                ignore_https_errors=True
+            )
+            page = await context.new_page()
 
             # Navigate to the HTML file with comprehensive loading strategy
             absolute_html_path = Path(html_file_path).resolve()
-            await page.goto(f"file://{absolute_html_path}", {
-                'waitUntil': 'networkidle0',  # 等待网络空闲，确保所有资源加载完成
-                'timeout': 15000  # 适当的超时时间
-            })
+            await page.goto(f"file://{absolute_html_path}",
+                          wait_until='networkidle',  # 等待网络空闲，确保所有资源加载完成
+                          timeout=15000)  # 适当的超时时间
 
             # 批处理中也需要额外等待确保内容完全加载
             await asyncio.sleep(0.8)
@@ -1873,8 +1875,7 @@ class PyppeteerPDFConverter:
             await self._wait_for_charts_and_dynamic_content(page, max_wait_time=12000)
 
             # Enhanced CSS injection for batch processing
-            await page.addStyleTag({
-                'content': '''
+            await page.add_style_tag(content='''
                     /* Comprehensive animation and transition disabling for PDF */
                     *, *::before, *::after {
                         animation-duration: 0s !important;
@@ -1911,8 +1912,7 @@ class PyppeteerPDFConverter:
                             print-color-adjust: exact !important;
                         }
                     }
-                '''
-            })
+                ''')
 
             # Inject JavaScript optimizations for batch processing
             await page.evaluate('''() => {
@@ -1938,7 +1938,7 @@ class PyppeteerPDFConverter:
                 'path': pdf_output_path,
                 'width': '338.67mm',  # 1280px at 96dpi = 338.67mm (landscape width)
                 'height': '190.5mm',  # 720px at 96dpi = 190.5mm (landscape height)
-                'printBackground': True,
+                'print_background': True,
                 'landscape': False,  # Set to false since we're manually setting dimensions
                 'margin': {
                     'top': '0mm',
@@ -1946,13 +1946,12 @@ class PyppeteerPDFConverter:
                     'bottom': '0mm',
                     'left': '0mm'
                 },
-                'preferCSSPageSize': False,  # Use our custom dimensions
-                'displayHeaderFooter': False,
-                'omitBackground': False,
+                'prefer_css_page_size': False,  # Use our custom dimensions
+                'display_header_footer': False,
                 'scale': 1
             }
 
-            await page.pdf(pdf_options)
+            await page.pdf(**pdf_options)
             logger.info(f"✅ PDF generated: {pdf_output_path}")
             return True
 
@@ -1962,6 +1961,8 @@ class PyppeteerPDFConverter:
         finally:
             if page:
                 await page.close()
+            if 'context' in locals():
+                await context.close()
 
     async def convert_multiple_html_to_pdf(self, html_files: List[str], output_dir: str,
                                          merged_pdf_path: Optional[str] = None) -> List[str]:
@@ -2097,21 +2098,27 @@ class PyppeteerPDFConverter:
     async def close(self):
         """Close the browser if it's still open"""
         async with self._browser_lock:
+            if self.context:
+                await self.context.close()
+                self.context = None
             if self.browser:
                 await self.browser.close()
                 self.browser = None
-                logger.debug("🔒 Shared browser closed.")
+            if self.playwright:
+                await self.playwright.stop()
+                self.playwright = None
+                logger.debug("🔒 Shared browser and Playwright closed.")
 
 
 # Global converter instance
 _pdf_converter = None
 
 
-def get_pdf_converter() -> PyppeteerPDFConverter:
+def get_pdf_converter() -> PlaywrightPDFConverter:
     """Get the global PDF converter instance"""
     global _pdf_converter
     if _pdf_converter is None:
-        _pdf_converter = PyppeteerPDFConverter()
+        _pdf_converter = PlaywrightPDFConverter()
     return _pdf_converter
 
 

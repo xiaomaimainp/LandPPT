@@ -1670,24 +1670,7 @@
             to { transform: rotate(360deg); }
         }
 
-        /* 自动嵌入提示样式 */
-        .ai-auto-embed-hint {
-            background: rgba(79, 172, 254, 0.1);
-            border: 1px solid rgba(79, 172, 254, 0.3);
-            border-radius: var(--border-radius-sm);
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            color: rgba(79, 172, 254, 0.8);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 4px;
-            animation: fadeIn 0.3s ease-out;
-        }
 
-        .ai-auto-embed-hint i {
-            font-size: 0.875rem;
-        }
 
         @keyframes fadeIn {
             from {
@@ -1697,6 +1680,588 @@
             to {
                 opacity: 1;
                 transform: translateY(0);
+            }
+        }
+
+        /* 图片选择菜单样式 */
+        .image-select-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInOverlay 0.3s ease-out;
+        }
+
+        .image-select-content {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-xl);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 400px;
+            max-width: 90vw;
+            overflow: hidden;
+            animation: slideInPreview 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .image-select-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image-select-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .image-select-header h4 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .image-select-close {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .image-select-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .image-select-options {
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .image-select-option {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image-select-option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(79, 172, 254, 0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .image-select-option:hover {
+            background: rgba(79, 172, 254, 0.1);
+            border-color: rgba(79, 172, 254, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.2);
+        }
+
+        .image-select-option:hover::before {
+            left: 100%;
+        }
+
+        .image-select-option i {
+            font-size: 1.5rem;
+            color: rgba(79, 172, 254, 0.8);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .image-select-option span {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .image-select-option small {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 图床选择器样式 */
+        .image-library-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInOverlay 0.3s ease-out;
+        }
+
+        .image-library-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-xl);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            width: 80vw;
+            max-width: 1000px;
+            height: 80vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideInPreview 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .image-library-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image-library-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .image-library-info {
+            position: relative;
+            z-index: 1;
+        }
+
+        .image-library-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .image-library-info p {
+            margin: 0;
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .image-library-close {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.125rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .image-library-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .image-library-content {
+            flex: 1;
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .image-library-search {
+            margin-bottom: var(--spacing-md);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-sm) 0;
+            border-radius: var(--border-radius-lg);
+        }
+
+        .search-input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input-group i.fa-search {
+            position: absolute;
+            left: var(--spacing-sm);
+            color: var(--text-muted);
+            z-index: 1;
+        }
+
+        .search-input-group input {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-sm) 2.5rem;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        .search-input-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-clear-btn {
+            position: absolute;
+            right: var(--spacing-sm);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: var(--spacing-xs);
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            z-index: 1;
+        }
+
+        .search-clear-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .image-library-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .image-library-loading i {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-sm);
+            color: rgba(79, 172, 254, 0.8);
+        }
+
+        .image-library-loading p {
+            margin: 0;
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .image-library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm);
+        }
+
+        .image-library-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--border-radius-md);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            aspect-ratio: 1;
+        }
+
+        .image-library-item:hover {
+            transform: scale(1.05);
+            border-color: rgba(79, 172, 254, 0.6);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .image-library-item.selected {
+            border-color: rgba(67, 233, 123, 0.8);
+            background: rgba(67, 233, 123, 0.1);
+            transform: scale(1.02);
+        }
+
+        .image-library-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-library-item .image-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: var(--spacing-xs);
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-library-item:hover .image-info {
+            opacity: 1;
+        }
+
+        .image-library-item .selection-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            background: rgba(67, 233, 123, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.875rem;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+        }
+
+        .image-library-item.selected .selection-indicator {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .image-library-empty {
+            text-align: center;
+            color: var(--text-muted);
+            padding: var(--spacing-xl);
+        }
+
+        .image-library-empty i {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+        }
+
+        .image-library-empty p {
+            margin: 0 0 var(--spacing-xs) 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .image-library-empty small {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .image-library-pagination {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid var(--glass-border);
+            padding: var(--spacing-md) var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination-info {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .pagination-btn {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .image-library-actions {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid var(--glass-border);
+            padding: var(--spacing-md) var(--spacing-lg);
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: flex-end;
+        }
+
+        .image-library-action {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .image-library-action:hover:not(:disabled) {
+            background: rgba(79, 172, 254, 0.1);
+            border-color: rgba(79, 172, 254, 0.3);
+            color: rgba(79, 172, 254, 0.8);
+            transform: translateY(-2px);
+        }
+
+        .image-library-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .image-library-action.secondary {
+            background: rgba(108, 117, 125, 0.1);
+            border-color: rgba(108, 117, 125, 0.3);
+        }
+
+        .image-library-action.secondary:hover {
+            background: rgba(108, 117, 125, 0.2);
+            border-color: rgba(108, 117, 125, 0.4);
+            color: rgba(108, 117, 125, 0.9);
+        }
+
+        /* 响应式设计 - 图片选择器 */
+        @media (max-width: 768px) {
+            .image-select-content {
+                width: 95vw;
+                margin: 0 10px;
+            }
+
+            .image-select-options {
+                padding: var(--spacing-md);
+                gap: var(--spacing-sm);
+            }
+
+            .image-select-option {
+                padding: var(--spacing-sm);
+            }
+
+            .image-library-container {
+                width: 95vw;
+                height: 90vh;
+                margin: 0 10px;
+            }
+
+            .image-library-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: var(--spacing-sm);
+            }
+
+            .image-library-actions {
+                padding: var(--spacing-sm);
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+
+            .image-library-action {
+                width: 100%;
+                min-width: auto;
             }
         }
 
@@ -2092,63 +2657,7 @@
             opacity: 1;
         }
 
-        .ai-image-actions {
-            margin-top: var(--spacing-xs);
-            display: flex;
-            gap: var(--spacing-xs);
-            justify-content: space-between;
-        }
 
-        .ai-preview-all-btn,
-        .ai-clear-all-btn {
-            background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: var(--border-radius-sm);
-            cursor: pointer;
-            font-size: 0.6875rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            position: relative;
-            overflow: hidden;
-            flex: 1;
-            justify-content: center;
-        }
-
-        .ai-preview-all-btn::before,
-        .ai-clear-all-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.6s;
-        }
-
-        .ai-preview-all-btn:hover {
-            background: rgba(108, 117, 125, 0.1);
-            border-color: rgba(108, 117, 125, 0.3);
-            color: rgba(108, 117, 125, 0.8);
-            transform: translateY(-1px);
-        }
-
-        .ai-clear-all-btn:hover {
-            background: rgba(220, 53, 69, 0.1);
-            border-color: rgba(220, 53, 69, 0.3);
-            color: #dc3545;
-            transform: translateY(-1px);
-        }
-
-        .ai-preview-all-btn:hover::before,
-        .ai-clear-all-btn:hover::before {
-            left: 100%;
-        }
 
         /* 响应式设计 - AI侧栏优化 */
         @media (max-width: 1200px) {
@@ -2441,6 +2950,83 @@
         </div>
     </div>
 
+    <!-- 图片选择菜单 -->
+    <div class="image-select-menu" id="imageSelectMenu" style="display: none;">
+        <div class="image-select-content">
+            <div class="image-select-header">
+                <h4><i class="fas fa-image"></i> 选择图片</h4>
+                <button class="image-select-close" onclick="closeImageSelectMenu()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="image-select-options">
+                <button class="image-select-option" onclick="selectFromLocal()">
+                    <i class="fas fa-upload"></i>
+                    <span>从本地上传</span>
+                    <small>选择本地图片文件上传</small>
+                </button>
+                <button class="image-select-option" onclick="selectFromLibrary()">
+                    <i class="fas fa-folder-open"></i>
+                    <span>从图床选择</span>
+                    <small>从已上传的图片中选择</small>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图床选择器 -->
+    <div class="image-library-overlay" id="imageLibraryOverlay" style="display: none;">
+        <div class="image-library-container">
+            <div class="image-library-header">
+                <div class="image-library-info">
+                    <h4><i class="fas fa-folder-open"></i> 本地图床</h4>
+                </div>
+                <button class="image-library-close" onclick="closeImageLibrary()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="image-library-content">
+                <div class="image-library-search">
+                    <div class="search-input-group">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="imageLibrarySearchInput" placeholder="搜索图片..." />
+                        <button class="search-clear-btn" id="imageLibrarySearchClear" style="display: none;" onclick="clearImageLibrarySearch()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="image-library-loading" id="imageLibraryLoading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <div class="image-library-grid" id="imageLibraryGrid"></div>
+                <div class="image-library-pagination" id="imageLibraryPagination" style="display: none;">
+                    <div class="pagination-info">
+                        <span id="paginationInfo">第 1 页，共 1 页</span>
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="prevPageBtn" onclick="loadPreviousPage()" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <button class="pagination-btn" id="nextPageBtn" onclick="loadNextPage()" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="image-library-empty" id="imageLibraryEmpty" style="display: none;">
+                    <i class="fas fa-images"></i>
+                </div>
+            </div>
+            <div class="image-library-actions">
+                <button class="image-library-action" onclick="confirmImageSelection()" id="confirmSelectionBtn" disabled>
+                    <i class="fas fa-check"></i> 确认选择 (<span id="selectedCount">0</span>)
+                </button>
+                <button class="image-library-action secondary" onclick="closeImageLibrary()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 全屏图片预览 -->
     <div class="image-preview-overlay" id="imagePreviewOverlay" style="display: none;">
         <div class="image-preview-container">
@@ -2527,11 +3113,7 @@
                         placeholder="请输入您的编辑指令..."
                         rows="3"></textarea>
 
-                    <!-- 图片自动嵌入提示 -->
-                    <div class="ai-auto-embed-hint" id="aiAutoEmbedHint" style="display: none;">
-                        <i class="fas fa-info-circle"></i>
-                        <span>发送时将自动包含 <span id="imageCount">0</span> 张图片信息</span>
-                    </div>
+
                     <div class="ai-input-buttons">
                         <button class="ai-send-btn" id="aiSendBtn" onclick="sendAIMessage()">
                             <i class="fas fa-paper-plane"></i> 发送
@@ -2561,15 +3143,7 @@
                     <!-- 已上传图片预览 -->
                     <div class="ai-uploaded-images" id="aiUploadedImages"></div>
 
-                    <!-- 快捷操作按钮 -->
-                    <div class="ai-image-actions" id="aiImageActions" style="display: none;">
-                        <button class="ai-preview-all-btn" onclick="previewAllImages()" title="预览所有已上传的图片信息">
-                            <i class="fas fa-eye"></i> 预览图片
-                        </button>
-                        <button class="ai-clear-all-btn" onclick="clearAllImages()" title="清除所有已上传的图片">
-                            <i class="fas fa-trash-alt"></i> 全部清除
-                        </button>
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -2595,6 +3169,14 @@
         let isImageUploadExpanded = false;
         let isUploading = false;
         let currentPreviewImage = null; // 当前预览的图片信息
+        let selectedLibraryImages = []; // 从图床选择的图片
+        let libraryImages = []; // 图床中的所有图片
+        let filteredLibraryImages = []; // 搜索过滤后的图片
+        let currentSearchTerm = ''; // 当前搜索关键词
+        let currentPage = 1; // 当前页码
+        let totalPages = 1; // 总页数
+        let totalCount = 0; // 总图片数
+        let perPage = 20; // 每页显示数量
 
         // CodeMirror编辑器相关变量
         let codeMirrorEditor = null;
@@ -5977,12 +6559,11 @@
     <script>
         // 图片上传相关函数
         function triggerImageUpload() {
-            const fileInput = document.getElementById('aiImageFileInput');
-            if (!isUploading) {
-                fileInput.click();
-            } else {
+            if (isUploading) {
                 showNotification('正在上传中，请稍候...', 'warning');
+                return;
             }
+            showImageSelectMenu();
         }
 
         // 初始化图片上传功能
@@ -6288,22 +6869,17 @@
         function renderUploadedImages() {
             const container = document.getElementById('aiUploadedImages');
             const uploadBtn = document.getElementById('aiImageUploadBtn');
-            const autoEmbedHint = document.getElementById('aiAutoEmbedHint');
-            const imageCountSpan = document.getElementById('imageCount');
 
             container.innerHTML = '';
 
-            // 更新上传按钮状态和自动嵌入提示
+            // 更新上传按钮状态
             if (uploadedImages.length === 0) {
                 uploadBtn.classList.remove('has-images');
                 uploadBtn.removeAttribute('data-count');
-                autoEmbedHint.style.display = 'none';
                 return;
             } else {
                 uploadBtn.classList.add('has-images');
                 uploadBtn.setAttribute('data-count', uploadedImages.length);
-                autoEmbedHint.style.display = 'flex';
-                imageCountSpan.textContent = uploadedImages.length;
             }
 
             uploadedImages.forEach((image, index) => {
@@ -6313,7 +6889,13 @@
 
                 // 创建图片预览
                 const img = document.createElement('img');
-                img.src = URL.createObjectURL(image.file);
+                if (image.file) {
+                    // 本地上传的图片
+                    img.src = URL.createObjectURL(image.file);
+                } else {
+                    // 从图床选择的图片
+                    img.src = image.url;
+                }
                 img.alt = image.name;
 
                 // 创建删除按钮
@@ -6341,20 +6923,12 @@
 
                 container.appendChild(imageDiv);
             });
-
-            // 显示或隐藏快捷操作按钮
-            const actionsDiv = document.getElementById('aiImageActions');
-            if (uploadedImages.length > 1) {
-                actionsDiv.style.display = 'flex';
-            } else {
-                actionsDiv.style.display = 'none';
-            }
         }
 
         function removeUploadedImage(index) {
             if (index >= 0 && index < uploadedImages.length) {
                 const image = uploadedImages[index];
-                // 释放blob URL
+                // 释放blob URL（仅对本地上传的图片）
                 if (image.file) {
                     URL.revokeObjectURL(URL.createObjectURL(image.file));
                 }
@@ -6375,7 +6949,7 @@
         }
 
         function clearUploadedImages() {
-            // 释放所有blob URLs
+            // 释放所有blob URLs（仅对本地上传的图片）
             uploadedImages.forEach(image => {
                 if (image.file) {
                     URL.revokeObjectURL(URL.createObjectURL(image.file));
@@ -6385,33 +6959,7 @@
             renderUploadedImages();
         }
 
-        function previewAllImages() {
-            if (uploadedImages.length === 0) {
-                showNotification('没有已上传的图片', 'warning');
-                return;
-            }
 
-            // 显示图片预览信息
-            let previewText = `当前已上传 ${uploadedImages.length} 张图片：\n`;
-            uploadedImages.forEach((image, index) => {
-                previewText += `${index + 1}. ${image.name} (${formatFileSize(image.size)})\n`;
-            });
-            previewText += '\n发送消息时将自动包含这些图片信息。';
-
-            showNotification(previewText, 'info');
-        }
-
-        function clearAllImages() {
-            if (uploadedImages.length === 0) {
-                showNotification('没有需要清除的图片', 'info');
-                return;
-            }
-
-            if (confirm(`确定要清除所有${uploadedImages.length}张已上传的图片吗？`)) {
-                clearUploadedImages();
-                showNotification('已清除所有图片', 'info');
-            }
-        }
 
         // 自动将所有已上传的图片信息嵌入到消息中
         function autoEmbedUploadedImages(message) {
@@ -6420,7 +6968,7 @@
             }
 
             // 构建图片信息文本
-            let imageInfoText = '\n\n📷 已上传的图片信息：\n';
+            let imageInfoText = '\n\n📷 图片信息：\n';
             uploadedImages.forEach((image, index) => {
                 imageInfoText += `${index + 1}. 图片名称：${image.name}\n`;
                 imageInfoText += `   图片地址：${image.url}\n`;
@@ -6440,7 +6988,7 @@
             return uploadedImages.map(image => ({
                 name: image.name,
                 url: image.url,
-                size: formatFileSize(image.size),
+                size: image.size > 0 ? formatFileSize(image.size) : '未知大小',
                 id: image.id
             }));
         }
@@ -6537,6 +7085,428 @@
             }
         });
 
+        // 图片选择菜单相关函数
+        function showImageSelectMenu() {
+            const menu = document.getElementById('imageSelectMenu');
+            menu.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImageSelectMenu() {
+            const menu = document.getElementById('imageSelectMenu');
+            menu.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        function selectFromLocal() {
+            closeImageSelectMenu();
+            const fileInput = document.getElementById('aiImageFileInput');
+            fileInput.click();
+        }
+
+        function selectFromLibrary() {
+            closeImageSelectMenu();
+            showImageLibrary();
+        }
+
+        // 图床选择器相关函数
+        function showImageLibrary() {
+            const overlay = document.getElementById('imageLibraryOverlay');
+            const loading = document.getElementById('imageLibraryLoading');
+            const grid = document.getElementById('imageLibraryGrid');
+            const empty = document.getElementById('imageLibraryEmpty');
+
+            overlay.style.display = 'flex';
+            loading.style.display = 'block';
+            grid.style.display = 'none';
+            empty.style.display = 'none';
+
+            selectedLibraryImages = [];
+            updateSelectionCount();
+
+            document.body.style.overflow = 'hidden';
+
+            // 初始化搜索功能
+            initImageLibrarySearch();
+
+            // 加载图床图片
+            loadLibraryImages();
+        }
+
+        function closeImageLibrary() {
+            const overlay = document.getElementById('imageLibraryOverlay');
+            overlay.style.display = 'none';
+            selectedLibraryImages = [];
+            document.body.style.overflow = '';
+
+            // 重置搜索状态
+            const searchInput = document.getElementById('imageLibrarySearchInput');
+            const clearBtn = document.getElementById('imageLibrarySearchClear');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            if (clearBtn) {
+                clearBtn.style.display = 'none';
+            }
+            currentSearchTerm = '';
+            filteredLibraryImages = [];
+
+            // 重置分页状态
+            currentPage = 1;
+            totalPages = 1;
+            totalCount = 0;
+            hidePaginationUI();
+        }
+
+        async function loadLibraryImages(searchTerm = '', page = 1) {
+            try {
+                // 使用与image_gallery.html相同的API端点
+                const params = new URLSearchParams({
+                    page: page,
+                    per_page: perPage,
+                    category: '', // 不限制分类
+                    search: searchTerm,
+                    sort: 'created_desc'
+                });
+
+                const response = await fetch(`/api/image/gallery/list?${params}`);
+                const result = await response.json();
+
+                console.log('图床API响应:', result);
+
+                const loading = document.getElementById('imageLibraryLoading');
+                const grid = document.getElementById('imageLibraryGrid');
+                const empty = document.getElementById('imageLibraryEmpty');
+
+                loading.style.display = 'none';
+
+                if (result.success && result.images && result.images.length > 0) {
+                    libraryImages = result.images;
+                    filteredLibraryImages = libraryImages;
+
+                    // 更新分页信息
+                    if (result.pagination) {
+                        currentPage = result.pagination.current_page;
+                        totalPages = result.pagination.total_pages;
+                        totalCount = result.pagination.total_count;
+                        updatePaginationUI();
+                    }
+
+                    console.log('加载到的图片数量:', libraryImages.length);
+                    console.log('第一张图片的数据结构:', libraryImages[0]);
+                    renderLibraryImages();
+                    grid.style.display = 'grid';
+                } else {
+                    console.log('没有找到图片或API调用失败');
+                    empty.style.display = 'block';
+                    hidePaginationUI();
+                }
+            } catch (error) {
+                console.error('加载图床图片失败:', error);
+                const loading = document.getElementById('imageLibraryLoading');
+                const empty = document.getElementById('imageLibraryEmpty');
+
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                empty.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                `;
+                showNotification('加载图床图片失败', 'error');
+            }
+        }
+
+        function renderLibraryImages() {
+            const grid = document.getElementById('imageLibraryGrid');
+            grid.innerHTML = '';
+
+            filteredLibraryImages.forEach(image => {
+                const item = document.createElement('div');
+                item.className = 'image-library-item';
+                item.dataset.imageId = image.image_id;
+
+                // 构建图片URL
+                const imageUrl = `/api/image/view/${image.image_id}`;
+
+                // 格式化文件大小 - 检查多个可能的位置
+                let fileSize = '未知大小';
+                if (image.file_size && image.file_size > 0) {
+                    // 直接从根级别获取file_size
+                    fileSize = formatFileSize(image.file_size);
+                } else if (image.metadata) {
+                    // 从metadata中获取
+                    if (image.metadata.file_size && image.metadata.file_size > 0) {
+                        fileSize = formatFileSize(image.metadata.file_size);
+                    } else if (image.metadata.size && image.metadata.size > 0) {
+                        fileSize = formatFileSize(image.metadata.size);
+                    }
+                }
+
+                item.innerHTML = `
+                    <img src="${imageUrl}" alt="${image.title || '未命名图片'}" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWbvueJh+WKoOi9veWksei0pTwvdGV4dD48L3N2Zz4='">
+                    <div class="image-info">
+                        <div>${image.title || '未命名图片'}</div>
+                        <div>${fileSize}</div>
+                    </div>
+                    <div class="selection-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                `;
+
+                item.addEventListener('click', () => toggleImageSelection(image, item));
+                grid.appendChild(item);
+            });
+        }
+
+        function toggleImageSelection(image, element) {
+            const imageId = image.image_id;
+            const index = selectedLibraryImages.findIndex(img => img.image_id === imageId);
+
+            if (index === -1) {
+                // 添加到选择列表
+                selectedLibraryImages.push(image);
+                element.classList.add('selected');
+            } else {
+                // 从选择列表移除
+                selectedLibraryImages.splice(index, 1);
+                element.classList.remove('selected');
+            }
+
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            const countSpan = document.getElementById('selectedCount');
+            const confirmBtn = document.getElementById('confirmSelectionBtn');
+
+            countSpan.textContent = selectedLibraryImages.length;
+            confirmBtn.disabled = selectedLibraryImages.length === 0;
+        }
+
+        async function confirmImageSelection() {
+            if (selectedLibraryImages.length === 0) return;
+
+            let addedCount = 0;
+
+            // 显示处理进度
+            showNotification('正在处理选择的图片...', 'info');
+
+            // 逐个处理选择的图片，获取完整信息
+            for (const image of selectedLibraryImages) {
+                try {
+                    // 获取图片的完整信息和绝对URL
+                    const imageInfo = await getImageCompleteInfo(image.image_id);
+
+                    const imageData = {
+                        id: image.image_id,
+                        name: imageInfo.name || image.title || '未命名图片',
+                        size: imageInfo.size || 0,
+                        url: imageInfo.absoluteUrl,
+                        file: null // 从图床选择的图片没有file对象
+                    };
+
+                    // 检查是否已经存在
+                    const exists = uploadedImages.find(img => img.id === imageData.id);
+                    if (!exists) {
+                        uploadedImages.push(imageData);
+                        addedCount++;
+                    }
+                } catch (error) {
+                    console.error(`获取图片 ${image.image_id} 信息失败:`, error);
+                    // 如果获取详细信息失败，使用基本信息
+                    const imageData = {
+                        id: image.image_id,
+                        name: image.title || '未命名图片',
+                        size: image.file_size || (image.metadata && image.metadata.file_size) || 0,
+                        url: `${window.location.origin}/api/image/view/${image.image_id}`,
+                        file: null
+                    };
+
+                    const exists = uploadedImages.find(img => img.id === imageData.id);
+                    if (!exists) {
+                        uploadedImages.push(imageData);
+                        addedCount++;
+                    }
+                }
+            }
+
+            renderUploadedImages();
+            closeImageLibrary();
+
+            if (addedCount > 0) {
+                showNotification(`已添加 ${addedCount} 张图片`, 'success');
+            } else {
+                showNotification('所选图片已存在，未添加新图片', 'info');
+            }
+        }
+
+        // 获取图片的完整信息，包括绝对URL
+        async function getImageCompleteInfo(imageId) {
+            try {
+                const response = await fetch(`/api/image/${imageId}/info`);
+                const result = await response.json();
+
+                if (result.success && result.image_info) {
+                    return {
+                        name: result.image_info.title || result.image_info.filename,
+                        size: result.image_info.file_size || 0,
+                        absoluteUrl: result.image_info.absolute_url
+                    };
+                } else {
+                    throw new Error('获取图片信息失败');
+                }
+            } catch (error) {
+                console.error('获取图片完整信息失败:', error);
+                // 如果专用接口失败，尝试使用详情接口
+                try {
+                    const detailResponse = await fetch(`/api/image/detail/${imageId}`);
+                    const detailResult = await detailResponse.json();
+
+                    if (detailResult.success && detailResult.image) {
+                        const image = detailResult.image;
+                        return {
+                            name: image.title || image.filename,
+                            size: (image.metadata && image.metadata.file_size) ? image.metadata.file_size : 0,
+                            absoluteUrl: `${window.location.origin}/api/image/view/${imageId}`
+                        };
+                    }
+                } catch (detailError) {
+                    console.error('获取图片详情也失败:', detailError);
+                }
+
+                throw error;
+            }
+        }
+
+        // 分页相关函数
+        function updatePaginationUI() {
+            const pagination = document.getElementById('imageLibraryPagination');
+            const paginationInfo = document.getElementById('paginationInfo');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+
+            if (!pagination) return;
+
+            // 显示分页控件
+            pagination.style.display = 'flex';
+
+            // 更新分页信息
+            paginationInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页 (总计 ${totalCount} 张图片)`;
+
+            // 更新按钮状态
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        function hidePaginationUI() {
+            const pagination = document.getElementById('imageLibraryPagination');
+            if (pagination) {
+                pagination.style.display = 'none';
+            }
+        }
+
+        function loadPreviousPage() {
+            if (currentPage > 1) {
+                loadLibraryImages(currentSearchTerm, currentPage - 1);
+            }
+        }
+
+        function loadNextPage() {
+            if (currentPage < totalPages) {
+                loadLibraryImages(currentSearchTerm, currentPage + 1);
+            }
+        }
+
+        // 图片库搜索相关函数
+        function initImageLibrarySearch() {
+            const searchInput = document.getElementById('imageLibrarySearchInput');
+            const clearBtn = document.getElementById('imageLibrarySearchClear');
+
+            if (!searchInput) return;
+
+            // 搜索输入事件
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.trim();
+                currentSearchTerm = searchTerm;
+
+                if (searchTerm) {
+                    clearBtn.style.display = 'block';
+                    // 搜索时重置到第一页
+                    loadLibraryImages(searchTerm, 1);
+                } else {
+                    clearBtn.style.display = 'none';
+                    // 清空搜索时重置到第一页
+                    loadLibraryImages('', 1);
+                }
+            });
+
+            // 回车键搜索
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const searchTerm = e.target.value.trim();
+                    currentSearchTerm = searchTerm;
+                    loadLibraryImages(searchTerm, 1);
+                }
+            });
+        }
+
+
+
+        function clearImageLibrarySearch() {
+            const searchInput = document.getElementById('imageLibrarySearchInput');
+            const clearBtn = document.getElementById('imageLibrarySearchClear');
+
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            currentSearchTerm = '';
+
+            // 重新加载第一页数据
+            loadLibraryImages('', 1);
+        }
+
+        // 键盘事件处理
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('imageSelectMenu').style.display === 'flex') {
+                    closeImageSelectMenu();
+                } else if (document.getElementById('imageLibraryOverlay').style.display === 'flex') {
+                    closeImageLibrary();
+                } else if (currentPreviewImage) {
+                    closeImagePreview();
+                }
+            }
+        });
+
+        // 点击遮罩层关闭
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'imageSelectMenu') {
+                closeImageSelectMenu();
+            } else if (e.target.id === 'imageLibraryOverlay') {
+                closeImageLibrary();
+            } else if (e.target.id === 'imagePreviewOverlay') {
+                closeImagePreview();
+            }
+        });
+
+        // 验证和修复图片URL
+        function validateAndFixImageUrls() {
+            uploadedImages.forEach(image => {
+                // 确保URL是绝对路径
+                if (image.url && !image.url.startsWith('http') && !image.url.startsWith(window.location.origin)) {
+                    if (image.url.startsWith('/')) {
+                        image.url = window.location.origin + image.url;
+                    } else {
+                        image.url = window.location.origin + '/' + image.url;
+                    }
+                }
+
+                // 确保文件大小是数字
+                if (typeof image.size === 'string') {
+                    image.size = parseInt(image.size) || 0;
+                }
+            });
+        }
+
         // 在页面加载完成后初始化图片上传功能
         document.addEventListener('DOMContentLoaded', function() {
             // 延迟初始化，确保所有元素都已加载
@@ -6547,6 +7517,9 @@
                 if (imageUploadBtn && inputContainer) {
                     console.log('初始化图片上传功能');
                     initImageUpload();
+
+                    // 验证和修复现有图片数据
+                    validateAndFixImageUrls();
                 } else {
                     console.log('图片上传元素未找到:', {
                         uploadBtn: !!imageUploadBtn,

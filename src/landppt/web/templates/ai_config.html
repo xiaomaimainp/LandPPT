@@ -407,7 +407,7 @@
                                 <input type="checkbox" name="enable_network_search" value="true" style="transform: scale(1.1);">
                                 <div style="flex: 1;">
                                     <div style="font-weight: 500; color: #495057;">🌐 网络搜索</div>
-                                    <small style="color: #6c757d;">通过Pixabay API搜索高质量网络图片</small>
+                                    <small style="color: #6c757d;">通过Unsplash、Pixabay等API搜索高质量网络图片</small>
                                 </div>
                             </label>
                             <label style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onclick="toggleImageSourceConfig()">
@@ -445,6 +445,12 @@
                     </div>
 
                     <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">Unsplash Access Key:</label>
+                        <input type="password" name="unsplash_access_key" placeholder="your-unsplash-access-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索Unsplash高质量摄影图片，支持多语言搜索</small>
+                    </div>
+
+                    <div class="form-group">
                         <label style="font-weight: 500; color: #495057;">Pixabay API Key:</label>
                         <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                         <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索免费图片和插图</small>
@@ -478,6 +484,14 @@
                     <!-- 网络搜索配置 -->
                     <div id="network-search-config" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
                         <h5 style="color: #3498db; margin-bottom: 10px;">🌐 网络搜索配置</h5>
+                        <div class="form-group">
+                            <label>默认网络搜索提供商:</label>
+                            <select name="default_network_search_provider">
+                                <option value="unsplash">Unsplash (高质量摄影图片)</option>
+                                <option value="pixabay">Pixabay (免费图片和插图)</option>
+                            </select>
+                            <small style="color: #7f8c8d;">选择优先使用的网络搜索源</small>
+                        </div>
                         <div class="form-group">
                             <label>每页最大网络图片数量:</label>
                             <input type="number" name="max_network_images_per_slide" value="2" min="1" max="5">
@@ -538,9 +552,6 @@
 
         <!-- 操作按钮 -->
         <div style="text-align: center; margin-top: 35px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e9ecef;">
-            <button onclick="testImageService()" class="btn btn-primary" style="margin-right: 15px; padding: 10px 20px; font-weight: 500;">
-                🧪 测试图片服务
-            </button>
             <button onclick="saveImageServiceConfig()" class="btn btn-success" style="padding: 10px 20px; font-weight: 500;">
                 💾 保存配置
             </button>
@@ -1613,29 +1624,6 @@ function updateImageServiceStatus(status) {
         } else {
             providersElement.textContent = '无可用提供者';
         }
-    }
-}
-
-async function testImageService() {
-    showLoading('正在测试图片服务...');
-
-    try {
-        const response = await fetch('/api/image/test', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showImageTestResult(result, true);
-        } else {
-            showImageTestResult(result, false);
-        }
-    } catch (error) {
-        showImageTestResult({error: error.message}, false);
     }
 }
 

@@ -67,7 +67,8 @@ class ImageServiceConfig:
                 'api_base': 'https://api.unsplash.com',
                 'per_page': 20,
                 'rate_limit_requests': 50,
-                'rate_limit_window': 3600  # 1小时
+                'rate_limit_window': 3600,  # 1小时
+                'timeout': 30
             },
             
             # Pixabay配置（网络搜索）
@@ -164,14 +165,24 @@ class ImageServiceConfig:
             if siliconflow_guidance:
                 self._config['siliconflow']['default_guidance_scale'] = float(siliconflow_guidance)
 
+            # 加载Unsplash配置
+            unsplash_access_key = all_config.get('unsplash_access_key')
+            if unsplash_access_key:
+                self._config['unsplash']['api_key'] = unsplash_access_key
+
+            # 加载Pixabay配置
+            pixabay_api_key = all_config.get('pixabay_api_key')
+            if pixabay_api_key:
+                self._config['pixabay']['api_key'] = pixabay_api_key
+
         except Exception as e:
-            logger.warning(f"Failed to load SiliconFlow config from config service: {e}")
-        
-        # Unsplash配置
+            logger.warning(f"Failed to load config from config service: {e}")
+
+        # Unsplash配置（环境变量）
         if os.getenv('UNSPLASH_ACCESS_KEY'):
             self._config['unsplash']['api_key'] = os.getenv('UNSPLASH_ACCESS_KEY')
-        
-        # Pixabay配置
+
+        # Pixabay配置（环境变量）
         if os.getenv('PIXABAY_API_KEY'):
             self._config['pixabay']['api_key'] = os.getenv('PIXABAY_API_KEY')
         
@@ -201,10 +212,31 @@ class ImageServiceConfig:
     def is_provider_configured(self, provider: str) -> bool:
         """检查提供者是否已配置"""
         provider_config = self._config.get(provider, {})
-        
+
         # 检查API密钥是否存在
         api_key = provider_config.get('api_key', '')
         return bool(api_key and api_key.strip())
+
+    def should_enable_search_provider(self, provider: str) -> bool:
+        """检查是否应该启用指定的搜索提供者"""
+        # 首先检查API密钥是否配置
+        if not self.is_provider_configured(provider):
+            return False
+
+        # 获取默认网络搜索提供商配置
+        try:
+            from ...config_service import get_config_service
+            config_service = get_config_service()
+            all_config = config_service.get_all_config()
+            default_provider = all_config.get('default_network_search_provider', 'unsplash')
+
+            # 如果是默认提供商，则启用
+            return provider.lower() == default_provider.lower()
+
+        except Exception as e:
+            logger.warning(f"Failed to get default network search provider config: {e}")
+            # 如果获取配置失败，回退到检查API密钥
+            return self.is_provider_configured(provider)
     
     def get_configured_providers(self) -> List[str]:
         """获取已配置的提供者列表"""

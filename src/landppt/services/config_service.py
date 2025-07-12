@@ -93,6 +93,7 @@ class ConfigService:
             "max_local_images_per_slide": {"type": "number", "category": "image_service", "default": "2"},
 
             # Network Search Configuration
+            "default_network_search_provider": {"type": "select", "category": "image_service", "default": "unsplash"},
             "max_network_images_per_slide": {"type": "number", "category": "image_service", "default": "2"},
 
             # AI Generation Configuration

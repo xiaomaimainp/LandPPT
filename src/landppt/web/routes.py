@@ -2066,7 +2066,7 @@ async def save_single_slide_content(
 
         # 详细验证幻灯片索引
         total_slides = len(project.slides_data) if project.slides_data else 0
-        logger.info(f"📊 项目幻灯片信息: 总页数={total_slides}, 请求索引={slide_index}")
+        logger.debug(f"📊 项目幻灯片信息: 总页数={total_slides}, 请求索引={slide_index}")
 
         if slide_index < 0:
             logger.error(f"❌ 幻灯片索引不能为负数: {slide_index}")
@@ -2076,7 +2076,7 @@ async def save_single_slide_content(
             logger.error(f"❌ 幻灯片索引超出范围: {slide_index}，项目共有 {total_slides} 页")
             raise HTTPException(status_code=400, detail=f"Slide index {slide_index} out of range (total: {total_slides})")
 
-        logger.info(f"📝 更新第 {slide_index + 1} 页的内容... (索引验证通过)")
+        logger.debug(f"📝 更新第 {slide_index + 1} 页的内容")
 
         # 更新幻灯片数据
         project.slides_data[slide_index]['html_content'] = html_content

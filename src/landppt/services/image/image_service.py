@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 class ImageService:
     """图片服务主类"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        
+
         # 初始化组件
         self.processor = ImageProcessor(config.get('processing', {}))
         self.cache_manager = ImageCacheManager(config.get('cache', {}))
@@ -36,6 +36,10 @@ class ImageService:
 
         # 服务状态
         self.initialized = False
+
+        # 搜索去重：防止重复搜索
+        self._active_searches = {}  # query -> Future
+        self._search_lock = asyncio.Lock()
         
     async def initialize(self):
         """初始化服务"""
@@ -46,7 +50,7 @@ class ImageService:
             # 初始化提供者（这里需要在具体实现中注册）
             await self._initialize_providers()
             
-            logger.info("Image service initialized successfully")
+            logger.debug("Image service initialized successfully")
             self.initialized = True
             
         except Exception as e:
@@ -62,7 +66,7 @@ class ImageService:
             storage_config = self.config.get('storage', {})
             storage_provider = FileSystemStorageProvider(storage_config)
             provider_registry.register(storage_provider)
-            logger.info("Local storage provider registered")
+            logger.debug("Local storage provider registered")
 
             # 初始化AI图片生成提供者
             from .providers.dalle_provider import DalleProvider
@@ -75,7 +79,7 @@ class ImageService:
                 dalle_config = self.config.get('dalle', {})
                 dalle_provider = DalleProvider(dalle_config)
                 provider_registry.register(dalle_provider)
-                logger.info("DALL-E provider registered")
+                logger.debug("DALL-E provider registered")
             else:
                 logger.warning("DALL-E API key not configured, skipping provider registration")
 
@@ -93,28 +97,102 @@ class ImageService:
                 sf_config = self.config.get('siliconflow', {})
                 sf_provider = SiliconFlowProvider(sf_config)
                 provider_registry.register(sf_provider)
-                logger.info("SiliconFlow provider registered")
+                logger.debug("SiliconFlow provider registered")
             else:
                 logger.warning("SiliconFlow API key not configured, skipping provider registration")
+
+            # 初始化网络搜索提供者
+            from .config.image_config import ImageServiceConfig
+            config_manager = ImageServiceConfig()
+
+            # 注册Unsplash提供者
+            if config_manager.should_enable_search_provider('unsplash'):
+                unsplash_config = self.config.get('unsplash', {})
+                from .providers.unsplash_provider import UnsplashSearchProvider
+                unsplash_provider = UnsplashSearchProvider(unsplash_config)
+                provider_registry.register(unsplash_provider)
+                logger.debug("Unsplash search provider registered (default provider)")
+            elif is_provider_configured('unsplash'):
+                logger.debug("Unsplash API configured but not set as default network search provider")
+            else:
+                logger.warning("Unsplash API key not configured, skipping provider registration")
+
+            # 注册Pixabay提供者（如果有的话）
+            if config_manager.should_enable_search_provider('pixabay'):
+                pixabay_config = self.config.get('pixabay', {})
+                # TODO: 实现PixabaySearchProvider
+                logger.info("Pixabay would be registered as default provider (not implemented yet)")
+            elif is_provider_configured('pixabay'):
+                logger.info("Pixabay API configured but not set as default network search provider")
 
             # 统计已注册的提供者数量
             total_providers = (len(provider_registry.get_generation_providers()) +
                              len(provider_registry.get_search_providers()) +
                              len(provider_registry.get_storage_providers()))
-            logger.info(f"Initialized {total_providers} image providers")
+            logger.debug(f"Initialized {total_providers} image providers")
 
         except Exception as e:
             logger.error(f"Failed to initialize image providers: {e}")
-    
+
+    def _sort_providers_by_preference(self, providers: List[ImageSearchProvider]) -> List[ImageSearchProvider]:
+        """根据默认配置对搜索提供者进行排序"""
+        try:
+            # 获取默认网络搜索提供商配置
+            from ..config_service import get_config_service
+            config_service = get_config_service()
+            all_config = config_service.get_all_config()
+            default_provider = all_config.get('default_network_search_provider', 'unsplash')
+
+            # 将默认提供者排在前面
+            preferred_providers = []
+            other_providers = []
+
+            for provider in providers:
+                provider_name = provider.provider.value.lower()
+                if provider_name == default_provider.lower():
+                    preferred_providers.append(provider)
+                else:
+                    other_providers.append(provider)
+
+            # 返回排序后的列表：默认提供者在前，其他提供者在后
+            return preferred_providers + other_providers
+
+        except Exception as e:
+            logger.warning(f"Failed to sort providers by preference: {e}")
+            return providers
+
     async def search_images(self, request: ImageSearchRequest) -> ImageSearchResult:
         """搜索图片"""
         if not self.initialized:
             await self.initialize()
-        
+
+        # 生成搜索键用于去重
+        search_key = f"{request.query}_{request.page}_{request.per_page}"
+
+        # 检查是否有相同的搜索正在进行
+        async with self._search_lock:
+            if search_key in self._active_searches:
+                logger.debug(f"Reusing active search for: {request.query}")
+                return await self._active_searches[search_key]
+
+            # 创建新的搜索任务
+            search_future = asyncio.create_task(self._perform_search(request))
+            self._active_searches[search_key] = search_future
+
+        try:
+            result = await search_future
+            return result
+        finally:
+            # 清理完成的搜索
+            async with self._search_lock:
+                self._active_searches.pop(search_key, None)
+
+    async def _perform_search(self, request: ImageSearchRequest) -> ImageSearchResult:
+        """执行实际的搜索操作"""
         start_time = time.time()
         all_images = []
         provider_results = {}
-        
+
         try:
             # 获取启用的搜索提供者
             search_providers = provider_registry.get_search_providers()
@@ -129,15 +207,19 @@ class ImageService:
             # 过滤提供者
             if request.preferred_providers:
                 search_providers = [
-                    p for p in search_providers 
+                    p for p in search_providers
                     if p.provider in request.preferred_providers
                 ]
-            
+
             if request.excluded_providers:
                 search_providers = [
-                    p for p in search_providers 
+                    p for p in search_providers
                     if p.provider not in request.excluded_providers
                 ]
+
+            # 如果没有指定优先提供者，根据默认配置排序
+            if not request.preferred_providers:
+                search_providers = self._sort_providers_by_preference(search_providers)
             
             # 并行搜索
             search_tasks = []
@@ -191,16 +273,12 @@ class ImageService:
         """使用特定提供者搜索"""
         try:
             result = await provider.search(request)
-            
-            # 缓存搜索到的图片
-            for image_info in result.images:
-                cache_key = await self.cache_manager.is_cached(image_info)
-                if not cache_key:
-                    # 异步下载和缓存图片
-                    asyncio.create_task(self._cache_image_from_provider(provider, image_info))
-            
+
+            # 不再自动缓存搜索到的图片，避免重复缓存
+            # 缓存将在实际使用图片时进行
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Search failed for provider {provider.provider}: {e}")
             return ImageSearchResult(
@@ -211,27 +289,69 @@ class ImageService:
     
     async def _cache_image_from_provider(self, provider: ImageSearchProvider, image_info: ImageInfo):
         """从提供者缓存图片"""
+        import uuid
+        import time
+
+        temp_path = None
         try:
-            # 创建临时文件路径
-            temp_path = Path(f"temp/{image_info.image_id}")
-            
+            # 创建唯一的临时文件路径，避免冲突
+            temp_filename = f"temp_{uuid.uuid4().hex}_{int(time.time())}"
+            temp_path = Path(f"temp/{temp_filename}")
+
+            # 确保temp目录存在
+            temp_path.parent.mkdir(exist_ok=True)
+
             # 下载图片
             download_result = await provider.download_image(image_info, temp_path)
             if not download_result.success:
                 return
-            
+
+            # 检查文件是否存在
+            if not temp_path.exists():
+                logger.warning(f"Downloaded file not found: {temp_path}")
+                return
+
             # 读取图片数据
-            with open(temp_path, 'rb') as f:
-                image_data = f.read()
-            
+            try:
+                with open(temp_path, 'rb') as f:
+                    image_data = f.read()
+            except Exception as read_error:
+                logger.error(f"Failed to read downloaded file {temp_path}: {read_error}")
+                return
+
             # 缓存图片
             await self.cache_manager.cache_image(image_info, image_data)
-            
-            # 清理临时文件
-            temp_path.unlink(missing_ok=True)
-            
+            logger.debug(f"Successfully cached image from provider: {image_info.image_id}")
+
         except Exception as e:
             logger.error(f"Failed to cache image {image_info.image_id}: {e}")
+        finally:
+            # 安全清理临时文件
+            if temp_path and temp_path.exists():
+                try:
+                    # 等待一小段时间确保文件句柄被释放
+                    await asyncio.sleep(0.1)
+                    temp_path.unlink(missing_ok=True)
+                    logger.debug(f"Cleaned up temp file: {temp_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup temp file {temp_path}: {cleanup_error}")
+                    # 如果立即删除失败，尝试延迟删除
+                    asyncio.create_task(self._delayed_cleanup(temp_path))
+
+    async def _delayed_cleanup(self, file_path: Path, max_retries: int = 5):
+        """延迟清理临时文件"""
+        for attempt in range(max_retries):
+            try:
+                await asyncio.sleep(1 + attempt)  # 递增等待时间
+                if file_path.exists():
+                    file_path.unlink()
+                    logger.debug(f"Delayed cleanup successful for: {file_path}")
+                return
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Failed to cleanup temp file after {max_retries} attempts: {file_path}, error: {e}")
+                else:
+                    logger.debug(f"Cleanup attempt {attempt + 1} failed for {file_path}: {e}")
     
     async def generate_image(self, request: ImageGenerationRequest) -> ImageOperationResult:
         """生成图片"""
@@ -415,18 +535,25 @@ class ImageService:
             await self.initialize()
 
         try:
-            # 获取所有缓存的图片
+            # 获取所有缓存的图片，包括引用
             all_images = []
+            processed_content_hashes = set()
 
+            logger.info(f"Processing {len(self.cache_manager._cache_index)} cached images")
+
+            # 首先处理主要的缓存条目
             for cache_key, cache_info in self.cache_manager._cache_index.items():
                 try:
-                    # 检查是否过期
-                    if cache_info.is_expired():
+                    # 检查文件是否存在
+                    file_path = Path(cache_info.file_path)
+                    if not file_path.exists():
+                        logger.warning(f"Cache file not found: {cache_info.file_path}")
                         continue
 
                     # 加载图片元数据
                     image_info = await self.cache_manager._load_image_metadata(cache_key)
                     if not image_info:
+                        logger.warning(f"Failed to load metadata for cache key: {cache_key}")
                         continue
 
                     # 分类筛选
@@ -435,16 +562,14 @@ class ImageService:
 
                     # 搜索筛选
                     if search:
-                        search_lower = search.lower()
-                        if (search_lower not in (image_info.title or "").lower() and
-                            search_lower not in (image_info.filename or "").lower() and
-                            search_lower not in " ".join(image_info.tags or []).lower()):
+                        if not self._matches_search_criteria(image_info, search):
                             continue
 
                     # 构建图片信息
                     image_data = {
                         "image_id": image_info.image_id,
                         "title": image_info.title,
+                        "description": image_info.description,
                         "filename": image_info.filename,
                         "file_size": cache_info.file_size,
                         "source_type": image_info.source_type.value,
@@ -452,14 +577,73 @@ class ImageService:
                         "created_at": cache_info.created_at,
                         "last_accessed": cache_info.last_accessed,
                         "access_count": cache_info.access_count,
-                        "tags": image_info.tags or []
+                        "tags": [tag.name if hasattr(tag, 'name') else str(tag) for tag in (image_info.tags or [])]
                     }
 
                     all_images.append(image_data)
+                    processed_content_hashes.add(cache_key)
+                    logger.debug(f"Successfully processed image: {image_info.image_id}")
 
                 except Exception as e:
                     logger.warning(f"Failed to process cached image {cache_key}: {e}")
                     continue
+
+            # 然后处理引用文件
+            references_dir = self.cache_manager.metadata_dir / "references"
+            if references_dir.exists():
+                for reference_file in references_dir.glob("*.json"):
+                    try:
+                        # 从文件名提取内容哈希
+                        filename = reference_file.stem
+                        if '_' in filename:
+                            content_hash = filename.split('_')[0]
+
+                            # 如果这个内容哈希已经处理过，跳过
+                            if content_hash in processed_content_hashes:
+                                continue
+
+                            # 加载引用的图片信息
+                            import json
+                            with open(reference_file, 'r', encoding='utf-8') as f:
+                                metadata = json.load(f)
+
+                            from .models import ImageInfo
+                            image_info = ImageInfo(**metadata)
+
+                            # 分类筛选
+                            if category and image_info.source_type.value != category:
+                                continue
+
+                            # 搜索筛选
+                            if search:
+                                if not self._matches_search_criteria(image_info, search):
+                                    continue
+
+                            # 查找对应的缓存信息
+                            cache_info = self.cache_manager._cache_index.get(content_hash)
+                            if not cache_info:
+                                continue
+
+                            # 构建图片信息
+                            image_data = {
+                                "image_id": image_info.image_id,
+                                "title": image_info.title,
+                                "description": image_info.description,
+                                "filename": image_info.filename,
+                                "file_size": cache_info.file_size,
+                                "source_type": image_info.source_type.value,
+                                "provider": image_info.provider.value,
+                                "created_at": cache_info.created_at,
+                                "last_accessed": cache_info.last_accessed,
+                                "access_count": cache_info.access_count,
+                                "tags": [tag.name if hasattr(tag, 'name') else str(tag) for tag in (image_info.tags or [])]
+                            }
+
+                            all_images.append(image_data)
+
+                    except Exception as e:
+                        logger.warning(f"Failed to process reference file {reference_file}: {e}")
+                        continue
 
             # 排序
             if sort == "created_desc":
@@ -490,6 +674,49 @@ class ImageService:
                 "images": [],
                 "total_count": 0
             }
+
+    def _matches_search_criteria(self, image_info: ImageInfo, search: str) -> bool:
+        """检查图片是否匹配搜索条件"""
+        if not search:
+            return True
+
+        # 将搜索词分割成多个关键词，支持空格分隔的多关键词搜索
+        search_terms = [term.strip().lower() for term in search.split() if term.strip()]
+        if not search_terms:
+            return True
+
+        # 构建所有可搜索的文本内容
+        searchable_texts = []
+
+        # 添加标题
+        if image_info.title:
+            searchable_texts.append(image_info.title.lower())
+
+        # 添加描述
+        if image_info.description:
+            searchable_texts.append(image_info.description.lower())
+
+        # 添加文件名（去掉扩展名）
+        if image_info.filename:
+            filename_without_ext = image_info.filename.rsplit('.', 1)[0]
+            searchable_texts.append(filename_without_ext.lower())
+
+        # 添加标签
+        if image_info.tags:
+            for tag in image_info.tags:
+                tag_name = tag.name if hasattr(tag, 'name') else str(tag)
+                if tag_name:
+                    searchable_texts.append(tag_name.lower())
+
+        # 合并所有文本
+        combined_text = " ".join(searchable_texts)
+
+        # 检查是否所有搜索词都能在文本中找到（支持部分匹配）
+        for term in search_terms:
+            if term not in combined_text:
+                return False
+
+        return True
 
     async def delete_image(self, image_id: str) -> bool:
         """删除图片"""
@@ -586,6 +813,24 @@ class ImageService:
             'oversized_removed': 0,
             'total_removed': 0
         }
+
+    async def deduplicate_cache(self) -> Dict[str, int]:
+        """去重缓存中的重复图片"""
+        if not self.initialized:
+            await self.initialize()
+
+        try:
+            removed_count = await self.cache_manager.deduplicate_cache()
+            return {
+                'duplicates_removed': removed_count,
+                'total_removed': removed_count
+            }
+        except Exception as e:
+            logger.error(f"Failed to deduplicate cache: {e}")
+            return {
+                'duplicates_removed': 0,
+                'total_removed': 0
+            }
     
     async def health_check(self) -> Dict[str, Any]:
         """健康检查"""
