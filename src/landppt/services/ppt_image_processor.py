@@ -441,8 +441,11 @@ class PPTImageProcessor:
             # 下载网络图片到本地缓存文件夹
             for i, image_data in enumerate(network_images):
                 try:
+                    # 生成有意义的图片标题
+                    meaningful_title = self._generate_meaningful_image_title(image_data, slide_title, i+1)
+
                     # 下载图片到本地缓存
-                    cached_image_info = await self._download_network_image_to_cache(image_data, f"网络图片_{i+1}")
+                    cached_image_info = await self._download_network_image_to_cache(image_data, meaningful_title)
 
                     if cached_image_info:
                         slide_image = SlideImageInfo(
@@ -809,13 +812,16 @@ class PPTImageProcessor:
                         # 创建上传请求
                         from .image.models import ImageUploadRequest
 
+                        # 生成更好的描述和标签
+                        description, tags = self._generate_image_metadata(image_data, title)
+
                         upload_request = ImageUploadRequest(
                             filename=f"{title}.{file_extension}",
                             content_type=content_type,
                             file_size=len(image_data_bytes),
                             title=title,
-                            description=f"从网络下载的图片: {image_data.get('tags', '')}",
-                            tags=image_data.get('tags', '').split(', ') if image_data.get('tags') else [],
+                            description=description,
+                            tags=tags,
                             category="network_search"
                         )
 
@@ -844,6 +850,150 @@ class PPTImageProcessor:
         except Exception as e:
             logger.error(f"下载网络图片到图床失败: {e}")
             return None
+
+    def _generate_meaningful_image_title(self, image_data: Dict[str, Any], slide_title: str, index: int) -> str:
+        """生成有意义的图片标题"""
+        try:
+            # 获取图片标签或描述
+            tags = image_data.get('tags', '')
+            description = image_data.get('description', '')
+
+            # 清理幻灯片标题，移除特殊字符
+            clean_slide_title = ''.join(c for c in slide_title if c.isalnum() or c in ' -_')
+            clean_slide_title = clean_slide_title.strip().replace(' ', '_')
+
+            # 如果有标签，使用前2个标签
+            if tags:
+                if isinstance(tags, str):
+                    tag_list = [tag.strip() for tag in tags.split(',')[:2] if tag.strip()]
+                elif isinstance(tags, list):
+                    tag_list = [str(tag).strip() for tag in tags[:2] if str(tag).strip()]
+                else:
+                    tag_list = []
+
+                if tag_list:
+                    # 清理标签
+                    clean_tags = []
+                    for tag in tag_list:
+                        clean_tag = ''.join(c for c in tag if c.isalnum() or c in ' -_')
+                        clean_tag = clean_tag.strip().replace(' ', '_')
+                        if clean_tag and len(clean_tag) > 1:
+                            clean_tags.append(clean_tag)
+
+                    if clean_tags:
+                        tags_part = '_'.join(clean_tags)
+                        # 组合：幻灯片标题_标签_序号
+                        if clean_slide_title:
+                            title = f"{clean_slide_title}_{tags_part}_{index}"
+                        else:
+                            title = f"slide_{tags_part}_{index}"
+
+                        # 限制长度
+                        max_length = 60
+                        if len(title) > max_length:
+                            title = title[:max_length].rstrip('_')
+
+                        return title
+
+            # 如果有描述但没有标签
+            if description:
+                clean_desc = ''.join(c for c in description[:20] if c.isalnum() or c in ' -_')
+                clean_desc = clean_desc.strip().replace(' ', '_')
+                if clean_desc:
+                    if clean_slide_title:
+                        return f"{clean_slide_title}_{clean_desc}_{index}"
+                    else:
+                        return f"slide_{clean_desc}_{index}"
+
+            # 默认命名
+            if clean_slide_title:
+                return f"{clean_slide_title}_image_{index}"
+            else:
+                return f"slide_image_{index}"
+
+        except Exception as e:
+            logger.warning(f"生成有意义图片标题失败: {e}")
+            # 回退到简单命名
+            return f"slide_image_{index}"
+
+    def _generate_image_metadata(self, image_data: Dict[str, Any], title: str) -> tuple[str, list]:
+        """生成图片的描述和标签"""
+        try:
+            # 获取图片来源信息
+            source_info = ""
+            if 'user' in image_data:
+                source_info = f"作者: {image_data['user']}"
+            elif 'author' in image_data:
+                source_info = f"作者: {image_data['author']}"
+
+            # 获取图片统计信息
+            stats_info = ""
+            if 'views' in image_data or 'downloads' in image_data or 'likes' in image_data:
+                stats = []
+                if 'views' in image_data:
+                    stats.append(f"浏览: {image_data['views']}")
+                if 'downloads' in image_data:
+                    stats.append(f"下载: {image_data['downloads']}")
+                if 'likes' in image_data:
+                    stats.append(f"点赞: {image_data['likes']}")
+                stats_info = " | ".join(stats)
+
+            # 获取尺寸信息
+            size_info = ""
+            width = image_data.get('webformatWidth') or image_data.get('imageWidth') or image_data.get('width')
+            height = image_data.get('webformatHeight') or image_data.get('imageHeight') or image_data.get('height')
+            if width and height:
+                size_info = f"尺寸: {width}x{height}"
+
+            # 组合描述
+            description_parts = [f"网络搜索图片: {title}"]
+            if source_info:
+                description_parts.append(source_info)
+            if size_info:
+                description_parts.append(size_info)
+            if stats_info:
+                description_parts.append(stats_info)
+
+            description = " | ".join(description_parts)
+
+            # 处理标签
+            tags = []
+            raw_tags = image_data.get('tags', '')
+            if raw_tags:
+                if isinstance(raw_tags, str):
+                    # 分割字符串标签
+                    tag_list = [tag.strip() for tag in raw_tags.replace(',', ' ').split() if tag.strip()]
+                elif isinstance(raw_tags, list):
+                    # 处理列表标签
+                    tag_list = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+                else:
+                    tag_list = []
+
+                # 清理和去重标签
+                seen_tags = set()
+                for tag in tag_list:
+                    clean_tag = tag.lower().strip()
+                    if clean_tag and len(clean_tag) > 1 and clean_tag not in seen_tags:
+                        seen_tags.add(clean_tag)
+                        tags.append(clean_tag)
+
+                # 限制标签数量
+                tags = tags[:10]
+
+            # 添加默认标签
+            default_tags = ['网络图片', 'ppt素材']
+            for default_tag in default_tags:
+                if default_tag not in tags:
+                    tags.append(default_tag)
+
+            return description, tags
+
+        except Exception as e:
+            logger.warning(f"生成图片元数据失败: {e}")
+            # 回退到简单元数据
+            simple_description = f"网络搜索图片: {title}"
+            simple_tags = ['网络图片', 'ppt素材']
+            return simple_description, simple_tags
 
     async def _get_local_image_details(self, image_id: str) -> Dict[str, Any]:
         """获取本地图片详细信息"""

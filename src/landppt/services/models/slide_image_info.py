@@ -134,31 +134,83 @@ class SlideImagesCollection:
         """获取用于AI参考的图片摘要信息"""
         if not self.images:
             return "本页面无图片"
-        
+
         summary_parts = [
             f"本页面共有{self.total_count}张图片："
         ]
-        
+
+        def _format_image_with_metadata(img: SlideImageInfo) -> str:
+            """格式化图片信息，包含元数据"""
+            # 基本描述
+            desc = f"{img.content_description}({img.purpose.value})"
+
+            # 添加尺寸信息
+            if img.width and img.height:
+                desc += f" [尺寸: {img.width}x{img.height}px]"
+
+            # 添加文件大小信息
+            if img.file_size:
+                if img.file_size < 1024:
+                    size_str = f"{img.file_size}B"
+                elif img.file_size < 1024 * 1024:
+                    size_str = f"{img.file_size / 1024:.1f}KB"
+                else:
+                    size_str = f"{img.file_size / (1024 * 1024):.1f}MB"
+                desc += f" [大小: {size_str}]"
+
+            # 添加格式信息
+            if img.format:
+                desc += f" [格式: {img.format.upper()}]"
+
+            return desc
+
         if self.local_count > 0:
             local_images = self.get_images_by_source(ImageSource.LOCAL)
-            local_desc = ", ".join([f"{img.content_description}({img.purpose.value})" for img in local_images])
+            local_desc = ", ".join([_format_image_with_metadata(img) for img in local_images])
             summary_parts.append(f"- 本地图片{self.local_count}张: {local_desc}")
-        
+
         if self.network_count > 0:
             network_images = self.get_images_by_source(ImageSource.NETWORK)
-            network_desc = ", ".join([f"{img.content_description}({img.purpose.value})" for img in network_images])
+            network_desc = ", ".join([_format_image_with_metadata(img) for img in network_images])
             summary_parts.append(f"- 网络图片{self.network_count}张: {network_desc}")
-        
+
         if self.ai_generated_count > 0:
             ai_images = self.get_images_by_source(ImageSource.AI_GENERATED)
-            ai_desc = ", ".join([f"{img.content_description}({img.purpose.value})" for img in ai_images])
+            ai_desc = ", ".join([_format_image_with_metadata(img) for img in ai_images])
             summary_parts.append(f"- AI生成图片{self.ai_generated_count}张: {ai_desc}")
-        
-        # 添加图片绝对地址信息
-        summary_parts.append("\n图片地址信息：")
+
+        # 添加详细的图片信息，包含元数据
+        summary_parts.append("\n详细图片信息：")
         for i, img in enumerate(self.images, 1):
-            summary_parts.append(f"{i}. {img.absolute_url} - {img.content_description}")
-        
+            # 构建详细信息
+            details = []
+            details.append(f"地址: {img.absolute_url}")
+            details.append(f"描述: {img.content_description}")
+            details.append(f"用途: {img.purpose.value}")
+
+            if img.width and img.height:
+                details.append(f"尺寸: {img.width}x{img.height}px")
+
+            if img.file_size:
+                if img.file_size < 1024:
+                    size_str = f"{img.file_size}B"
+                elif img.file_size < 1024 * 1024:
+                    size_str = f"{img.file_size / 1024:.1f}KB"
+                else:
+                    size_str = f"{img.file_size / (1024 * 1024):.1f}MB"
+                details.append(f"大小: {size_str}")
+
+            if img.format:
+                details.append(f"格式: {img.format.upper()}")
+
+            if img.title:
+                details.append(f"标题: {img.title}")
+
+            if img.alt_text:
+                details.append(f"替代文本: {img.alt_text}")
+
+            summary_parts.append(f"{i}. {' | '.join(details)}")
+
         return "\n".join(summary_parts)
 
 

@@ -202,7 +202,7 @@ class UnsplashSearchProvider(ImageSearchProvider):
                 provider=ImageProvider.UNSPLASH,
                 original_url=original_url,
                 local_path='',  # 将在下载时设置
-                filename=f"unsplash_{image_id}.jpg",
+                filename=self._generate_meaningful_filename(item, image_id),
                 title=item.get('alt_description', item.get('description', f'Unsplash Image {image_id}')),
                 description=item.get('description', ''),
                 alt_text=item.get('alt_description', ''),
@@ -307,3 +307,45 @@ class UnsplashSearchProvider(ImageSearchProvider):
         # 记录当前请求时间
         self._request_times.append(current_time)
         return True
+
+    def _generate_meaningful_filename(self, item: Dict[str, Any], image_id: str) -> str:
+        """生成有意义的文件名"""
+        try:
+            # 获取描述或alt描述作为文件名基础
+            alt_description = item.get('alt_description', '')
+            description = item.get('description', '')
+
+            # 优先使用alt_description，因为它通常更简洁
+            base_text = alt_description or description
+
+            if base_text:
+                # 清理文本，只保留字母数字和空格
+                clean_text = ''.join(c for c in base_text if c.isalnum() or c in ' -_')
+                clean_text = clean_text.strip().replace(' ', '_')
+
+                # 取前几个单词，限制长度
+                words = clean_text.split('_')[:4]  # 最多4个单词
+                if words and all(word for word in words):
+                    base_name = '_'.join(words)
+
+                    # 限制文件名长度
+                    max_length = 50
+                    if len(base_name) > max_length:
+                        base_name = base_name[:max_length].rstrip('_')
+
+                    return f"unsplash_{base_name}_{image_id}.jpg"
+
+            # 如果没有有效描述，检查用户名
+            user_name = item.get('user', {}).get('username', '')
+            if user_name:
+                clean_user = ''.join(c for c in user_name if c.isalnum() or c in '_')
+                if clean_user:
+                    return f"unsplash_by_{clean_user}_{image_id}.jpg"
+
+            # 默认命名
+            return f"unsplash_photo_{image_id}.jpg"
+
+        except Exception as e:
+            logger.warning(f"Failed to generate meaningful filename: {e}")
+            # 回退到简单命名
+            return f"unsplash_{image_id}.jpg"

@@ -124,10 +124,19 @@
                         </div>
                         <div class="form-group">
                             <label>默认模型:</label>
-                            <input type="text" name="openai_model"
-                                   value="{{ current_config.get('openai_model', '') }}"
-                                   placeholder="{{ current_config.get('openai_model', 'gpt-4o') }}">
-                            <small style="color: #7f8c8d;">直接输入模型名称，如：gpt-4o, gpt-4-turbo, gpt-3.5-turbo</small>
+                            <div class="model-input-container">
+                                <select name="openai_model" id="openai_model_select" class="model-select" style="display: none;">
+                                    <option value="">选择模型...</option>
+                                </select>
+                                <input type="text" name="openai_model" id="openai_model_input" class="model-input"
+                                       value="{{ current_config.get('openai_model', '') }}"
+                                       placeholder="{{ current_config.get('openai_model', 'gpt-4o') }}">
+                                <button type="button" onclick="fetchAndShowModels()" id="openai_model_fetch_btn"
+                                        class="model-fetch-btn" title="获取可用模型列表">
+                                    📋
+                                </button>
+                            </div>
+                            <small style="color: #7f8c8d;">直接输入模型名称，或点击右侧图标从API获取可用模型</small>
                         </div>
                     {% elif provider == "anthropic" %}
                         <div class="form-group">
@@ -888,6 +897,77 @@
     color: white;
 }
 
+/* OpenAI模型输入框样式 */
+.model-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.model-input,
+.model-select {
+    flex: 1;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 45px 10px 15px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.model-input:hover,
+.model-select:hover {
+    border-color: #667eea;
+}
+
+.model-input:focus,
+.model-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    outline: none;
+}
+
+.model-fetch-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: #f8f9fa;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    color: #6c757d;
+}
+
+.model-fetch-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.model-fetch-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: translateY(-50%);
+}
+
+.model-fetch-btn.loading {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to { transform: translateY(-50%) rotate(360deg); }
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .config-tabs {
@@ -907,6 +987,14 @@
     .grid {
         grid-template-columns: 1fr;
     }
+
+    .model-fetch-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+
 }
 </style>
 {% endblock %}
@@ -1770,11 +1858,223 @@ function toggleImageSourceConfig() {
     }
 }
 
+// 获取并显示OpenAI模型列表
+async function fetchAndShowModels() {
+    const selectElement = document.getElementById('openai_model_select');
+    const inputElement = document.getElementById('openai_model_input');
+    const fetchButton = document.getElementById('openai_model_fetch_btn');
+
+    if (!selectElement || !inputElement || !fetchButton) return;
+
+    try {
+        // 设置加载状态
+        fetchButton.classList.add('loading');
+        fetchButton.disabled = true;
+        fetchButton.textContent = '⏳';
+
+        // 获取Base URL
+        const baseUrlInput = document.querySelector('input[name="openai_base_url"]');
+        let baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
+
+        // 如果没有设置Base URL，使用默认值
+        if (!baseUrl) {
+            baseUrl = baseUrlInput ? baseUrlInput.placeholder : 'https://api.openai.com/v1';
+        }
+
+        // 确保Base URL以/v1结尾
+        if (!baseUrl.endsWith('/v1')) {
+            if (baseUrl.endsWith('/')) {
+                baseUrl += 'v1';
+            } else {
+                baseUrl += '/v1';
+            }
+        }
+
+        // 获取API Key（前端输入或从后端获取）
+        let apiKey = '';
+        const apiKeyInput = document.querySelector('input[name="openai_api_key"]');
+        if (apiKeyInput && apiKeyInput.value.trim()) {
+            apiKey = apiKeyInput.value.trim();
+        } else {
+            // 从后端获取API Key
+            try {
+                const configResponse = await fetch('/api/config/ai_providers');
+                if (configResponse.ok) {
+                    const configResult = await configResponse.json();
+                    if (configResult.success && configResult.config.openai_api_key) {
+                        apiKey = configResult.config.openai_api_key;
+                    }
+                }
+            } catch (configError) {
+                console.warn('无法从后端获取API Key:', configError);
+            }
+        }
+
+        if (!apiKey) {
+            showNotification('请先配置API Key', 'warning');
+            return;
+        }
+
+        // 获取模型列表
+        const models = await fetchOpenAIModels(baseUrl, apiKey);
+
+        if (models && models.length > 0) {
+            // 如果当前是输入模式，切换到选择模式
+            if (selectElement.style.display === 'none') {
+                // 清空现有选项
+                selectElement.innerHTML = '<option value="">选择模型...</option>';
+
+                // 添加模型选项
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.id;
+                    selectElement.appendChild(option);
+                });
+
+                // 保存当前输入框的值
+                const currentValue = inputElement.value;
+
+                // 切换显示
+                inputElement.style.display = 'none';
+                selectElement.style.display = 'block';
+
+                // 设置选择框的值
+                if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+                    selectElement.value = currentValue;
+                } else {
+                    selectElement.value = ''; // 显示"选择模型..."
+                    inputElement.placeholder = '选择模型...'; // 同时更新输入框的placeholder
+                }
+
+                // 监听选择变化
+                selectElement.onchange = function() {
+                    if (this.value) {
+                        inputElement.value = this.value;
+                        inputElement.placeholder = this.value; // 更新placeholder为选中的模型
+                    } else {
+                        inputElement.value = '';
+                        inputElement.placeholder = '选择模型...';
+                    }
+                };
+
+                showNotification(`成功获取到 ${models.length} 个模型，请选择一个模型`, 'success');
+            } else {
+                // 如果已经是选择模式，切换回输入模式
+                selectElement.style.display = 'none';
+                inputElement.style.display = 'block';
+                // 如果没有值且placeholder是"选择模型..."，恢复原始placeholder
+                if (!inputElement.value && inputElement.placeholder === '选择模型...') {
+                    inputElement.placeholder = '{{ current_config.get("openai_model", "gpt-4o") }}';
+                }
+            }
+        } else {
+            showNotification('未能获取到模型列表，请检查Base URL和API Key配置', 'warning');
+        }
+
+    } catch (error) {
+        console.error('获取模型列表失败:', error);
+        showNotification('获取模型列表失败: ' + error.message, 'error');
+    } finally {
+        // 恢复按钮状态
+        fetchButton.classList.remove('loading');
+        fetchButton.disabled = false;
+        fetchButton.textContent = '📋';
+    }
+}
+
+// 从OpenAI API获取模型列表
+async function fetchOpenAIModels(baseUrl, apiKey) {
+    try {
+        const modelsUrl = `${baseUrl}/models`;
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        };
+
+        const response = await fetch(modelsUrl, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            // 尝试解析错误响应
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error) {
+                    if (errorData.error.message) {
+                        errorMessage = errorData.error.message;
+                    } else if (errorData.error.code) {
+                        switch (errorData.error.code) {
+                            case 'missing_auth_header':
+                            case 'invalid_api_key':
+                                errorMessage = 'API Key无效或缺失，请检查配置';
+                                break;
+                            case 'insufficient_quota':
+                                errorMessage = 'API配额不足，请检查账户余额';
+                                break;
+                            default:
+                                errorMessage = `认证错误: ${errorData.error.code}`;
+                        }
+                    }
+                }
+            } catch (parseError) {
+                // 如果无法解析错误响应，使用默认错误信息
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+
+        if (data.data && Array.isArray(data.data)) {
+            // 过滤并排序模型列表，优先显示常用的聊天模型
+            const models = data.data
+                .filter(model => model.id) // 确保有ID
+                .sort((a, b) => {
+                    // 优先级排序：gpt-4 > gpt-3.5 > 其他
+                    const getPriority = (id) => {
+                        if (id.includes('gpt-4')) return 3;
+                        if (id.includes('gpt-3.5')) return 2;
+                        return 1;
+                    };
+
+                    const priorityA = getPriority(a.id);
+                    const priorityB = getPriority(b.id);
+
+                    if (priorityA !== priorityB) {
+                        return priorityB - priorityA; // 降序
+                    }
+
+                    return a.id.localeCompare(b.id); // 字母序
+                });
+
+            return models;
+        } else {
+            throw new Error('API响应格式不正确，未找到模型数据');
+        }
+
+    } catch (error) {
+        console.error('获取模型列表失败:', error);
+        throw error;
+    }
+}
+
+// 初始化OpenAI模型输入框状态
+function initOpenAIModelInput() {
+    const inputElement = document.getElementById('openai_model_input');
+    if (inputElement && !inputElement.value.trim()) {
+        inputElement.placeholder = '选择模型...';
+    }
+}
+
 // 页面加载时初始化图片服务选项显示
 document.addEventListener('DOMContentLoaded', function() {
     // 延迟执行以确保DOM完全加载
     setTimeout(() => {
         toggleImageServiceOptions();
+        initOpenAIModelInput();
     }, 100);
 });
 </script>

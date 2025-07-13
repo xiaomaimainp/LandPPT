@@ -256,8 +256,8 @@ class PixabaySearchProvider(ImageSearchProvider):
                 has_transparency=(image_type in ['illustration', 'vector'])
             )
             
-            # 生成文件名
-            filename = f"pixabay_{pixabay_id}.{format_ext}"
+            # 生成有意义的文件名
+            filename = self._generate_meaningful_filename(hit, pixabay_id, format_ext)
 
             # 创建ImageInfo对象 - 根据官方API响应字段和模型要求
             import time
@@ -328,6 +328,45 @@ class PixabaySearchProvider(ImageSearchProvider):
 
         except Exception as e:
             logger.debug(f"Failed to process rate limit headers: {e}")
+
+    def _generate_meaningful_filename(self, hit: Dict[str, Any], pixabay_id: str, format_ext: str) -> str:
+        """生成有意义的文件名"""
+        try:
+            # 获取标签作为文件名基础
+            tags = hit.get('tags', '')
+            if tags:
+                # 取前3个标签，清理和格式化
+                tag_list = [tag.strip() for tag in tags.split(',')[:3] if tag.strip()]
+                if tag_list:
+                    # 清理标签中的特殊字符，只保留字母数字和空格
+                    clean_tags = []
+                    for tag in tag_list:
+                        # 移除特殊字符，保留字母、数字、空格和连字符
+                        clean_tag = ''.join(c for c in tag if c.isalnum() or c in ' -_')
+                        clean_tag = clean_tag.strip().replace(' ', '_')
+                        if clean_tag and len(clean_tag) > 1:
+                            clean_tags.append(clean_tag)
+
+                    if clean_tags:
+                        # 组合标签，限制总长度
+                        base_name = '_'.join(clean_tags)
+                        # 限制文件名长度（不包括扩展名）
+                        max_length = 50
+                        if len(base_name) > max_length:
+                            base_name = base_name[:max_length].rstrip('_')
+
+                        # 添加图片类型和ID
+                        image_type = hit.get('type', 'photo')
+                        return f"pixabay_{image_type}_{base_name}_{pixabay_id}.{format_ext}"
+
+            # 如果没有有效标签，使用默认命名
+            image_type = hit.get('type', 'photo')
+            return f"pixabay_{image_type}_{pixabay_id}.{format_ext}"
+
+        except Exception as e:
+            logger.warning(f"Failed to generate meaningful filename: {e}")
+            # 回退到简单命名
+            return f"pixabay_{pixabay_id}.{format_ext}"
 
     async def get_image_details(self, image_id: str) -> Optional[ImageInfo]:
         """获取图片详细信息"""
