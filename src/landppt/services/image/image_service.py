@@ -81,16 +81,16 @@ class ImageService:
                 provider_registry.register(dalle_provider)
                 logger.debug("DALL-E provider registered")
             else:
-                logger.warning("DALL-E API key not configured, skipping provider registration")
+                logger.debug("DALL-E API key not configured, skipping provider registration")
 
             # 注册Stable Diffusion提供者
             if is_provider_configured('stable_diffusion'):
                 sd_config = self.config.get('stable_diffusion', {})
                 sd_provider = StableDiffusionProvider(sd_config)
                 provider_registry.register(sd_provider)
-                logger.info("Stable Diffusion provider registered")
+                logger.debug("Stable Diffusion provider registered")
             else:
-                logger.warning("Stable Diffusion API key not configured, skipping provider registration")
+                logger.debug("Stable Diffusion API key not configured, skipping provider registration")
 
             # 注册SiliconFlow提供者
             if is_provider_configured('siliconflow'):
@@ -99,7 +99,7 @@ class ImageService:
                 provider_registry.register(sf_provider)
                 logger.debug("SiliconFlow provider registered")
             else:
-                logger.warning("SiliconFlow API key not configured, skipping provider registration")
+                logger.debug("SiliconFlow API key not configured, skipping provider registration")
 
             # 初始化网络搜索提供者
             from .config.image_config import ImageServiceConfig
@@ -115,15 +115,17 @@ class ImageService:
             elif is_provider_configured('unsplash'):
                 logger.debug("Unsplash API configured but not set as default network search provider")
             else:
-                logger.warning("Unsplash API key not configured, skipping provider registration")
+                logger.debug("Unsplash API key not configured, skipping provider registration")
 
-            # 注册Pixabay提供者（如果有的话）
+            # 注册Pixabay提供者
             if config_manager.should_enable_search_provider('pixabay'):
                 pixabay_config = self.config.get('pixabay', {})
-                # TODO: 实现PixabaySearchProvider
-                logger.info("Pixabay would be registered as default provider (not implemented yet)")
+                from .providers.pixabay_provider import PixabaySearchProvider
+                pixabay_provider = PixabaySearchProvider(pixabay_config)
+                provider_registry.register(pixabay_provider)
+                logger.debug("Pixabay search provider registered (default provider)")
             elif is_provider_configured('pixabay'):
-                logger.info("Pixabay API configured but not set as default network search provider")
+                logger.debug("Pixabay API configured but not set as default network search provider")
 
             # 统计已注册的提供者数量
             total_providers = (len(provider_registry.get_generation_providers()) +

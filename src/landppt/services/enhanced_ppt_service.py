@@ -137,11 +137,28 @@ class EnhancedPPTService(PPTService):
                 logger.warning("No image providers configured. Please set API keys in environment variables.")
 
             self.image_service = ImageService(image_config)
+            # 异步初始化图片服务
+            import asyncio
+            if asyncio.get_event_loop().is_running():
+                # 如果在异步环境中，创建任务来初始化
+                asyncio.create_task(self._async_initialize_image_service())
+            else:
+                # 如果不在异步环境中，同步初始化
+                asyncio.run(self.image_service.initialize())
             logger.info("Image service initialized successfully")
 
         except Exception as e:
             logger.warning(f"Failed to initialize image service: {e}")
             self.image_service = None
+
+    async def _async_initialize_image_service(self):
+        """异步初始化图片服务"""
+        try:
+            if self.image_service and not self.image_service.initialized:
+                await self.image_service.initialize()
+                logger.debug("Image service async initialization completed")
+        except Exception as e:
+            logger.error(f"Failed to async initialize image service: {e}")
 
     def reload_research_config(self):
         """Reload research service configuration"""

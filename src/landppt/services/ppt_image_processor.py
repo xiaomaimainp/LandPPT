@@ -436,7 +436,6 @@ class PPTImageProcessor:
                 logger.warning("无法生成搜索关键词")
                 return images
 
-            # 直接使用Unsplash搜索，避免重复请求
             network_images = await self._search_images_directly(search_query, requirement.count)
 
             # 下载网络图片到本地缓存文件夹
@@ -513,27 +512,19 @@ class PPTImageProcessor:
                 return self._search_cache[search_key]
 
         try:
-            # 优先使用传递进来的图片服务实例
-            if self.image_service:
-                image_service = self.image_service
-            else:
-                # 如果没有传递图片服务实例，创建一个新的
-                from .image.image_service import ImageService
-                from .image.config.image_config import ImageServiceConfig
+            # 检查图片服务是否可用
+            if not self.image_service:
+                logger.error("图片服务未初始化，无法使用图片服务搜索")
+                return []
 
-                # 获取图片服务配置
-                config_manager = ImageServiceConfig()
-                config = config_manager.get_config()
-
-                image_service = ImageService(config)
-                await image_service.initialize()
+            image_service = self.image_service
 
             from .image.models import ImageSearchRequest
 
             # 创建搜索请求
             search_request = ImageSearchRequest(
                 query=query,
-                per_page=min(count * 2, 20),  # 搜索更多以便筛选
+                per_page=max(3, min(count * 2, 20)),  # 搜索更多以便筛选，确保>=3
                 page=1
             )
 
@@ -651,158 +642,11 @@ class PPTImageProcessor:
             logger.error(f"处理AI生成图片失败: {e}")
             return images
 
-    async def _select_local_image(self, project_topic: str,
-                                project_scenario: str, slide_title: str, slide_content: str) -> Optional[str]:
-        """从本地图床中搜索合适的图片"""
-        try:
-            if not self.image_service:
-                logger.warning("图片服务未初始化")
-                return None
 
-            # 获取本地图片库信息
-            cache_stats = await self.image_service.get_cache_stats()
 
-            # 检查是否有缓存的图片
-            total_images = 0
-            if 'categories' in cache_stats:
-                for _, count in cache_stats['categories'].items():
-                    total_images += count
 
-            if total_images == 0:
-                logger.info("本地图片库为空，跳过图片选择")
-                return None
 
-            # 让AI生成搜索关键词
-            search_keywords = await self._ai_generate_local_search_keywords(
-                slide_title, slide_content, project_topic, project_scenario
-            )
 
-            if not search_keywords:
-                logger.warning("无法生成本地搜索关键词")
-                return None
-
-            # 使用关键词搜索本地图片
-            best_match = await self._search_local_images_by_keywords(search_keywords)
-
-            if best_match:
-                logger.info(f"找到匹配的本地图片: {best_match}")
-                relative_url = f"/api/image/view/{best_match}"
-                absolute_url = self._build_absolute_image_url(relative_url)
-                logger.info(f"返回绝对图片URL: {absolute_url}")
-                return absolute_url
-            else:
-                logger.info("未找到匹配的本地图片")
-                return None
-
-        except Exception as e:
-            logger.error(f"选择本地图片失败: {e}")
-            return None
-
-    async def _search_network_image(self, project_topic: str,
-                                  project_scenario: str, slide_title: str, slide_content: str,
-                                  image_config: Dict[str, Any]) -> Optional[str]:
-        """使用网络搜索获取图片"""
-        try:
-            # 检查是否有可用的网络搜索提供商
-            if not self._has_network_search_providers(image_config):
-                logger.warning("没有配置可用的网络搜索提供商")
-                return None
-
-            # 让AI生成搜索关键词
-            search_query = await self._ai_generate_search_query(
-                slide_title, slide_content, project_topic, project_scenario
-            )
-
-            if not search_query:
-                logger.warning("无法生成搜索关键词")
-                return None
-
-            # 使用新的图片服务搜索
-            network_images = await self._search_images_with_service(search_query, 1)
-
-            if not network_images:
-                logger.warning("网络搜索未找到合适的图片")
-                return None
-
-            # 获取第一张图片
-            image_data = network_images[0]
-            image_url = (image_data.get('url') or
-                        image_data.get('largeImageURL') or
-                        image_data.get('webformatURL') or
-                        image_data.get('original_url'))
-
-            if image_url:
-                logger.info(f"找到网络图片: {image_url}")
-                return image_url
-            else:
-                logger.info("未找到匹配的网络图片")
-                return None
-            
-        except Exception as e:
-            logger.error(f"网络图片搜索失败: {e}")
-            return None
-
-    async def _generate_ai_image(self, project_topic: str,
-                               project_scenario: str, slide_title: str, slide_content: str,
-                               image_config: Dict[str, Any], page_number: int, total_pages: int,
-                               template_html: str = "") -> Optional[str]:
-        """使用AI生成图片"""
-        try:
-            if not self.image_service:
-                logger.warning("图片服务未初始化")
-                return None
-            
-            # 获取默认AI图片提供商
-            default_provider = image_config.get('default_ai_image_provider', 'dalle')
-            
-            # 让AI决定图片尺寸
-            width, height = await self._ai_decide_image_dimensions(
-                slide_title, slide_content, project_topic, project_scenario
-            )
-
-            # 让AI生成图片提示词
-            image_prompt = await self._ai_generate_image_prompt(
-                slide_title, slide_content, project_topic, project_scenario, page_number, total_pages, template_html
-            )
-
-            if not image_prompt:
-                logger.warning("无法生成图片提示词")
-                return None
-
-            # 创建图片生成请求
-            from .image.models import ImageGenerationRequest, ImageProvider
-
-            # 解析提供商
-            provider = ImageProvider.DALLE
-            if default_provider == 'siliconflow':
-                provider = ImageProvider.SILICONFLOW
-            elif default_provider == 'stable_diffusion':
-                provider = ImageProvider.STABLE_DIFFUSION
-
-            generation_request = ImageGenerationRequest(
-                prompt=image_prompt,
-                provider=provider,
-                width=width,
-                height=height,
-                quality="standard"
-            )
-            
-            # 生成图片
-            result = await self.image_service.generate_image(generation_request)
-            
-            if result.success and result.image_info:
-                # 返回通过本地图床服务可访问的图片URL（绝对地址）
-                relative_url = f"/api/image/view/{result.image_info.image_id}"
-                absolute_url = self._build_absolute_image_url(relative_url)
-                logger.info(f"AI生成图片成功: {absolute_url}")
-                return absolute_url
-            else:
-                logger.error(f"AI图片生成失败: {result.message}")
-                return None
-            
-        except Exception as e:
-            logger.error(f"AI图片生成失败: {e}")
-            return None
 
     async def _search_multiple_local_images(self, keywords: str, count: int) -> List[str]:
         """搜索多张本地图片"""
@@ -836,48 +680,10 @@ class PPTImageProcessor:
             logger.error(f"搜索多张本地图片失败: {e}")
             return []
 
-    async def _search_multiple_network_images(self, query: str, count: int, api_key: str) -> List[Dict[str, Any]]:
-        """搜索多张网络图片"""
-        try:
-            # 构建Pixabay API请求URL，请求更多图片
-            # 确保搜索查询不超过100字符限制
-            truncated_query = self._truncate_search_query(query, 100)
-            # 将空格替换为+号，这是Pixabay API的标准格式
-            encoded_query = truncated_query.replace(' ', '+')
-            pixabay_url = f"https://pixabay.com/api/?key={api_key}&q={encoded_query}&image_type=photo&pretty=true&per_page={min(count * 3, 20)}"
-            logger.info(f"Pixabay API请求URL (查询长度: {len(encoded_query)}): {pixabay_url}")
 
-            # 发送请求
-            async with aiohttp.ClientSession() as session:
-                async with session.get(pixabay_url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        hits = data.get('hits', [])
-
-                        # 选择前N张图片
-                        selected_images = []
-                        for hit in hits[:count]:
-                            image_data = {
-                                'id': hit.get('id'),
-                                'url': hit.get('largeImageURL') or hit.get('webformatURL'),
-                                'tags': hit.get('tags', ''),
-                                'imageWidth': hit.get('imageWidth'),
-                                'imageHeight': hit.get('imageHeight')
-                            }
-                            selected_images.append(image_data)
-
-                        logger.info(f"从Pixabay获取{len(selected_images)}张网络图片")
-                        return selected_images
-                    else:
-                        logger.error(f"Pixabay API请求失败: {response.status}")
-                        return []
-
-        except Exception as e:
-            logger.error(f"搜索多张网络图片失败: {e}")
-            return []
 
     async def _search_images_directly(self, query: str, count: int) -> List[Dict[str, Any]]:
-        """直接使用Unsplash搜索图片，避免重复请求"""
+        """使用配置的默认网络搜索提供商搜索图片"""
         # 创建搜索缓存键
         search_key = f"direct_{query}_{count}"
 
@@ -888,26 +694,47 @@ class PPTImageProcessor:
                 return self._search_cache[search_key]
 
         try:
-            from .image.providers.unsplash_provider import UnsplashSearchProvider
             from .image.models import ImageSearchRequest
             from .image.config.image_config import ImageServiceConfig
 
             # 获取配置
             config_manager = ImageServiceConfig()
             config = config_manager.get_config()
-            unsplash_config = config.get('unsplash', {})
 
-            if not unsplash_config.get('api_key'):
-                logger.warning("Unsplash API key not configured")
+            # 获取默认网络搜索提供商配置
+            from .config_service import get_config_service
+            config_service = get_config_service()
+            all_config = config_service.get_all_config()
+            default_provider = all_config.get('default_network_search_provider', 'unsplash')
+
+            logger.debug(f"使用默认网络搜索提供商: {default_provider}")
+
+            # 根据配置的默认提供商创建相应的提供者
+            provider = None
+            if default_provider == 'pixabay':
+                pixabay_config = config.get('pixabay', {})
+                if not pixabay_config.get('api_key'):
+                    logger.warning("Pixabay API key not configured")
+                    return []
+                from .image.providers.pixabay_provider import PixabaySearchProvider
+                provider = PixabaySearchProvider(pixabay_config)
+            else:  # 默认使用unsplash
+                unsplash_config = config.get('unsplash', {})
+                if not unsplash_config.get('api_key'):
+                    logger.warning("Unsplash API key not configured")
+                    return []
+                from .image.providers.unsplash_provider import UnsplashSearchProvider
+                provider = UnsplashSearchProvider(unsplash_config)
+
+            if not provider:
+                logger.error("无法创建网络搜索提供商")
                 return []
 
-            # 创建Unsplash提供者
-            provider = UnsplashSearchProvider(unsplash_config)
-
             # 创建搜索请求
+            # 注意：Pixabay API 要求 per_page 范围为 3-200
             search_request = ImageSearchRequest(
                 query=query,
-                per_page=count,
+                per_page=max(3, min(count, 200)),  # 确保在有效范围内
                 page=1
             )
 
@@ -947,22 +774,15 @@ class PPTImageProcessor:
     async def _download_network_image_to_cache(self, image_data: Dict[str, Any], title: str) -> Optional[Dict[str, Any]]:
         """下载网络图片并上传到图床系统"""
         try:
-            # 确保图片服务已初始化
+            # 检查图片服务是否可用
             if not self.image_service:
-                from .image.image_service import ImageService
-                from .image.config.image_config import ImageServiceConfig
-
-                # 获取图片服务配置
-                config_manager = ImageServiceConfig()
-                config = config_manager.get_config()
-
-                self.image_service = ImageService(config)
-                await self.image_service.initialize()
+                logger.error("图片服务未初始化，无法下载网络图片到缓存")
+                return None
 
             # 获取图片URL
-            image_url = (image_data.get('url') or
+            image_url = (image_data.get('webformatURL') or 
+                        image_data.get('url') or
                         image_data.get('largeImageURL') or
-                        image_data.get('webformatURL') or
                         image_data.get('original_url'))
 
             if not image_url:

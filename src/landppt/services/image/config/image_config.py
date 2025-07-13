@@ -71,13 +71,15 @@ class ImageServiceConfig:
                 'timeout': 30
             },
             
-            # Pixabay配置（网络搜索）
+            # Pixabay配置（网络搜索）- 根据官方API文档
             'pixabay': {
                 'api_key': '',
                 'api_base': 'https://pixabay.com/api',
-                'per_page': 20,
-                'rate_limit_requests': 100,
-                'rate_limit_window': 3600  # 1小时
+                'per_page': 20,  # 默认20，最大200
+                'rate_limit_requests': 100,  # 官方文档：100请求/60秒
+                'rate_limit_window': 60,  # 官方文档：60秒窗口
+                'timeout': 30,
+                'cache_duration': 86400  # 官方要求：缓存24小时
             },
             
             # 缓存配置 - 简化配置，图片永久有效
