@@ -1665,6 +1665,190 @@
             animation: spin 1s linear infinite;
         }
 
+        /* 快速编辑模式样式 */
+        .quick-edit-mode .slide-frame {
+            cursor: pointer;
+        }
+
+        .quick-edit-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(79, 172, 254, 0.05);
+            border: 2px dashed rgba(79, 172, 254, 0.3);
+            border-radius: var(--border-radius-md);
+            display: none;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .quick-edit-mode .quick-edit-overlay {
+            display: block;
+        }
+
+        .quick-edit-overlay::before {
+            content: '💡 点击文本直接编辑 | Enter保存 | ESC取消 | 再次点击快速编辑退出';
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(79, 172, 254, 0.9);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
+            animation: fadeInDown 0.5s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* 可编辑元素高亮样式 */
+        .quick-edit-highlight {
+            outline: 2px solid rgba(67, 233, 123, 0.6) !important;
+            outline-offset: 2px !important;
+            background: rgba(67, 233, 123, 0.1) !important;
+            cursor: text !important;
+            transition: all 0.3s ease !important;
+            position: relative !important;
+        }
+
+        .quick-edit-highlight:hover {
+            outline-color: rgba(67, 233, 123, 0.8) !important;
+            background: rgba(67, 233, 123, 0.2) !important;
+            transform: scale(1.02) !important;
+        }
+
+        .quick-edit-highlight::before {
+            content: '✏️';
+            position: absolute !important;
+            top: -8px !important;
+            right: -8px !important;
+            background: rgba(67, 233, 123, 0.9) !important;
+            color: white !important;
+            border-radius: 50% !important;
+            width: 20px !important;
+            height: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 10px !important;
+            z-index: 1000 !important;
+            box-shadow: 0 2px 4px rgba(67, 233, 123, 0.3) !important;
+        }
+
+        /* 直接编辑状态样式 */
+        .direct-editing {
+            outline: 2px solid #4facfe !important;
+            outline-offset: 2px !important;
+            background: rgba(79, 172, 254, 0.1) !important;
+            border-radius: 4px !important;
+            padding: 2px 4px !important;
+            transition: all 0.3s ease !important;
+            position: relative !important;
+        }
+
+        .direct-editing::before {
+            content: '📝 正在编辑... (Enter保存 / ESC取消)';
+            position: absolute !important;
+            top: -30px !important;
+            left: 0 !important;
+            background: rgba(79, 172, 254, 0.9) !important;
+            color: white !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            white-space: nowrap !important;
+            z-index: 1001 !important;
+            box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3) !important;
+            animation: fadeInDown 0.3s ease !important;
+        }
+
+        .direct-editing:focus {
+            outline-color: #2980b9 !important;
+            background: rgba(79, 172, 254, 0.15) !important;
+        }
+
+        /* 内联编辑器样式 */
+        .inline-editor {
+            position: absolute;
+            background: white;
+            border: 2px solid rgba(79, 172, 254, 0.6);
+            border-radius: var(--border-radius-md);
+            box-shadow: 0 8px 25px rgba(31, 38, 135, 0.3);
+            z-index: 2000;
+            min-width: 200px;
+            max-width: 500px;
+            padding: var(--spacing-sm);
+            backdrop-filter: blur(15px);
+        }
+
+        .inline-editor-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+            background: transparent;
+            resize: none;
+            min-height: 30px;
+            padding: var(--spacing-xs);
+        }
+
+        .inline-editor-toolbar {
+            display: flex;
+            gap: var(--spacing-xs);
+            align-items: center;
+            justify-content: flex-end;
+            margin-top: var(--spacing-xs);
+            padding-top: var(--spacing-xs);
+            border-top: 1px solid rgba(79, 172, 254, 0.2);
+        }
+
+        .inline-editor-btn {
+            background: rgba(79, 172, 254, 0.1);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+            color: rgba(79, 172, 254, 0.8);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .inline-editor-btn:hover {
+            background: rgba(79, 172, 254, 0.2);
+            border-color: rgba(79, 172, 254, 0.5);
+            color: rgba(79, 172, 254, 1);
+        }
+
+        .inline-editor-btn.primary {
+            background: rgba(67, 233, 123, 0.1);
+            border-color: rgba(67, 233, 123, 0.3);
+            color: rgba(67, 233, 123, 0.8);
+        }
+
+        .inline-editor-btn.primary:hover {
+            background: rgba(67, 233, 123, 0.2);
+            border-color: rgba(67, 233, 123, 0.5);
+            color: rgba(67, 233, 123, 1);
+        }
+
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -2817,7 +3001,9 @@
                         <button class="mode-toggle" id="splitMode" onclick="setMode('split')">
                             <i class="fas fa-columns"></i> 分屏
                         </button>
-
+                        <button class="mode-toggle" id="quickEditMode" onclick="toggleQuickEditMode()">
+                            <i class="fas fa-edit"></i> 快速编辑
+                        </button>
                     </div>
                     
                     <div class="btn-group-custom">
@@ -2843,6 +3029,7 @@
                                     <iframe class="slide-frame" id="slideFrame"
                                             srcdoc="{{ project.slides_data[0].html_content | e }}"
                                             title="Slide Preview"></iframe>
+                                    <div class="quick-edit-overlay" id="quickEditOverlay"></div>
                                 </div>
                             </div>
                         {% else %}
@@ -3495,6 +3682,13 @@
                             // 减少Chart.js重新初始化的频率
                             setTimeout(() => {
                                 forceReinitializeIframeJS(slideFrame);
+
+                                // 如果当前是快速编辑模式，重新初始化可编辑元素
+                                if (currentMode === 'quickedit' && quickEditMode) {
+                                    setTimeout(() => {
+                                        initEditableElements();
+                                    }, 200);
+                                }
                             }, 100);
                         }, 150);
                     }
@@ -3510,29 +3704,401 @@
             });
         }
 
+        // ==================== 快速编辑功能 ====================
+        let quickEditMode = false;
+        let currentInlineEditor = null;
+        let editableElements = [];
+
+        // 切换快速编辑模式
+        function toggleQuickEditMode() {
+            if (currentMode === 'quickedit') {
+                // 如果当前正在编辑，先完成编辑
+                if (currentInlineEditor) {
+                    finishDirectEdit(true);
+                }
+                // 退出快速编辑模式
+                setMode('preview');
+            } else {
+                // 进入快速编辑模式
+                setMode('quickedit');
+            }
+        }
+
+        // 启用快速编辑模式
+        function enableQuickEdit() {
+            quickEditMode = true;
+            const previewPane = document.getElementById('previewPane');
+            if (previewPane) {
+                previewPane.classList.add('quick-edit-mode');
+            }
+
+            // 等待iframe加载完成后初始化可编辑元素
+            setTimeout(() => {
+                initEditableElements();
+            }, 500);
+
+            console.log('快速编辑模式已启用');
+        }
+
+        // 禁用快速编辑模式
+        function disableQuickEdit() {
+            quickEditMode = false;
+            const previewPane = document.getElementById('previewPane');
+            if (previewPane) {
+                previewPane.classList.remove('quick-edit-mode');
+            }
+
+            // 清除所有编辑标识
+            clearEditableHighlights();
+
+            // 完成当前的直接编辑
+            if (currentInlineEditor) {
+                finishDirectEdit(true);
+            }
+        }
+
+        // 初始化可编辑元素
+        function initEditableElements() {
+            const slideFrame = document.getElementById('slideFrame');
+            if (!slideFrame || !slideFrame.contentDocument) {
+                console.log('iframe未加载完成，稍后重试');
+                setTimeout(() => {
+                    initEditableElements();
+                }, 1000);
+                return;
+            }
+
+            try {
+                const iframeDoc = slideFrame.contentDocument;
+                editableElements = [];
+
+                // 查找可编辑的文本元素
+                const textSelectors = [
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'p', 'span', 'div',
+                    'li', 'td', 'th',
+                    '.title', '.subtitle', '.content',
+                    '[contenteditable]'
+                ];
+
+                textSelectors.forEach(selector => {
+                    const elements = iframeDoc.querySelectorAll(selector);
+                    elements.forEach(element => {
+                        // 检查元素是否包含文本内容且不是容器元素
+                        if (element.textContent && element.textContent.trim().length > 0) {
+                            // 排除包含其他文本元素的容器
+                            const hasTextChildren = Array.from(element.children).some(child =>
+                                textSelectors.some(sel => child.matches(sel))
+                            );
+
+                            if (!hasTextChildren && !editableElements.includes(element)) {
+                                editableElements.push(element);
+                                addEditableHighlight(element);
+                            }
+                        }
+                    });
+                });
+
+                console.log(`找到 ${editableElements.length} 个可编辑元素`);
+            } catch (error) {
+                console.error('初始化可编辑元素时出错:', error);
+            }
+        }
+
+        // 为元素添加编辑高亮
+        function addEditableHighlight(element) {
+            element.classList.add('quick-edit-highlight');
+            element.style.cursor = 'text'; // 改为文本光标
+
+            // 添加点击事件
+            element.addEventListener('click', function(e) {
+                if (quickEditMode) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    makeElementDirectlyEditable(element, e);
+                }
+            });
+        }
+
+        // 清除所有编辑高亮
+        function clearEditableHighlights() {
+            const slideFrame = document.getElementById('slideFrame');
+            if (!slideFrame || !slideFrame.contentDocument) return;
+
+            try {
+                const iframeDoc = slideFrame.contentDocument;
+                const highlightedElements = iframeDoc.querySelectorAll('.quick-edit-highlight');
+                highlightedElements.forEach(element => {
+                    element.classList.remove('quick-edit-highlight');
+                    element.classList.remove('direct-editing');
+                    element.style.cursor = 'default';
+                    element.contentEditable = false;
+                });
+            } catch (error) {
+                console.error('清除编辑高亮时出错:', error);
+            }
+        }
+
+        // 使元素直接可编辑
+        function makeElementDirectlyEditable(element, clickEvent = null) {
+            // 如果已经有元素在编辑中，先完成编辑
+            if (currentInlineEditor) {
+                finishDirectEdit();
+            }
+
+            // 保存原始内容
+            const originalText = element.textContent;
+            const originalHTML = element.innerHTML;
+
+            // 设置当前编辑元素
+            currentInlineEditor = {
+                element: element,
+                originalText: originalText,
+                originalHTML: originalHTML
+            };
+
+            // 使元素可编辑
+            element.contentEditable = true;
+            element.classList.add('direct-editing');
+
+            // 确保iframe内的样式正确应用
+            const slideFrame = document.getElementById('slideFrame');
+            if (slideFrame && slideFrame.contentDocument) {
+                const iframeDoc = slideFrame.contentDocument;
+
+                // 在iframe内添加直接编辑样式
+                let styleElement = iframeDoc.getElementById('quick-edit-styles');
+                if (!styleElement) {
+                    styleElement = iframeDoc.createElement('style');
+                    styleElement.id = 'quick-edit-styles';
+                    styleElement.textContent = `
+                        .direct-editing {
+                            outline: 2px solid #4facfe !important;
+                            outline-offset: 2px !important;
+                            background: rgba(79, 172, 254, 0.1) !important;
+                            border-radius: 4px !important;
+                            padding: 2px 4px !important;
+                            transition: all 0.3s ease !important;
+                        }
+                        .direct-editing:focus {
+                            outline-color: #2980b9 !important;
+                            background: rgba(79, 172, 254, 0.15) !important;
+                        }
+                    `;
+                    iframeDoc.head.appendChild(styleElement);
+                }
+            }
+
+            // 聚焦元素并设置光标位置
+            element.focus();
+
+            // 设置光标位置
+            try {
+                if (clickEvent) {
+                    // 如果有点击事件，尝试根据点击位置设置光标
+                    const range = element.ownerDocument.createRange();
+                    const selection = element.ownerDocument.getSelection();
+
+                    // 使用点击位置设置光标
+                    if (element.ownerDocument.caretRangeFromPoint) {
+                        const clickRange = element.ownerDocument.caretRangeFromPoint(clickEvent.clientX, clickEvent.clientY);
+                        if (clickRange && element.contains(clickRange.startContainer)) {
+                            selection.removeAllRanges();
+                            selection.addRange(clickRange);
+                        } else {
+                            // 如果点击位置无效，设置到文本末尾
+                            range.selectNodeContents(element);
+                            range.collapse(false);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    } else {
+                        // 浏览器不支持caretRangeFromPoint，设置到文本末尾
+                        range.selectNodeContents(element);
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                } else {
+                    // 没有点击事件，设置到文本末尾
+                    const range = element.ownerDocument.createRange();
+                    const selection = element.ownerDocument.getSelection();
+                    range.selectNodeContents(element);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            } catch (error) {
+                console.warn('光标设置失败:', error);
+                // 如果设置光标失败，至少确保元素获得焦点
+                element.focus();
+            }
+
+            // 添加键盘事件监听
+            element.addEventListener('keydown', handleDirectEditKeydown);
+            element.addEventListener('blur', handleDirectEditBlur);
+            element.addEventListener('input', handleDirectEditInput);
+
+            console.log('开始直接编辑:', originalText);
+        }
+
+        // 处理直接编辑的键盘事件
+        function handleDirectEditKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // Enter键完成编辑
+                e.preventDefault();
+                finishDirectEdit(true);
+            } else if (e.key === 'Escape') {
+                // ESC键取消编辑
+                e.preventDefault();
+                finishDirectEdit(false);
+            }
+        }
+
+        // 处理直接编辑失去焦点
+        function handleDirectEditBlur(e) {
+            // 延迟处理，避免与其他事件冲突
+            setTimeout(() => {
+                if (currentInlineEditor && currentInlineEditor.element === e.target) {
+                    finishDirectEdit(true);
+                }
+            }, 100);
+        }
+
+        // 处理直接编辑输入事件
+        function handleDirectEditInput(e) {
+            // 可以在这里添加实时预览更新逻辑
+            console.log('内容正在编辑:', e.target.textContent);
+        }
+
+        // 完成直接编辑
+        function finishDirectEdit(save = true) {
+            if (!currentInlineEditor) return;
+
+            const element = currentInlineEditor.element;
+            const originalText = currentInlineEditor.originalText;
+            const originalHTML = currentInlineEditor.originalHTML;
+            const newText = element.textContent;
+
+            // 移除事件监听器
+            element.removeEventListener('keydown', handleDirectEditKeydown);
+            element.removeEventListener('blur', handleDirectEditBlur);
+            element.removeEventListener('input', handleDirectEditInput);
+
+            // 恢复元素状态
+            element.contentEditable = false;
+            element.classList.remove('direct-editing');
+            element.style.outline = '';
+            element.style.outlineOffset = '';
+            element.style.backgroundColor = '';
+
+            if (save && newText !== originalText) {
+                // 保存更改
+                saveDirectEdit(element, newText);
+                console.log('保存编辑:', originalText, '->', newText);
+            } else {
+                // 取消更改，恢复原始内容
+                element.textContent = originalText;
+                console.log('取消编辑，恢复原始内容');
+            }
+
+            // 清除当前编辑状态
+            currentInlineEditor = null;
+        }
+
+        // 保存直接编辑
+        function saveDirectEdit(element, newText) {
+            if (!element || newText === undefined) return;
+
+            // 获取更新后的HTML内容
+            const slideFrame = document.getElementById('slideFrame');
+            if (slideFrame && slideFrame.contentDocument) {
+                const updatedHtml = slideFrame.contentDocument.documentElement.outerHTML;
+
+                // 更新幻灯片数据
+                if (typeof slidesData !== 'undefined' && slidesData[currentSlideIndex]) {
+                    slidesData[currentSlideIndex].html_content = updatedHtml;
+
+                    // 更新代码编辑器
+                    if (typeof codeMirrorEditor !== 'undefined' && codeMirrorEditor && typeof isCodeMirrorInitialized !== 'undefined' && isCodeMirrorInitialized) {
+                        codeMirrorEditor.setValue(updatedHtml);
+                    } else {
+                        const codeEditor = document.getElementById('codeEditor');
+                        if (codeEditor) {
+                            codeEditor.value = updatedHtml;
+                        }
+                    }
+
+                    // 更新缩略图
+                    const thumbnailIframe = document.querySelectorAll('.slide-thumbnail .slide-preview iframe')[currentSlideIndex];
+                    if (thumbnailIframe && typeof setSafeIframeContent === 'function') {
+                        setSafeIframeContent(thumbnailIframe, updatedHtml);
+                    }
+
+                    // 保存到服务器
+                    if (typeof saveToServer === 'function') {
+                        saveToServer();
+                    }
+                    if (typeof showNotification === 'function') {
+                        showNotification('内容已更新并保存！', 'success');
+                    }
+                }
+            }
+        }
+
         function setMode(mode) {
             currentMode = mode;
 
             // Update button states
             document.querySelectorAll('.mode-toggle').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(mode + 'Mode').classList.add('active');
+
+            // 处理按钮ID映射
+            let buttonId;
+            switch(mode) {
+                case 'quickedit':
+                    buttonId = 'quickEditMode';
+                    break;
+                default:
+                    buttonId = mode + 'Mode';
+                    break;
+            }
+
+            const modeButton = document.getElementById(buttonId);
+            if (modeButton) {
+                modeButton.classList.add('active');
+            } else {
+                console.warn(`Mode button not found: ${buttonId}`);
+            }
 
             const previewPane = document.getElementById('previewPane');
             const editPane = document.getElementById('editPane');
+
+            if (!previewPane || !editPane) {
+                console.error('Required panes not found:', { previewPane: !!previewPane, editPane: !!editPane });
+                return;
+            }
 
             switch(mode) {
                 case 'preview':
                     previewPane.style.display = 'block';
                     previewPane.style.flex = '1';
                     editPane.style.display = 'none';
+                    if (typeof disableQuickEdit === 'function') {
+                        disableQuickEdit();
+                    }
                     break;
                 case 'edit':
                     previewPane.style.display = 'none';
                     editPane.style.display = 'block';
                     editPane.style.flex = '1';
+                    if (typeof disableQuickEdit === 'function') {
+                        disableQuickEdit();
+                    }
                     // 延迟重新计算CodeMirror尺寸，确保DOM更新完成
                     setTimeout(() => {
-                        resizeCodeMirror();
+                        if (typeof resizeCodeMirror === 'function') {
+                            resizeCodeMirror();
+                        }
                     }, 100);
                     break;
                 case 'split':
@@ -3540,10 +4106,26 @@
                     previewPane.style.flex = '1';
                     editPane.style.display = 'block';
                     editPane.style.flex = '1';
+                    if (typeof disableQuickEdit === 'function') {
+                        disableQuickEdit();
+                    }
                     // 延迟重新计算CodeMirror尺寸，确保DOM更新完成
                     setTimeout(() => {
-                        resizeCodeMirror();
+                        if (typeof resizeCodeMirror === 'function') {
+                            resizeCodeMirror();
+                        }
                     }, 100);
+                    break;
+                case 'quickedit':
+                    previewPane.style.display = 'block';
+                    previewPane.style.flex = '1';
+                    editPane.style.display = 'none';
+                    if (typeof enableQuickEdit === 'function') {
+                        enableQuickEdit();
+                    }
+                    break;
+                default:
+                    console.warn(`Unknown mode: ${mode}`);
                     break;
             }
         }
@@ -6336,6 +6918,7 @@
                         <div class="slide-frame-wrapper" id="slideFrameWrapper">
                             <iframe class="slide-frame" id="slideFrame"
                                     title="Slide Preview"></iframe>
+                            <div class="quick-edit-overlay" id="quickEditOverlay"></div>
                         </div>
                     </div>
                 `;
@@ -7507,6 +8090,24 @@
             });
         }
 
+        // 添加键盘快捷键支持
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + E 切换快速编辑模式
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e' && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                toggleQuickEditMode();
+            }
+
+            // ESC 键退出快速编辑模式
+            if (e.key === 'Escape' && currentMode === 'quickedit') {
+                if (currentInlineEditor) {
+                    finishDirectEdit(false); // 取消编辑
+                } else {
+                    setMode('preview');
+                }
+            }
+        });
+
         // 在页面加载完成后初始化图片上传功能
         document.addEventListener('DOMContentLoaded', function() {
             // 延迟初始化，确保所有元素都已加载
@@ -7516,10 +8117,14 @@
 
                 if (imageUploadBtn && inputContainer) {
                     console.log('初始化图片上传功能');
-                    initImageUpload();
+                    if (typeof initImageUpload === 'function') {
+                        initImageUpload();
+                    }
 
                     // 验证和修复现有图片数据
-                    validateAndFixImageUrls();
+                    if (typeof validateAndFixImageUrls === 'function') {
+                        validateAndFixImageUrls();
+                    }
                 } else {
                     console.log('图片上传元素未找到:', {
                         uploadBtn: !!imageUploadBtn,
