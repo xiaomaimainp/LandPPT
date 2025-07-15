@@ -20,22 +20,15 @@ import io
 import time
 from pathlib import Path
 
-from ..services.image.image_service import ImageService
-from ..services.image.config.image_config import get_image_config
+from ..services.image.image_service import get_image_service
 from ..services.image.config.image_config import get_image_config
 from ..auth.middleware import get_current_user_required
 from ..database.models import User
+from ..utils.thread_pool import run_blocking_io, to_thread
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def get_image_service() -> ImageService:
-    """获取配置好的图片服务实例"""
-    config_manager = get_image_config()
-    image_config = config_manager.get_config()
-    return ImageService(image_config)
 
 
 class ImageGenerationRequest(BaseModel):
@@ -222,9 +215,9 @@ async def clear_image_cache(
     try:
         image_config = get_image_config()
         config = image_config.get_config()
-        
+
         cache_dir = Path(config.get('cache', {}).get('base_dir', 'temp/images_cache'))
-        
+
         if not cache_dir.exists():
             return {
                 "success": True,
@@ -232,41 +225,52 @@ async def clear_image_cache(
                 "freed_space": "0 MB",
                 "message": "缓存目录不存在"
             }
-        
-        # 统计删除前的信息
-        files = list(cache_dir.rglob('*'))
-        files_to_delete = [f for f in files if f.is_file()]
-        total_size_before = sum(f.stat().st_size for f in files_to_delete)
-        
-        # 删除文件
-        deleted_count = 0
-        for file_path in files_to_delete:
-            try:
-                file_path.unlink()
-                deleted_count += 1
-            except Exception as e:
-                logger.warning(f"Failed to delete {file_path}: {e}")
-        
-        # 删除空目录
-        for dir_path in sorted([f for f in files if f.is_dir()], reverse=True):
-            try:
-                if not any(dir_path.iterdir()):  # 如果目录为空
-                    dir_path.rmdir()
-            except Exception as e:
-                logger.warning(f"Failed to remove directory {dir_path}: {e}")
-        
-        freed_space_mb = total_size_before / (1024 * 1024)
-        
+
+        # 在线程池中执行文件删除操作
+        result = await run_blocking_io(_clear_cache_sync, cache_dir)
+
         return {
             "success": True,
-            "deleted_files": deleted_count,
-            "freed_space": f"{freed_space_mb:.1f} MB",
-            "message": f"成功清理了 {deleted_count} 个文件"
+            "deleted_files": result["deleted_count"],
+            "freed_space": f"{result['freed_space_mb']:.1f} MB",
+            "message": f"成功清理了 {result['deleted_count']} 个文件"
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to clear image cache: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to clear image cache: {str(e)}")
+
+
+def _clear_cache_sync(cache_dir: Path) -> Dict[str, Any]:
+    """同步清理缓存（在线程池中运行）"""
+    # 统计删除前的信息
+    files = list(cache_dir.rglob('*'))
+    files_to_delete = [f for f in files if f.is_file()]
+    total_size_before = sum(f.stat().st_size for f in files_to_delete)
+
+    # 删除文件
+    deleted_count = 0
+    for file_path in files_to_delete:
+        try:
+            file_path.unlink()
+            deleted_count += 1
+        except Exception as e:
+            logger.warning(f"Failed to delete {file_path}: {e}")
+
+    # 删除空目录
+    for dir_path in sorted([f for f in files if f.is_dir()], reverse=True):
+        try:
+            if not any(dir_path.iterdir()):  # 如果目录为空
+                dir_path.rmdir()
+        except Exception as e:
+            logger.warning(f"Failed to remove directory {dir_path}: {e}")
+
+    freed_space_mb = total_size_before / (1024 * 1024)
+
+    return {
+        "deleted_count": deleted_count,
+        "freed_space_mb": freed_space_mb
+    }
 
 
 @router.post("/api/image/generate")
@@ -701,32 +705,31 @@ async def batch_download_images(
     try:
         image_service = get_image_service()
 
-        # 创建内存中的ZIP文件
-        zip_buffer = io.BytesIO()
+        # 获取所有图片信息
+        image_infos = []
+        for image_id in request.image_ids:
+            try:
+                image_info = await image_service.get_image(image_id)
+                if image_info and image_info.local_path:
+                    image_path = Path(image_info.local_path)
+                    if image_path.exists():
+                        image_infos.append({
+                            'path': str(image_path),
+                            'filename': image_info.filename
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to get image {image_id}: {e}")
+                continue
 
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for image_id in request.image_ids:
-                try:
-                    image_info = await image_service.get_image(image_id)
-
-                    if image_info and image_info.local_path:
-                        image_path = Path(image_info.local_path)
-                        if image_path.exists():
-                            # 添加到ZIP文件中
-                            zip_file.write(str(image_path), image_info.filename)
-
-                except Exception as e:
-                    logger.warning(f"Failed to add image {image_id} to zip: {e}")
-                    continue
-
-        zip_buffer.seek(0)
+        # 在线程池中创建ZIP文件
+        zip_data = await run_blocking_io(_create_zip_sync, image_infos)
 
         # 生成文件名
         timestamp = int(time.time())
         filename = f"images_{timestamp}.zip"
 
         return StreamingResponse(
-            io.BytesIO(zip_buffer.read()),
+            io.BytesIO(zip_data),
             media_type="application/zip",
             headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
         )
@@ -734,6 +737,22 @@ async def batch_download_images(
     except Exception as e:
         logger.error(f"Batch download failed: {e}")
         raise HTTPException(status_code=500, detail=f"Batch download failed: {str(e)}")
+
+
+def _create_zip_sync(image_infos: List[Dict[str, str]]) -> bytes:
+    """同步创建ZIP文件（在线程池中运行）"""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for image_info in image_infos:
+            try:
+                zip_file.write(image_info['path'], image_info['filename'])
+            except Exception as e:
+                logger.warning(f"Failed to add {image_info['filename']} to zip: {e}")
+                continue
+
+    zip_buffer.seek(0)
+    return zip_buffer.read()
 
 
 @router.post("/api/image/upload")
@@ -751,8 +770,8 @@ async def upload_image(
         if not file.content_type or not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="Invalid file type")
 
-        # 读取文件数据
-        file_data = await file.read()
+        # 在线程池中读取文件数据
+        file_data = await run_blocking_io(file.read)
 
         # 创建上传请求
         from ..services.image.models import ImageUploadRequest

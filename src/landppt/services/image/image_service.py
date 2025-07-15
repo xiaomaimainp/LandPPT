@@ -25,7 +25,19 @@ logger = logging.getLogger(__name__)
 class ImageService:
     """图片服务主类"""
 
+    _instance = None
+    _class_initialized = False
+
+    def __new__(cls, config: Dict[str, Any]):
+        if cls._instance is None:
+            cls._instance = super(ImageService, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, config: Dict[str, Any]):
+        # 避免重复初始化
+        if self._class_initialized:
+            return
+
         self.config = config
 
         # 初始化组件
@@ -40,7 +52,9 @@ class ImageService:
         # 搜索去重：防止重复搜索
         self._active_searches = {}  # query -> Future
         self._search_lock = asyncio.Lock()
-        
+
+        ImageService._class_initialized = True
+
     async def initialize(self):
         """初始化服务"""
         if self.initialized:
@@ -60,13 +74,18 @@ class ImageService:
     async def _initialize_providers(self):
         """初始化图片提供者"""
         try:
-            # 初始化本地存储提供者（总是注册）
-            from .providers.local_storage_provider import FileSystemStorageProvider
+            # 检查是否已经初始化过本地存储提供者
+            existing_storage = provider_registry.get_storage_providers(enabled_only=False)
+            if not existing_storage:
+                # 初始化本地存储提供者（总是注册）
+                from .providers.local_storage_provider import FileSystemStorageProvider
 
-            storage_config = self.config.get('storage', {})
-            storage_provider = FileSystemStorageProvider(storage_config)
-            provider_registry.register(storage_provider)
-            logger.debug("Local storage provider registered")
+                storage_config = self.config.get('storage', {})
+                storage_provider = FileSystemStorageProvider(storage_config)
+                provider_registry.register(storage_provider)
+                logger.debug("Local storage provider registered")
+            else:
+                logger.debug("Local storage provider already registered")
 
             # 初始化AI图片生成提供者
             from .providers.dalle_provider import DalleProvider
@@ -916,3 +935,18 @@ class ImageService:
     async def create_ppt_image_prompt(self, slide_context: PPTSlideContext) -> str:
         """为PPT幻灯片创建图片生成提示词"""
         return await self.ppt_adapter.generate_image_prompt(slide_context)
+
+
+# 全局图片服务实例
+_global_image_service = None
+
+
+def get_image_service() -> ImageService:
+    """获取全局图片服务实例"""
+    global _global_image_service
+    if _global_image_service is None:
+        from .config.image_config import get_image_config
+        config_manager = get_image_config()
+        config = config_manager.get_config()
+        _global_image_service = ImageService(config)
+    return _global_image_service

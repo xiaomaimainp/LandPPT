@@ -6,34 +6,8 @@
 <div style="text-align: center; margin-bottom: 40px;">
     <h2 style="color: #2c3e50; margin-bottom: 20px;">🖼️ 本地图床管理</h2>
     <p style="font-size: 1.1em; color: #7f8c8d;">
-        管理和浏览您的本地图片库，包括AI生成图片、搜索图片和上传图片
+        管理和浏览您的本地图片库
     </p>
-</div>
-
-<!-- 统计信息面板 -->
-<div class="stats-panel" style="margin-bottom: 30px;">
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-        <div class="stat-card">
-            <div class="stat-icon">🎨</div>
-            <div class="stat-value" id="ai-generated-count">-</div>
-            <div class="stat-label">AI生成图片</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🔍</div>
-            <div class="stat-value" id="web-search-count">-</div>
-            <div class="stat-label">网络搜索图片</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">📁</div>
-            <div class="stat-value" id="local-storage-count">-</div>
-            <div class="stat-label">本地上传图片</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">💾</div>
-            <div class="stat-value" id="cache-size">-</div>
-            <div class="stat-label">缓存大小</div>
-        </div>
-    </div>
 </div>
 
 <!-- 操作工具栏 -->
@@ -325,26 +299,8 @@ let currentImageDetail = null;
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    loadGalleryStats();
     loadImages();
 });
-
-// 加载图库统计信息
-async function loadGalleryStats() {
-    try {
-        const response = await fetch('/api/image/gallery/stats');
-        const data = await response.json();
-
-        if (data.success) {
-            document.getElementById('ai-generated-count').textContent = data.stats.ai_generated || 0;
-            document.getElementById('web-search-count').textContent = data.stats.web_search || 0;
-            document.getElementById('local-storage-count').textContent = data.stats.local_storage || 0;
-            document.getElementById('cache-size').textContent = data.stats.cache_size || '0 MB';
-        }
-    } catch (error) {
-        console.error('Failed to load gallery stats:', error);
-    }
-}
 
 // 加载图片列表
 async function loadImages(page = 1) {
@@ -480,7 +436,6 @@ function sortImages() {
 
 // 刷新图库
 function refreshGallery() {
-    loadGalleryStats();
     loadImages(currentPage);
 }
 
@@ -1084,39 +1039,6 @@ document.addEventListener('keydown', function(event) {
 
 {% block extra_css %}
 <style>
-/* 统计卡片样式 */
-.stat-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 15px;
-    padding: 20px;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(31, 38, 135, 0.4);
-}
-
-.stat-icon {
-    font-size: 2.5em;
-    margin-bottom: 10px;
-}
-
-.stat-value {
-    font-size: 2em;
-    font-weight: bold;
-    color: var(--primary-color);
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    color: var(--text-secondary);
-    font-size: 0.9em;
-}
-
 /* 图片网格样式 */
 .image-grid {
     display: grid;

@@ -245,14 +245,28 @@ class ProviderRegistry:
     
     def register(self, provider: BaseImageProvider):
         """注册提供者"""
+        # 检查是否已经注册了相同的提供者
+        if provider.provider in self._providers:
+            logger.debug(f"Provider {provider.provider} already registered, skipping")
+            return
+
         self._providers[provider.provider] = provider
-        
+
         if isinstance(provider, ImageSearchProvider):
-            self._search_providers.append(provider)
+            # 检查是否已经存在相同类型的搜索提供者
+            existing = [p for p in self._search_providers if p.provider == provider.provider]
+            if not existing:
+                self._search_providers.append(provider)
         elif isinstance(provider, ImageGenerationProvider):
-            self._generation_providers.append(provider)
+            # 检查是否已经存在相同类型的生成提供者
+            existing = [p for p in self._generation_providers if p.provider == provider.provider]
+            if not existing:
+                self._generation_providers.append(provider)
         elif isinstance(provider, LocalStorageProvider):
-            self._storage_providers.append(provider)
+            # 检查是否已经存在相同类型的存储提供者
+            existing = [p for p in self._storage_providers if p.provider == provider.provider]
+            if not existing:
+                self._storage_providers.append(provider)
     
     def get_provider(self, provider: ImageProvider) -> Optional[BaseImageProvider]:
         """获取指定提供者"""

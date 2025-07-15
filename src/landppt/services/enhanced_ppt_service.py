@@ -27,6 +27,7 @@ from .research_report_generator import ResearchReportGenerator
 from .prompts import prompts_manager
 from .image.image_service import ImageService
 from .image.adapters.ppt_prompt_adapter import PPTSlideContext
+from ..utils.thread_pool import run_blocking_io, to_thread
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -1240,11 +1241,10 @@ class EnhancedPPTService(PPTService):
                     if research_context:
                         logger.info(f"🎯 Using research-based outline generation via file processing for project {project_id}")
 
-                        # 保存研究内容为临时Markdown文件
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as temp_file:
-                            temp_file.write(research_context)
-                            temp_research_file = temp_file.name
+                        # 在线程池中保存研究内容为临时Markdown文件
+                        temp_research_file = await run_blocking_io(
+                            self._save_research_to_temp_file, research_context
+                        )
 
                         logger.info(f"📄 Research content saved to temporary file: {temp_research_file}")
                         logger.info(f"📊 Research content stats: {len(research_context)} chars, {len(research_context.split())} words")
@@ -1326,10 +1326,9 @@ class EnhancedPPTService(PPTService):
                         finally:
                             # 清理临时文件
                             try:
-                                import os
-                                if os.path.exists(temp_research_file):
-                                    os.unlink(temp_research_file)
-                                    logger.info(f"Cleaned up temporary research file: {temp_research_file}")
+                                # 在线程池中清理临时文件
+                                await run_blocking_io(self._cleanup_temp_file, temp_research_file)
+                                logger.info(f"Cleaned up temporary research file: {temp_research_file}")
                             except Exception as cleanup_error:
                                 logger.warning(f"Failed to cleanup temporary research file: {cleanup_error}")
 
@@ -6078,17 +6077,11 @@ class EnhancedPPTService(PPTService):
         logger.info(f"使用简化版本从文件生成PPT大纲: {request.filename}")
 
         try:
-            # 读取文件内容
-            with open(request.file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        except UnicodeDecodeError:
-            # 尝试其他编码
-            try:
-                with open(request.file_path, 'r', encoding='gbk') as f:
-                    content = f.read()
-            except:
-                with open(request.file_path, 'r', encoding='latin-1') as f:
-                    content = f.read()
+            # 在线程池中读取文件内容
+            content = await run_blocking_io(self._read_file_with_fallback_encoding, request.file_path)
+        except Exception as e:
+            logger.error(f"Failed to read file {request.file_path}: {e}")
+            raise
 
         # 创建基于文件内容的PPT大纲
         landppt_outline = self._create_outline_from_file_content(content, request)
@@ -6401,3 +6394,30 @@ class EnhancedPPTService(PPTService):
             "cached_projects": list(self._cached_style_genes.keys()),
             "total_count": len(self._cached_style_genes)
         }
+
+    def _read_file_with_fallback_encoding(self, file_path: str) -> str:
+        """使用多种编码尝试读取文件（在线程池中运行）"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except UnicodeDecodeError:
+            # 尝试其他编码
+            try:
+                with open(file_path, 'r', encoding='gbk') as f:
+                    return f.read()
+            except:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    return f.read()
+
+    def _save_research_to_temp_file(self, research_content: str) -> str:
+        """将研究内容保存到临时文件（在线程池中运行）"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as temp_file:
+            temp_file.write(research_content)
+            return temp_file.name
+
+    def _cleanup_temp_file(self, file_path: str) -> None:
+        """清理临时文件（在线程池中运行）"""
+        import os
+        if os.path.exists(file_path):
+            os.unlink(file_path)

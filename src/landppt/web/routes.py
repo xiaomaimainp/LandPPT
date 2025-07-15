@@ -30,6 +30,7 @@ from ..core.config import ai_config
 from ..ai import get_ai_provider, AIMessage, MessageRole
 from ..auth.middleware import get_current_user_required, get_current_user_optional
 from ..database.models import User
+from ..utils.thread_pool import run_blocking_io, to_thread
 import re
 from bs4 import BeautifulSoup
 
@@ -259,22 +260,24 @@ async def web_upload_file(
         # Validate file type
         allowed_types = [".docx", ".pdf", ".txt", ".md"]
         file_extension = "." + file.filename.split(".")[-1].lower()
-        
+
         if file_extension not in allowed_types:
             return templates.TemplateResponse("upload_result.html", {
                 "request": request,
                 "success": False,
                 "error": f"Unsupported file type. Allowed types: {', '.join(allowed_types)}"
             })
-        
-        # Read and process file
-        content = await file.read()
+
+        # Read file content in thread pool to avoid blocking
+        content = await run_blocking_io(file.read)
+
+        # Process file in thread pool
         processed_content = await ppt_service.process_uploaded_file(
             filename=file.filename,
             content=content,
             file_type=file_extension
         )
-        
+
         return templates.TemplateResponse("upload_result.html", {
             "request": request,
             "success": True,
@@ -283,7 +286,7 @@ async def web_upload_file(
             "type": file_extension,
             "processed_content": processed_content[:500] + "..." if len(processed_content) > 500 else processed_content
         })
-        
+
     except Exception as e:
         return templates.TemplateResponse("upload_result.html", {
             "request": request,
@@ -2301,19 +2304,17 @@ async def export_project_pdf(project_id: str, individual: bool = False):
                 detail="PDF generation service unavailable. Please ensure Pyppeteer is installed: pip install pyppeteer"
             )
 
-        # Generate PDF using Pyppeteer
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-            temp_pdf_path = temp_file.name
+        # Create temp file in thread pool to avoid blocking
+        temp_pdf_path = await run_blocking_io(
+            lambda: tempfile.NamedTemporaryFile(suffix='.pdf', delete=False).name
+        )
 
         logging.info("Generating PDF with Pyppeteer")
         success = await _generate_pdf_with_pyppeteer(project, temp_pdf_path, individual)
 
         if not success:
             # Clean up temp file and raise error
-            try:
-                os.unlink(temp_pdf_path)
-            except:
-                pass
+            await run_blocking_io(lambda: os.unlink(temp_pdf_path) if os.path.exists(temp_pdf_path) else None)
             raise HTTPException(status_code=500, detail="PDF generation failed")
 
         # Return PDF file
@@ -2466,60 +2467,229 @@ async def export_project_html(project_id: str):
         if not project.slides_data or len(project.slides_data) == 0:
             raise HTTPException(status_code=400, detail="PPT not generated yet")
 
-        # Create temporary directory for HTML files
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
+        # Create temporary directory and generate files in thread pool
+        zip_content = await run_blocking_io(_generate_html_export_sync, project)
 
-            # Generate individual HTML files for each slide
-            slide_files = []
-            for i, slide in enumerate(project.slides_data):
-                slide_filename = f"slide_{i+1}.html"
-                slide_files.append(slide_filename)
+        # URL encode the filename to handle Chinese characters
+        zip_filename = f"{project.topic}_PPT.zip"
+        safe_filename = urllib.parse.quote(zip_filename, safe='')
 
-                # Create complete HTML document for each slide
-                slide_html = await _generate_individual_slide_html(slide, i+1, len(project.slides_data), project.topic)
-
-                slide_path = temp_path / slide_filename
-                with open(slide_path, 'w', encoding='utf-8') as f:
-                    f.write(slide_html)
-
-            # Generate index.html slideshow page
-            index_html = await _generate_slideshow_index(project, slide_files)
-            index_path = temp_path / "index.html"
-            with open(index_path, 'w', encoding='utf-8') as f:
-                f.write(index_html)
-
-            # Create ZIP file
-            zip_filename = f"{project.topic}_PPT.zip"
-            zip_path = temp_path / zip_filename
-
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Add index.html
-                zipf.write(index_path, "index.html")
-
-                # Add all slide files
-                for slide_file in slide_files:
-                    slide_path = temp_path / slide_file
-                    zipf.write(slide_path, slide_file)
-
-            # Read ZIP file content
-            with open(zip_path, 'rb') as f:
-                zip_content = f.read()
-
-            # URL encode the filename to handle Chinese characters
-            safe_filename = urllib.parse.quote(zip_filename, safe='')
-
-            from fastapi.responses import Response
-            return Response(
-                content=zip_content,
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
-                }
-            )
+        from fastapi.responses import Response
+        return Response(
+            content=zip_content,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
+            }
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _generate_html_export_sync(project) -> bytes:
+    """同步生成HTML导出文件（在线程池中运行）"""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Generate individual HTML files for each slide
+        slide_files = []
+        for i, slide in enumerate(project.slides_data):
+            slide_filename = f"slide_{i+1}.html"
+            slide_files.append(slide_filename)
+
+            # Create complete HTML document for each slide
+            slide_html = _generate_individual_slide_html_sync(slide, i+1, len(project.slides_data), project.topic)
+
+            slide_path = temp_path / slide_filename
+            with open(slide_path, 'w', encoding='utf-8') as f:
+                f.write(slide_html)
+
+        # Generate index.html slideshow page
+        index_html = _generate_slideshow_index_sync(project, slide_files)
+        index_path = temp_path / "index.html"
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write(index_html)
+
+        # Create ZIP file
+        zip_filename = f"{project.topic}_PPT.zip"
+        zip_path = temp_path / zip_filename
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add index.html
+            zipf.write(index_path, "index.html")
+
+            # Add all slide files
+            for slide_file in slide_files:
+                slide_path = temp_path / slide_file
+                zipf.write(slide_path, slide_file)
+
+        # Read ZIP file content
+        with open(zip_path, 'rb') as f:
+            return f.read()
+
+
+def _generate_individual_slide_html_sync(slide, slide_number: int, total_slides: int, topic: str) -> str:
+    """同步生成单个幻灯片HTML（在线程池中运行）"""
+    slide_html = slide.get('html_content', '')
+    slide_title = slide.get('title', f'第{slide_number}页')
+
+    # Check if it's already a complete HTML document
+    import re
+    if slide_html.strip().lower().startswith('<!doctype') or slide_html.strip().lower().startswith('<html'):
+        # It's a complete HTML document, enhance it with navigation
+        return _enhance_complete_html_with_navigation(slide_html, slide_number, total_slides, topic, slide_title)
+    else:
+        # It's just content, wrap it in a complete structure
+        slide_content = slide_html
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{topic} - {slide_title}</title>
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }}
+        .slide-container {{
+            width: 90vw;
+            height: 90vh;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }}
+        .slide-content {{
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }}
+        .slide-number {{
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="slide-content">
+            {slide_content}
+        </div>
+        <div class="slide-number">{slide_number} / {total_slides}</div>
+    </div>
+</body>
+</html>"""
+
+
+def _generate_slideshow_index_sync(project, slide_files: list) -> str:
+    """同步生成幻灯片索引页面（在线程池中运行）"""
+    slides_list = ""
+    for i, slide_file in enumerate(slide_files):
+        slide = project.slides_data[i]
+        slide_title = slide.get('title', f'第{i+1}页')
+        slides_list += f"""
+        <div class="slide-item" onclick="openSlide('{slide_file}')">
+            <div class="slide-preview">
+                <div class="slide-number">{i+1}</div>
+                <div class="slide-title">{slide_title}</div>
+            </div>
+        </div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{project.topic} - PPT放映</title>
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+        .header {{
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }}
+        .slides-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }}
+        .slide-item {{
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }}
+        .slide-item:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }}
+        .slide-number {{
+            background: #007bff;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px auto;
+            font-weight: bold;
+        }}
+        .slide-title {{
+            font-size: 1.1em;
+            color: #333;
+            margin: 0;
+            text-align: center;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{project.topic}</h1>
+        <p>PPT演示文稿 - 共{len(slide_files)}页</p>
+    </div>
+    <div class="slides-grid">
+        {slides_list}
+    </div>
+    <script>
+        function openSlide(slideFile) {{
+            window.open(slideFile, '_blank');
+        }}
+    </script>
+</body>
+</html>"""
+
 
 async def _generate_combined_html_for_export(project, export_type: str) -> str:
     """Generate combined HTML for export (PDF or HTML)"""
@@ -3431,14 +3601,11 @@ async def _process_uploaded_file_for_outline(
             logger.error(f"File validation failed: {message}")
             return None
 
-        # 保存临时文件
-        import tempfile
-        import os
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_upload.filename)[1]) as temp_file:
-            content = await file_upload.read()
-            temp_file.write(content)
-            temp_file_path = temp_file.name
+        # 读取文件内容并保存临时文件（在线程池中执行）
+        content = await run_blocking_io(file_upload.read)
+        temp_file_path = await run_blocking_io(
+            _save_temp_file_sync, content, file_upload.filename
+        )
 
         try:
             # 创建文件大纲生成请求
@@ -3471,13 +3638,32 @@ async def _process_uploaded_file_for_outline(
                 return None
 
         finally:
-            # 清理临时文件
-            if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
+            # 清理临时文件（在线程池中执行）
+            await run_blocking_io(_cleanup_temp_file_sync, temp_file_path)
 
     except Exception as e:
         logger.error(f"Error processing uploaded file for outline: {e}")
         return None
+
+
+def _save_temp_file_sync(content: bytes, filename: str) -> str:
+    """同步保存临时文件（在线程池中运行）"""
+    import tempfile
+    import os
+
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=os.path.splitext(filename)[1]
+    ) as temp_file:
+        temp_file.write(content)
+        return temp_file.name
+
+
+def _cleanup_temp_file_sync(temp_file_path: str):
+    """同步清理临时文件（在线程池中运行）"""
+    import os
+    if os.path.exists(temp_file_path):
+        os.unlink(temp_file_path)
 
 
 @router.get("/global-master-templates", response_class=HTMLResponse)
