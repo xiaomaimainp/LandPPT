@@ -4,6 +4,51 @@ PPT设计基因和视觉指导相关提示词
 """
 
 from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _is_image_service_enabled() -> bool:
+    """检查图片服务是否启用和可用"""
+    try:
+        # 尝试获取图片服务实例
+        from ..service_instances import get_ppt_service
+        ppt_service = get_ppt_service()
+
+        # 检查图片服务是否存在且已初始化
+        if not ppt_service.image_service:
+            return False
+
+        # 检查图片服务是否已初始化
+        if not ppt_service.image_service.initialized:
+            return False
+
+        # 检查是否有可用的提供者
+        from ..image.providers.base import provider_registry
+
+        # 检查是否有AI生成提供者
+        generation_providers = provider_registry.get_generation_providers(enabled_only=True)
+
+        # 检查是否有网络搜索提供者
+        search_providers = provider_registry.get_search_providers(enabled_only=True)
+
+        # 检查是否有本地存储提供者（总是可用）
+        storage_providers = provider_registry.get_storage_providers(enabled_only=True)
+
+        # 如果有任何可用的提供者（AI生成、网络搜索或本地存储），则认为服务可用
+        has_providers = len(generation_providers) > 0 or len(search_providers) > 0 or len(storage_providers) > 0
+
+        logger.debug(f"Image service status: initialized={ppt_service.image_service.initialized}, "
+                    f"generation_providers={len(generation_providers)}, "
+                    f"search_providers={len(search_providers)}, "
+                    f"storage_providers={len(storage_providers)}")
+
+        return has_providers
+
+    except Exception as e:
+        logger.debug(f"Failed to check image service status: {e}")
+        return False
 
 
 class DesignPrompts:
@@ -40,9 +85,9 @@ class DesignPrompts:
     def get_unified_design_guide_prompt(slide_data: Dict[str, Any], page_number: int, total_pages: int) -> str:
         """获取统一设计指导提示词"""
 
-        # 处理图片信息
+        # 处理图片信息 - 只有在图片服务启用且有图片信息时才包含
         images_context = ""
-        if 'images_summary' in slide_data:
+        if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_context = f"""
 
 **可用图片资源：**
@@ -210,9 +255,9 @@ class DesignPrompts:
                                            project_type: str, project_audience: str, project_style: str) -> str:
         """获取创意模板上下文提示词"""
 
-      # 处理图片信息
+        # 处理图片信息 - 只有在图片服务启用且有图片信息时才包含
         images_info = ""
-        if 'images_summary' in slide_data:
+        if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
 
 **图片资源信息：**
@@ -250,12 +295,12 @@ class DesignPrompts:
 **核心设计原则**
 
 1.  **固定画布**：所有设计都必须在`1280x720`像素的固定尺寸画布内完成。最终页面应水平和垂直居中显示。
-2.  **页面饱满度**：核心目标是让页面无论内容多少，都显得**饱满、专业且设计感强**。必须有效利用垂直和水平空间，**严格避免页面底部出现大面积留白**。
+2.  **页面专业度**：核心目标是让页面无论内容多少，都显得**专业且设计感强**。
 3.  **一致的框架**：页面顶部保留**标题**区域，底部保留**页码**区域。请确保它们在所有页面中的位置、风格和字体保持一致，以建立统一的视觉框架。
 
 **动态内容自适应布局**
 
-请根据内容的数量，智能地选择最佳布局和字体策略，以实现页面饱满的目标
+请根据内容的数量，智能地选择最佳布局和字体策略
 
 **视觉呈现与组件运用**
 
@@ -330,9 +375,9 @@ class DesignPrompts:
                                    style_genes: str, unified_design_guide: str, template_html: str) -> str:
         """获取单页HTML生成提示词"""
 
-        # 处理图片信息
+        # 处理图片信息 - 只有在图片服务启用且有图片信息时才包含
         images_info = ""
-        if 'images_summary' in slide_data:
+        if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
 
 **图片资源信息：**
@@ -369,12 +414,12 @@ class DesignPrompts:
 **核心设计原则**
 
 1.  **固定画布**：所有设计都必须在`1280x720`像素的固定尺寸画布内完成。最终页面应水平和垂直居中显示。
-2.  **页面饱满度**：核心目标是让页面无论内容多少，都显得**饱满、专业且设计感强**。必须有效利用垂直和水平空间，**严格避免页面底部出现大面积留白**。
+2.  **页面专业度**：核心目标是让页面无论内容多少，都显得**专业且设计感强**。
 3.  **一致的框架**：页面顶部保留**标题**区域，底部保留**页码**区域。请确保它们在所有页面中的位置、风格和字体保持一致，以建立统一的视觉框架。
 
 **动态内容自适应布局**
 
-请根据内容的数量，智能地选择最佳布局和字体策略，以实现页面饱满的目标：
+请根据内容的数量，智能地选择最佳布局和字体策略。
 
 **视觉呈现与组件运用**
 
@@ -410,6 +455,8 @@ class DesignPrompts:
 - 确保文字清晰可读，颜色搭配协调
 
 
+
+{f'''
 **图片集成指导**：
 - 图片资源: {slide_data.get('image_url', '无')}
 - 如果有图片资源，请必须合理地将图片融入页面设计中：
@@ -420,6 +467,8 @@ class DesignPrompts:
   * 可以作为背景图、装饰图或内容配图使用
   * 确保图片不会导致页面内容溢出或布局混乱
   * 图片应使用响应式设计，适配不同屏幕尺寸
+
+''' if _is_image_service_enabled() else ''}
 
 **富文本支持**：
 - 支持数学公式（使用MathJax）、代码高亮（使用Prism.js）、图表（使用Chart.js）等富文本元素
@@ -536,9 +585,9 @@ class DesignPrompts:
                                            project_type: str, project_audience: str, project_style: str) -> str:
         """获取创意模板上下文提示词"""
 
-        # 处理图片信息
+        # 处理图片信息 - 只有在图片服务启用且有图片信息时才包含
         images_info = ""
-        if 'images_summary' in slide_data:
+        if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
 
 **图片资源信息：**
@@ -575,12 +624,12 @@ class DesignPrompts:
 **核心设计原则**
 
 1.  **固定画布**：所有设计都必须在`1280x720`像素的固定尺寸画布内完成。最终页面应水平和垂直居中显示。
-2.  **页面饱满度**：核心目标是让页面无论内容多少，都显得**饱满、专业且设计感强**。必须有效利用垂直和水平空间，**严格避免页面底部出现大面积留白**。
+2.  **页面专业度**：核心目标是让页面无论内容多少，都显得**专业且设计感强**。
 3.  **一致的框架**：页面顶部保留**标题**区域，底部保留**页码**区域。请确保它们在所有页面中的位置、风格和字体保持一致，以建立统一的视觉框架。
 
 **动态内容自适应布局**
 
-请根据内容的数量，智能地选择最佳布局和字体策略，以实现页面饱满的目标
+请根据内容的数量，智能地选择最佳布局和字体策略
 
 **视觉呈现与组件运用**
 
@@ -625,6 +674,7 @@ class DesignPrompts:
   * 避免所有内容都集中在页面上半部分，要有意识地分布到整个页面
   * 底部区域也要合理利用，可以放置装饰元素或次要信息
 
+{f'''
 **图片集成指导**：
 - 图片资源: {slide_data.get('image_url', '无')}
 - 如果有图片资源，请必须创造性地将图片融入页面设计中：
@@ -637,6 +687,8 @@ class DesignPrompts:
   * 图片大小和位置应与页面布局协调，不影响文字阅读
   * 可以作为背景图、装饰图或内容配图使用
   * 确保图片不会导致页面内容溢出或布局混乱
+
+''' if _is_image_service_enabled() else ''}
 
 **富文本支持**：
 - 支持数学公式（使用MathJax）、代码高亮（使用Prism.js）、图表（使用Chart.js）等富文本元素
