@@ -1689,7 +1689,7 @@
         }
 
         .quick-edit-overlay::before {
-            content: '💡 点击文本直接编辑 | Enter保存 | ESC取消 | 再次点击快速编辑退出';
+            content: '💡 点击文本直接编辑 | Enter保存 | ESC取消 | 再次点击修改退出';
             position: absolute;
             top: 10px;
             left: 50%;
@@ -1698,8 +1698,8 @@
             color: white;
             padding: var(--spacing-xs) var(--spacing-sm);
             border-radius: var(--border-radius-sm);
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.60rem;
+            font-weight: 500;
             white-space: nowrap;
             box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
             animation: fadeInDown 0.5s ease;
@@ -3002,7 +3002,7 @@
                             <i class="fas fa-columns"></i> 分屏
                         </button>
                         <button class="mode-toggle" id="quickEditMode" onclick="toggleQuickEditMode()">
-                            <i class="fas fa-edit"></i> 快速编辑
+                            <i class="fas fa-edit"></i> 修改
                         </button>
                     </div>
                     
@@ -3737,7 +3737,7 @@
                 initEditableElements();
             }, 500);
 
-            console.log('快速编辑模式已启用');
+            // console.log('快速编辑模式已启用');
         }
 
         // 禁用快速编辑模式
