@@ -24,6 +24,8 @@ from .db_project_manager import DatabaseProjectManager
 from .global_master_template_service import GlobalMasterTemplateService
 from .deep_research_service import DEEPResearchService
 from .research_report_generator import ResearchReportGenerator
+from .research.enhanced_research_service import EnhancedResearchService
+from .research.enhanced_report_generator import EnhancedReportGenerator
 from .prompts import prompts_manager
 from .image.image_service import ImageService
 from .image.adapters.ppt_prompt_adapter import PPTSlideContext
@@ -99,18 +101,85 @@ class EnhancedPPTService(PPTService):
     def _initialize_research_services(self):
         """Initialize research services if available"""
         try:
+            # Initialize legacy research service
             self.research_service = DEEPResearchService()
             self.report_generator = ResearchReportGenerator()
 
-            if self.research_service.is_available():
+            # Initialize enhanced research service
+            self.enhanced_research_service = EnhancedResearchService()
+            self.enhanced_report_generator = EnhancedReportGenerator()
+
+            # Check availability
+            legacy_available = self.research_service.is_available()
+            enhanced_available = self.enhanced_research_service.is_available()
+
+            if enhanced_available:
+                logger.info("Enhanced Research service initialized successfully")
+                available_providers = self.enhanced_research_service.get_available_providers()
+                logger.info(f"Available research providers: {', '.join(available_providers)}")
+            elif legacy_available:
                 logger.info("DEEP Research service initialized successfully")
             else:
-                logger.warning("DEEP Research service not available - check Tavily API configuration")
+                logger.warning("No research services available - check API configurations")
 
         except Exception as e:
             logger.warning(f"Failed to initialize research services: {e}")
             self.research_service = None
             self.report_generator = None
+            self.enhanced_research_service = None
+            self.enhanced_report_generator = None
+
+    def _convert_enhanced_to_legacy_report(self, enhanced_report):
+        """Convert enhanced research report to legacy format for compatibility"""
+        try:
+            from .deep_research_service import ResearchReport, ResearchStep
+
+            # Convert enhanced steps to legacy steps
+            legacy_steps = []
+            for enhanced_step in enhanced_report.steps:
+                # Combine all search results for legacy format
+                combined_results = []
+
+                if enhanced_step.tavily_results:
+                    combined_results.extend(enhanced_step.tavily_results)
+
+                if enhanced_step.searxng_results:
+                    for result in enhanced_step.searxng_results.results:
+                        combined_results.append({
+                            'url': result.url,
+                            'title': result.title,
+                            'content': result.content,
+                            'score': result.score
+                        })
+
+                legacy_step = ResearchStep(
+                    step_number=enhanced_step.step_number,
+                    query=enhanced_step.query,
+                    description=enhanced_step.description,
+                    results=combined_results,
+                    analysis=enhanced_step.analysis,
+                    completed=enhanced_step.completed
+                )
+                legacy_steps.append(legacy_step)
+
+            # Create legacy report
+            legacy_report = ResearchReport(
+                topic=enhanced_report.topic,
+                language=enhanced_report.language,
+                steps=legacy_steps,
+                executive_summary=enhanced_report.executive_summary,
+                key_findings=enhanced_report.key_findings,
+                recommendations=enhanced_report.recommendations,
+                sources=enhanced_report.sources,
+                created_at=enhanced_report.created_at,
+                total_duration=enhanced_report.total_duration
+            )
+
+            return legacy_report
+
+        except Exception as e:
+            logger.error(f"Failed to convert enhanced report to legacy format: {e}")
+            return None
 
     def _initialize_image_service(self):
         """Initialize image service"""
@@ -329,30 +398,58 @@ class EnhancedPPTService(PPTService):
             research_report = None
 
             # Check if network mode is enabled and research service is available
-            if request.network_mode and self.research_service and self.research_service.is_available():
-                logger.info(f"Starting DEEP research for topic: {request.topic}")
-                try:
-                    # Conduct DEEP research
-                    research_report = await self.research_service.conduct_deep_research(
-                        topic=request.topic,
-                        language=request.language
-                    )
+            if request.network_mode:
+                # Try enhanced research service first, fallback to legacy
+                if hasattr(self, 'enhanced_research_service') and self.enhanced_research_service.is_available():
+                    logger.info(f"Starting Enhanced research for topic: {request.topic}")
+                    try:
+                        # Conduct enhanced research
+                        enhanced_report = await self.enhanced_research_service.conduct_enhanced_research(
+                            topic=request.topic,
+                            language=request.language
+                        )
 
-                    # Generate research context for outline generation
-                    research_context = self._create_research_context(research_report)
-                    logger.info("DEEP research completed successfully")
+                        # Convert enhanced report to legacy format for compatibility
+                        research_report = self._convert_enhanced_to_legacy_report(enhanced_report)
 
-                    # Save research report if generator is available
-                    if self.report_generator:
-                        try:
-                            report_path = self.report_generator.save_report_to_file(research_report)
-                            logger.info(f"Research report saved to: {report_path}")
-                        except Exception as save_error:
-                            logger.warning(f"Failed to save research report: {save_error}")
+                        # Save enhanced report
+                        if hasattr(self, 'enhanced_report_generator'):
+                            try:
+                                report_path = self.enhanced_report_generator.save_report_to_file(enhanced_report)
+                                logger.info(f"Enhanced research report saved to: {report_path}")
+                            except Exception as save_error:
+                                logger.warning(f"Failed to save enhanced research report: {save_error}")
 
-                except Exception as research_error:
-                    logger.warning(f"DEEP research failed, proceeding without research context: {research_error}")
-                    research_context = ""
+                    except Exception as e:
+                        logger.error(f"Enhanced research failed: {e}")
+                        research_report = None
+
+                elif self.research_service and self.research_service.is_available():
+                    logger.info(f"Starting DEEP research for topic: {request.topic}")
+                    try:
+                        # Conduct DEEP research
+                        research_report = await self.research_service.conduct_deep_research(
+                            topic=request.topic,
+                            language=request.language
+                        )
+
+                        # Generate research context for outline generation
+                        research_context = self._create_research_context(research_report)
+                        logger.info("DEEP research completed successfully")
+
+                        # Save research report if generator is available
+                        if self.report_generator:
+                            try:
+                                report_path = self.report_generator.save_report_to_file(research_report)
+                                logger.info(f"Research report saved to: {report_path}")
+                            except Exception as save_error:
+                                logger.warning(f"Failed to save research report: {save_error}")
+
+                    except Exception as research_error:
+                        logger.warning(f"DEEP research failed, proceeding without research context: {research_error}")
+                        research_context = ""
+                else:
+                    logger.info("Network mode enabled but no research services available")
 
             # Create AI prompt for outline generation (with or without research context and page count settings)
             prompt = self._create_outline_prompt(request, research_context, page_count_settings)

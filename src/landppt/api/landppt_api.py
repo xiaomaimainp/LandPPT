@@ -27,6 +27,8 @@ file_processor = FileProcessor()
 # Research services (lazy initialization)
 _research_service = None
 _report_generator = None
+_enhanced_research_service = None
+_enhanced_report_generator = None
 
 def get_research_service():
     """Get research service instance (lazy initialization)"""
@@ -72,6 +74,32 @@ def get_report_generator():
         except Exception as e:
             logger.warning(f"Failed to initialize report generator: {e}")
     return _report_generator
+
+
+def get_enhanced_research_service():
+    """Get enhanced research service instance (lazy initialization)"""
+    global _enhanced_research_service
+    if _enhanced_research_service is None:
+        try:
+            from ..services.research.enhanced_research_service import EnhancedResearchService
+            _enhanced_research_service = EnhancedResearchService()
+            logger.info("Enhanced research service initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize enhanced research service: {e}")
+    return _enhanced_research_service
+
+
+def get_enhanced_report_generator():
+    """Get enhanced report generator instance (lazy initialization)"""
+    global _enhanced_report_generator
+    if _enhanced_report_generator is None:
+        try:
+            from ..services.research.enhanced_report_generator import EnhancedReportGenerator
+            _enhanced_report_generator = EnhancedReportGenerator()
+            logger.info("Enhanced report generator initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize enhanced report generator: {e}")
+    return _enhanced_report_generator
 
 @router.get("/health")
 async def health_check():
@@ -880,3 +908,108 @@ async def get_reports_directory():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting directory: {str(e)}")
+
+
+# Enhanced Research API Endpoints
+
+@router.post("/research/enhanced/conduct")
+async def conduct_enhanced_research(topic: str, language: str = "zh"):
+    """Conduct enhanced research using multiple providers and deep content analysis"""
+    try:
+        enhanced_service = get_enhanced_research_service()
+        if not enhanced_service or not enhanced_service.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="Enhanced research service not available. Please check provider configurations."
+            )
+
+        # Conduct enhanced research
+        enhanced_report = await enhanced_service.conduct_enhanced_research(topic, language)
+
+        # Save enhanced report
+        report_path = None
+        enhanced_generator = get_enhanced_report_generator()
+        if enhanced_generator:
+            try:
+                report_path = enhanced_generator.save_report_to_file(enhanced_report)
+            except Exception as save_error:
+                logger.warning(f"Failed to save enhanced research report: {save_error}")
+
+        return {
+            "success": True,
+            "message": "Enhanced research completed successfully",
+            "report": {
+                "topic": enhanced_report.topic,
+                "language": enhanced_report.language,
+                "executive_summary": enhanced_report.executive_summary,
+                "key_findings": enhanced_report.key_findings,
+                "recommendations": enhanced_report.recommendations,
+                "sources": enhanced_report.sources,
+                "created_at": enhanced_report.created_at.isoformat(),
+                "total_duration": enhanced_report.total_duration,
+                "steps_count": len(enhanced_report.steps),
+                "provider_stats": enhanced_report.provider_stats,
+                "content_analysis": enhanced_report.content_analysis
+            },
+            "report_path": report_path
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Enhanced research failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced research failed: {str(e)}")
+
+
+@router.get("/research/enhanced/status")
+async def get_enhanced_research_status():
+    """Get enhanced research service status and configuration"""
+    try:
+        enhanced_service = get_enhanced_research_service()
+        if not enhanced_service:
+            return {
+                "available": False,
+                "message": "Enhanced research service not initialized"
+            }
+
+        status = enhanced_service.get_status()
+        return {
+            "success": True,
+            "status": status
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting enhanced research status: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting enhanced research status: {str(e)}")
+
+
+@router.get("/research/enhanced/providers")
+async def get_available_research_providers():
+    """Get list of available research providers"""
+    try:
+        enhanced_service = get_enhanced_research_service()
+        providers = {
+            "tavily": False,
+            "searxng": False,
+            "content_extraction": False
+        }
+
+        if enhanced_service:
+            available_providers = enhanced_service.get_available_providers()
+            for provider in available_providers:
+                if provider in providers:
+                    providers[provider] = True
+
+            # Check content extraction
+            from ...core.config import ai_config
+            providers["content_extraction"] = ai_config.research_enable_content_extraction
+
+        return {
+            "success": True,
+            "providers": providers,
+            "enhanced_service_available": enhanced_service is not None and enhanced_service.is_available()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting research providers: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting research providers: {str(e)}")

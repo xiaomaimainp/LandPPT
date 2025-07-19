@@ -248,6 +248,19 @@
             </div>
 
             <div>
+                <!-- Research Configuration Section -->
+                <h4 style="color: #e74c3c; margin-bottom: 15px; margin-top: 25px;">🔍 研究功能配置</h4>
+
+                <div class="form-group">
+                    <label>研究提供商 (RESEARCH_PROVIDER):</label>
+                    <select name="research_provider">
+                        <option value="tavily">Tavily (推荐)</option>
+                        <option value="searxng">SearXNG</option>
+                        <option value="both">两者都使用</option>
+                    </select>
+                    <small style="color: #7f8c8d;">选择用于研究的搜索提供商</small>
+                </div>
+
                 <div class="form-group">
                     <label>Tavily API Key (研究功能):</label>
                     <input type="password" name="tavily_api_key" placeholder="tvly-..."
@@ -255,7 +268,30 @@
                     <small style="color: #7f8c8d;">用于深度研究功能的API密钥</small>
                 </div>
 
+                <div class="form-group">
+                    <label>SearXNG 主机地址 (SEARXNG_HOST):</label>
+                    <input type="url" name="searxng_host" placeholder="http://localhost:8888"
+                           style="font-family: monospace; font-size: 0.9em;">
+                    <small style="color: #7f8c8d;">SearXNG 实例的完整URL地址</small>
+                </div>
 
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="research_enable_content_extraction">
+                        启用深度内容提取 (RESEARCH_ENABLE_CONTENT_EXTRACTION)
+                    </label>
+                    <small style="color: #7f8c8d;">从搜索结果页面提取完整内容进行深度分析</small>
+                </div>
+
+                <div class="form-group">
+                    <label>最大内容长度 (RESEARCH_MAX_CONTENT_LENGTH):</label>
+                    <input type="number" name="research_max_content_length" min="1000" max="20000"
+                           value="{{ current_config.get('research_max_content_length', '') }}"
+                           placeholder="{{ current_config.get('research_max_content_length', '5000') }}">
+                    <small style="color: #7f8c8d;">每个页面提取的最大字符数</small>
+                </div>
+
+                <h4 style="color: #9b59b6; margin-bottom: 15px; margin-top: 25px;">📄 其他配置</h4>
 
                 <div class="form-group">
                     <label>Apryse License Key (PPT导出):</label>

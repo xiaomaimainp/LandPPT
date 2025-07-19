@@ -190,7 +190,7 @@ class PPTImageProcessor:
 {template_html[:500]}...
 """
 
-                prompt = f"""作为专业的PPT设计师，请分析以下幻灯片的图片需求，并决定需要多少张图片以及每种来源的分配。
+                prompt = f"""作为专业的PPT设计师，请分析以下幻灯片的图片需求。首先判断该页面内容是否需要或适合配图，如果不需要或不适合配图则返回0。
 
 【项目信息】
 - 主题：{project_topic}
@@ -217,8 +217,24 @@ class PPTImageProcessor:
 5. chart_support: 图表辅助，支持数据展示
 6. content_visual: 内容可视化，直观展示概念
 
+【配图适用性判断标准】
+请首先判断该页面是否需要或适合配图，考虑以下因素：
+1. 内容类型：纯文字列表、目录页、致谢页等通常不需要配图
+2. 内容密度：文字过多的页面可能不适合添加图片
+3. 页面功能：导航页、索引页、参考文献页等功能性页面通常不需要配图
+4. 内容抽象度：过于抽象或概念性的内容可能不适合配图
+5. 版面空间：内容已经很满的页面不适合再添加图片
+
+【不适合配图的典型情况】
+- 纯文字列表或条目
+- 目录、索引、导航页面
+- 致谢、参考文献页面
+- 纯数据表格页面
+- 文字密集的详细说明页面
+- 过于抽象的理论概念页面
+
 【分析要求】
-请综合考虑以下因素来决定图片需求：
+如果判断适合配图，请综合考虑以下因素来决定图片需求：
 1. 内容复杂度：复杂内容需要更多说明性图片
 2. 页面类型：封面页、章节页通常需要装饰性图片
 3. 视觉平衡：文字密集的页面需要图片调节
@@ -243,11 +259,11 @@ class PPTImageProcessor:
             "priority": 1-5
         }}
     ],
-    "reasoning": "分析理由"
+    "reasoning": "分析理由，包括是否适合配图的判断依据"
 }}
 
 【重要要求】：
-- 如果不需要图片，设置needs_images为false，requirements为空数组
+- 如果不需要或不适合配图，设置needs_images为false，total_images为0，requirements为空数组
 - 每种来源可以有多个需求项，支持不同用途
 - 优先级1-5，5为最高优先级
 - 严格遵守数量限制，避免页面过于拥挤
@@ -276,8 +292,9 @@ class PPTImageProcessor:
 
                 result = json.loads(json_content)
 
-                if not result.get('needs_images', False):
-                    logger.info(f"AI判断第{page_number}页不需要图片")
+                if not result.get('needs_images', False) or result.get('total_images', 0) == 0:
+                    reasoning = result.get('reasoning', '未提供理由')
+                    logger.info(f"AI判断第{page_number}页不需要或不适合配图: {reasoning}")
                     return None
 
                 # 创建需求对象

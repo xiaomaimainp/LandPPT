@@ -47,6 +47,18 @@ class AIConfig(BaseSettings):
     tavily_include_domains: Optional[str] = Field(default=None, env="TAVILY_INCLUDE_DOMAINS")
     tavily_exclude_domains: Optional[str] = Field(default=None, env="TAVILY_EXCLUDE_DOMAINS")
 
+    # SearXNG Configuration (for research functionality)
+    searxng_host: Optional[str] = Field(default=None, env="SEARXNG_HOST")
+    searxng_max_results: int = Field(default=10, env="SEARXNG_MAX_RESULTS")
+    searxng_language: str = Field(default="auto", env="SEARXNG_LANGUAGE")
+    searxng_timeout: int = Field(default=30, env="SEARXNG_TIMEOUT")
+
+    # Research Configuration
+    research_provider: str = Field(default="tavily", env="RESEARCH_PROVIDER")  # tavily, searxng, both
+    research_enable_content_extraction: bool = Field(default=True, env="RESEARCH_ENABLE_CONTENT_EXTRACTION")
+    research_max_content_length: int = Field(default=5000, env="RESEARCH_MAX_CONTENT_LENGTH")
+    research_extraction_timeout: int = Field(default=30, env="RESEARCH_EXTRACTION_TIMEOUT")
+
     # Apryse SDK Configuration (for PPTX export functionality)
     apryse_license_key: Optional[str] = Field(default=None, env="APRYSE_LICENSE_KEY")
 
@@ -190,6 +202,18 @@ def reload_ai_config():
     ai_config.tavily_search_depth = os.environ.get('TAVILY_SEARCH_DEPTH', ai_config.tavily_search_depth)
     ai_config.tavily_include_domains = os.environ.get('TAVILY_INCLUDE_DOMAINS', ai_config.tavily_include_domains)
     ai_config.tavily_exclude_domains = os.environ.get('TAVILY_EXCLUDE_DOMAINS', ai_config.tavily_exclude_domains)
+
+    # Update SearXNG configuration
+    ai_config.searxng_host = os.environ.get('SEARXNG_HOST', ai_config.searxng_host)
+    ai_config.searxng_max_results = int(os.environ.get('SEARXNG_MAX_RESULTS', str(ai_config.searxng_max_results)))
+    ai_config.searxng_language = os.environ.get('SEARXNG_LANGUAGE', ai_config.searxng_language)
+    ai_config.searxng_timeout = int(os.environ.get('SEARXNG_TIMEOUT', str(ai_config.searxng_timeout)))
+
+    # Update Research configuration
+    ai_config.research_provider = os.environ.get('RESEARCH_PROVIDER', ai_config.research_provider)
+    ai_config.research_enable_content_extraction = os.environ.get('RESEARCH_ENABLE_CONTENT_EXTRACTION', str(ai_config.research_enable_content_extraction)).lower() == 'true'
+    ai_config.research_max_content_length = int(os.environ.get('RESEARCH_MAX_CONTENT_LENGTH', str(ai_config.research_max_content_length)))
+    ai_config.research_extraction_timeout = int(os.environ.get('RESEARCH_EXTRACTION_TIMEOUT', str(ai_config.research_extraction_timeout)))
 
     ai_config.apryse_license_key = os.environ.get('APRYSE_LICENSE_KEY', ai_config.apryse_license_key)
 

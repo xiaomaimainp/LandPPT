@@ -58,6 +58,18 @@ class ConfigService:
             "tavily_max_results": {"type": "number", "category": "generation_params", "default": "10"},
             "tavily_search_depth": {"type": "select", "category": "generation_params", "default": "advanced"},
 
+            # SearXNG Configuration
+            "searxng_host": {"type": "url", "category": "generation_params"},
+            "searxng_max_results": {"type": "number", "category": "generation_params", "default": "10"},
+            "searxng_language": {"type": "text", "category": "generation_params", "default": "auto"},
+            "searxng_timeout": {"type": "number", "category": "generation_params", "default": "30"},
+
+            # Research Configuration
+            "research_provider": {"type": "select", "category": "generation_params", "default": "tavily"},
+            "research_enable_content_extraction": {"type": "boolean", "category": "generation_params", "default": "true"},
+            "research_max_content_length": {"type": "number", "category": "generation_params", "default": "5000"},
+            "research_extraction_timeout": {"type": "number", "category": "generation_params", "default": "30"},
+
             "apryse_license_key": {"type": "password", "category": "generation_params"},
             
             # Feature Flags
