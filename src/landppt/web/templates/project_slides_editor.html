@@ -1349,6 +1349,134 @@
             box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
         }
 
+        /* 选中图像信息容器样式 */
+        .ai-selected-image-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-md);
+            margin-bottom: var(--spacing-md);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ai-selected-image-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .ai-selected-image-header h6 {
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .ai-clear-selection-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: var(--border-radius-sm);
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.75rem;
+        }
+
+        .ai-clear-selection-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .ai-selected-image-info {
+            padding: var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: flex-start;
+        }
+
+        .ai-selected-image-preview {
+            flex-shrink: 0;
+            width: 60px;
+            height: 60px;
+            border-radius: var(--border-radius-sm);
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+        }
+
+        .ai-selected-image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .ai-selected-image-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .ai-image-detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8125rem;
+        }
+
+        .ai-detail-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .ai-detail-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: right;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ai-image-actions {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-top: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .ai-regenerate-image-btn {
+            width: 100%;
+            background: var(--accent-gradient);
+            border: none;
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--border-radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+        }
+
+        .ai-regenerate-image-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+        }
+
+        .ai-regenerate-image-btn:active {
+            transform: translateY(0);
+        }
+
         .ai-input-box {
             width: 100%;
             min-height: 80px;
@@ -3643,6 +3771,9 @@
             // 切换幻灯片时清除AI对话记录
             clearAIMessagesForSlideSwitch();
 
+            // 切换幻灯片时清除图像选择状态
+            clearImageSelection();
+
             // 使用requestAnimationFrame优化DOM操作
             requestAnimationFrame(() => {
                 // Update active thumbnail with animation
@@ -3735,6 +3866,20 @@
             // 等待iframe加载完成后初始化可编辑元素
             setTimeout(() => {
                 initEditableElements();
+
+                // 重新初始化图像选择功能
+                const slideFrame = document.getElementById('slideFrame');
+                if (slideFrame) {
+                    try {
+                        const iframeWindow = slideFrame.contentWindow;
+                        const iframeDoc = slideFrame.contentDocument || iframeWindow.document;
+                        if (iframeWindow && iframeDoc) {
+                            initializeImageSelection(slideFrame, iframeWindow, iframeDoc);
+                        }
+                    } catch (e) {
+                        console.error('重新初始化图像选择功能失败:', e);
+                    }
+                }
             }, 500);
 
             // console.log('快速编辑模式已启用');
@@ -3754,6 +3899,31 @@
             // 完成当前的直接编辑
             if (currentInlineEditor) {
                 finishDirectEdit(true);
+            }
+
+            // 清除图像选择状态
+            clearImageSelection();
+
+            // 移除图像选择功能
+            const slideFrame = document.getElementById('slideFrame');
+            if (slideFrame) {
+                try {
+                    const iframeDoc = slideFrame.contentDocument || slideFrame.contentWindow.document;
+                    if (iframeDoc) {
+                        const selectableImages = iframeDoc.querySelectorAll('[data-image-selectable]');
+                        selectableImages.forEach(element => {
+                            element.removeAttribute('data-image-selectable');
+                            element.style.cursor = '';
+                            element.classList.remove('image-selected', 'image-selectable');
+                            element.style.outline = '';
+                            element.style.outlineOffset = '';
+                            element.style.boxShadow = '';
+                            element.style.transform = '';
+                        });
+                    }
+                } catch (e) {
+                    console.error('清理图像选择功能失败:', e);
+                }
             }
         }
 
@@ -4182,6 +4352,499 @@
             console.log(`🎯 AI助手页数更新: currentSlideIndex=${currentSlideIndex}, 显示为第${currentSlideIndex + 1}页`);
             console.log(`📊 当前幻灯片总数: ${slidesData ? slidesData.length : 'undefined'}`);
             console.log(`🔍 索引验证: 当前索引是否有效=${currentSlideIndex >= 0 && currentSlideIndex < (slidesData ? slidesData.length : 0)}`);
+        }
+
+        // 更新AI助手中选中图像的信息显示
+        function updateAIAssistantSelectedImage(imageInfo) {
+            // 检查是否已存在选中图像信息区域
+            let selectedImageContainer = document.getElementById('aiSelectedImageContainer');
+
+            if (!selectedImageContainer) {
+                // 创建选中图像信息容器
+                selectedImageContainer = document.createElement('div');
+                selectedImageContainer.id = 'aiSelectedImageContainer';
+                selectedImageContainer.className = 'ai-selected-image-container';
+
+                // 插入到AI输入容器之前
+                const inputContainer = document.querySelector('.ai-input-container');
+                if (inputContainer) {
+                    inputContainer.parentNode.insertBefore(selectedImageContainer, inputContainer);
+                }
+            }
+
+            if (imageInfo) {
+                // 显示选中图像信息
+                selectedImageContainer.innerHTML = `
+                    <div class="ai-selected-image-header">
+                        <h6><i class="fas fa-image"></i> 已选择图像</h6>
+                        <button class="ai-clear-selection-btn" onclick="clearImageSelection()" title="清除选择">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="ai-selected-image-info">
+                        <div class="ai-selected-image-preview">
+                            <img src="${imageInfo.src}" alt="${imageInfo.alt}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjBGMEYwIi8+CjxwYXRoIGQ9Ik0yMCAyMEg0MFY0MEgyMFYyMFoiIGZpbGw9IiNDQ0NDQ0MiLz4KPC9zdmc+Cg=='">
+                        </div>
+                        <div class="ai-selected-image-details">
+                            <div class="ai-image-detail-item">
+                                <span class="ai-detail-label">类型:</span>
+                                <span class="ai-detail-value">${getImageTypeDisplay(imageInfo.type)}</span>
+                            </div>
+                            <div class="ai-image-detail-item">
+                                <span class="ai-detail-label">尺寸:</span>
+                                <span class="ai-detail-value">${Math.round(imageInfo.width)} × ${Math.round(imageInfo.height)}</span>
+                            </div>
+                            <div class="ai-image-detail-item">
+                                <span class="ai-detail-label">位置:</span>
+                                <span class="ai-detail-value">第${imageInfo.slideIndex + 1}页</span>
+                            </div>
+                            ${imageInfo.alt ? `
+                            <div class="ai-image-detail-item">
+                                <span class="ai-detail-label">描述:</span>
+                                <span class="ai-detail-value">${imageInfo.alt}</span>
+                            </div>
+                            ` : ''}
+                            ${imageInfo.isBackgroundImage ? `
+                            <div class="ai-image-detail-item">
+                                <span class="ai-detail-label">背景:</span>
+                                <span class="ai-detail-value">CSS背景图像</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="ai-image-actions">
+                        <button class="ai-regenerate-image-btn" onclick="regenerateSelectedImage()" title="重新生成此图像">
+                            <i class="fas fa-sync"></i> 重新生成图像
+                        </button>
+                    </div>
+                `;
+                selectedImageContainer.style.display = 'block';
+            } else {
+                // 隐藏选中图像信息
+                selectedImageContainer.style.display = 'none';
+            }
+        }
+
+        // 清除图像选择
+        function clearImageSelection() {
+            selectedImageInfo = null;
+
+            // 清除幻灯片中的选择状态
+            const slideFrame = document.getElementById('slideFrame');
+            if (slideFrame) {
+                try {
+                    const iframeDoc = slideFrame.contentDocument || slideFrame.contentWindow.document;
+                    const selectedImages = iframeDoc.querySelectorAll('.image-selected');
+                    selectedImages.forEach(img => {
+                        img.classList.remove('image-selected');
+                        img.style.outline = '';
+                        img.style.outlineOffset = '';
+                        img.style.boxShadow = '';
+                        img.style.transform = '';
+                    });
+                } catch (e) {
+                    console.error('清除图像选择状态失败:', e);
+                }
+            }
+
+            // 更新AI助手界面
+            updateAIAssistantSelectedImage(null);
+        }
+
+        // 重新生成选中的图像
+        async function regenerateSelectedImage() {
+            if (!selectedImageInfo) {
+                showNotification('请先选择要重新生成的图像', 'warning');
+                return;
+            }
+
+            // 显示确认对话框
+            const confirmed = await showImageRegenerateConfirmDialog();
+            if (!confirmed) return;
+
+            const regenerateBtn = document.querySelector('.ai-regenerate-image-btn');
+            if (!regenerateBtn) return;
+
+            // 保存原始状态用于撤销
+            const originalHtmlContent = slidesData[selectedImageInfo.slideIndex].html_content;
+
+            // 禁用按钮并显示加载状态
+            const originalText = regenerateBtn.innerHTML;
+            regenerateBtn.disabled = true;
+            regenerateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+
+            // 显示进度提示
+            const progressToast = showProgressToast('正在分析图像上下文...');
+
+            try {
+                // 更新进度
+                updateProgressToast(progressToast, '正在生成新图像...', 30);
+
+                // 构建重新生成请求
+                const requestData = {
+                    slide_index: selectedImageInfo.slideIndex,
+                    image_info: selectedImageInfo,
+                    slide_content: {
+                        title: selectedImageInfo.slideTitle,
+                        html_content: slidesData[selectedImageInfo.slideIndex].html_content
+                    },
+                    project_topic: '{{ project.topic }}',
+                    project_scenario: '{{ project.scenario }}',
+                    regeneration_reason: '用户请求重新生成图像'
+                };
+
+                // 发送重新生成请求
+                const response = await fetch('/api/ai/regenerate-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新进度
+                    updateProgressToast(progressToast, '正在更新幻灯片...', 80);
+
+                    // 更新幻灯片内容
+                    if (result.updated_html_content) {
+                        slidesData[selectedImageInfo.slideIndex].html_content = result.updated_html_content;
+
+                        // 更新预览
+                        const slideFrame = document.getElementById('slideFrame');
+                        if (slideFrame && selectedImageInfo.slideIndex === currentSlideIndex) {
+                            setSafeIframeContent(slideFrame, result.updated_html_content);
+                            setTimeout(() => {
+                                forceReinitializeIframeJS(slideFrame);
+                            }, 300);
+                        }
+
+                        // 更新缩略图
+                        const thumbnailIframe = document.querySelectorAll('.slide-thumbnail .slide-preview iframe')[selectedImageInfo.slideIndex];
+                        if (thumbnailIframe) {
+                            setSafeIframeContent(thumbnailIframe, result.updated_html_content);
+                        }
+
+                        // 保存到服务器
+                        updateProgressToast(progressToast, '正在保存...', 90);
+                        await saveToServer();
+
+                        // 完成进度
+                        updateProgressToast(progressToast, '完成！', 100);
+
+                        // 显示撤销选项
+                        showUndoOption(originalHtmlContent, selectedImageInfo.slideIndex);
+
+                        // 清除选择状态
+                        clearImageSelection();
+
+                        // 关闭进度提示
+                        setTimeout(() => closeProgressToast(progressToast), 1000);
+
+                        showNotification('图像重新生成成功！', 'success');
+                    } else {
+                        closeProgressToast(progressToast);
+                        showNotification('图像生成成功，但更新失败', 'warning');
+                    }
+                } else {
+                    closeProgressToast(progressToast);
+                    showNotification(result.message || '图像重新生成失败', 'error');
+                }
+
+            } catch (error) {
+                console.error('重新生成图像失败:', error);
+                closeProgressToast(progressToast);
+                showNotification('网络错误，请重试', 'error');
+            } finally {
+                // 恢复按钮状态
+                regenerateBtn.disabled = false;
+                regenerateBtn.innerHTML = originalText;
+            }
+        }
+
+        // 用户体验优化功能
+
+        // 显示图像重新生成确认对话框
+        async function showImageRegenerateConfirmDialog() {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'modal fade show';
+                modal.style.display = 'block';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                modal.style.zIndex = '20000'; // 确保在AI助手侧边栏之上
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-sync text-primary"></i> 重新生成图像
+                                </h5>
+                            </div>
+                            <div class="modal-body">
+                                <p>确定要重新生成选中的图像吗？</p>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    新图像将保持原有的位置和尺寸，但内容会根据幻灯片上下文重新生成。
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" onclick="closeConfirmDialog(false)">取消</button>
+                                <button type="button" class="btn btn-primary" onclick="closeConfirmDialog(true)">
+                                    <i class="fas fa-sync"></i> 确定重新生成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                window.closeConfirmDialog = (confirmed) => {
+                    document.body.removeChild(modal);
+                    delete window.closeConfirmDialog;
+                    resolve(confirmed);
+                };
+            });
+        }
+
+        // 显示进度提示
+        function showProgressToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'progress-toast';
+            toast.innerHTML = `
+                <div class="progress-toast-content">
+                    <div class="progress-toast-icon">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <div class="progress-toast-text">
+                        <div class="progress-message">${message}</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            // 添加样式
+            if (!document.getElementById('progress-toast-styles')) {
+                const style = document.createElement('style');
+                style.id = 'progress-toast-styles';
+                style.textContent = `
+                    .progress-toast {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: var(--glass-bg);
+                        backdrop-filter: blur(10px);
+                        border: 1px solid var(--glass-border);
+                        border-radius: var(--border-radius-md);
+                        padding: var(--spacing-md);
+                        z-index: 25000;
+                        min-width: 300px;
+                        box-shadow: 0 8px 25px rgba(31, 38, 135, 0.2);
+                        animation: slideInRight 0.3s ease;
+                    }
+
+                    .progress-toast-content {
+                        display: flex;
+                        align-items: center;
+                        gap: var(--spacing-sm);
+                    }
+
+                    .progress-toast-icon {
+                        color: var(--primary-color);
+                        font-size: 1.2rem;
+                    }
+
+                    .progress-toast-text {
+                        flex: 1;
+                    }
+
+                    .progress-message {
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: var(--text-primary);
+                        margin-bottom: var(--spacing-xs);
+                    }
+
+                    .progress-bar {
+                        height: 4px;
+                        background: rgba(0,0,0,0.1);
+                        border-radius: 2px;
+                        overflow: hidden;
+                    }
+
+                    .progress-fill {
+                        height: 100%;
+                        background: var(--primary-gradient);
+                        transition: width 0.3s ease;
+                    }
+
+                    @keyframes slideInRight {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            return toast;
+        }
+
+        // 更新进度提示
+        function updateProgressToast(toast, message, progress) {
+            const messageEl = toast.querySelector('.progress-message');
+            const fillEl = toast.querySelector('.progress-fill');
+
+            if (messageEl) messageEl.textContent = message;
+            if (fillEl) fillEl.style.width = `${progress}%`;
+        }
+
+        // 关闭进度提示
+        function closeProgressToast(toast) {
+            if (toast && toast.parentNode) {
+                toast.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+        }
+
+        // 显示撤销选项
+        function showUndoOption(originalHtmlContent, slideIndex) {
+            const undoToast = document.createElement('div');
+            undoToast.className = 'undo-toast';
+            undoToast.innerHTML = `
+                <div class="undo-toast-content">
+                    <div class="undo-message">
+                        <i class="fas fa-check-circle text-success"></i>
+                        图像已重新生成
+                    </div>
+                    <button class="undo-btn" onclick="undoImageRegeneration('${slideIndex}', this)">
+                        <i class="fas fa-undo"></i> 撤销
+                    </button>
+                </div>
+            `;
+
+            // 保存原始内容到按钮的数据属性中
+            undoToast.querySelector('.undo-btn').setAttribute('data-original-content', originalHtmlContent);
+
+            document.body.appendChild(undoToast);
+
+            // 添加样式
+            if (!document.getElementById('undo-toast-styles')) {
+                const style = document.createElement('style');
+                style.id = 'undo-toast-styles';
+                style.textContent = `
+                    .undo-toast {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: var(--glass-bg);
+                        backdrop-filter: blur(10px);
+                        border: 1px solid var(--glass-border);
+                        border-radius: var(--border-radius-md);
+                        padding: var(--spacing-md);
+                        z-index: 25000;
+                        box-shadow: 0 8px 25px rgba(31, 38, 135, 0.2);
+                        animation: slideInUp 0.3s ease;
+                    }
+
+                    .undo-toast-content {
+                        display: flex;
+                        align-items: center;
+                        gap: var(--spacing-md);
+                    }
+
+                    .undo-message {
+                        font-size: 0.875rem;
+                        color: var(--text-primary);
+                    }
+
+                    .undo-btn {
+                        background: var(--accent-gradient);
+                        border: none;
+                        color: white;
+                        padding: var(--spacing-xs) var(--spacing-sm);
+                        border-radius: var(--border-radius-sm);
+                        font-size: 0.8125rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    }
+
+                    .undo-btn:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+                    }
+
+                    @keyframes slideInUp {
+                        from { transform: translateY(100%); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                if (undoToast.parentNode) {
+                    undoToast.style.animation = 'slideOutDown 0.3s ease';
+                    setTimeout(() => {
+                        if (undoToast.parentNode) {
+                            undoToast.parentNode.removeChild(undoToast);
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        // 撤销图像重新生成
+        async function undoImageRegeneration(slideIndex, button) {
+            const originalContent = button.getAttribute('data-original-content');
+            if (!originalContent) return;
+
+            try {
+                // 恢复原始内容
+                slidesData[slideIndex].html_content = originalContent;
+
+                // 更新预览
+                if (slideIndex == currentSlideIndex) {
+                    const slideFrame = document.getElementById('slideFrame');
+                    if (slideFrame) {
+                        setSafeIframeContent(slideFrame, originalContent);
+                        setTimeout(() => {
+                            forceReinitializeIframeJS(slideFrame);
+                        }, 300);
+                    }
+                }
+
+                // 更新缩略图
+                const thumbnailIframe = document.querySelectorAll('.slide-thumbnail .slide-preview iframe')[slideIndex];
+                if (thumbnailIframe) {
+                    setSafeIframeContent(thumbnailIframe, originalContent);
+                }
+
+                // 保存到服务器
+                await saveToServer();
+
+                // 移除撤销提示
+                const undoToast = button.closest('.undo-toast');
+                if (undoToast && undoToast.parentNode) {
+                    undoToast.parentNode.removeChild(undoToast);
+                }
+
+                showNotification('已撤销图像重新生成', 'info');
+
+            } catch (error) {
+                console.error('撤销操作失败:', error);
+                showNotification('撤销操作失败', 'error');
+            }
         }
 
         // 初始化CodeMirror编辑器
@@ -6838,6 +7501,9 @@
                         }
                     }
 
+                    // 初始化图像选择功能
+                    initializeImageSelection(iframe, iframeWindow, iframeDoc);
+
                 } catch (e) {
                     // 静默处理错误，避免控制台噪音
                 } finally {
@@ -6847,6 +7513,303 @@
                     }, 500);
                 }
             });
+        }
+
+        // 图像选择功能相关变量
+        let selectedImageInfo = null;
+        let imageSelectionEnabled = false;
+
+        // 初始化图像选择功能（仅在快速编辑模式下启用）
+        function initializeImageSelection(iframe, iframeWindow, iframeDoc) {
+            try {
+                // 移除之前的事件监听器
+                const existingSelectables = iframeDoc.querySelectorAll('[data-image-selectable]');
+                existingSelectables.forEach(element => {
+                    element.removeAttribute('data-image-selectable');
+                    element.style.cursor = '';
+                    element.classList.remove('image-selected', 'image-selectable');
+                    // 移除之前添加的事件监听器
+                    if (element._imageClickHandler) {
+                        element.removeEventListener('click', element._imageClickHandler);
+                        element.removeEventListener('mouseenter', element._imageMouseEnterHandler);
+                        element.removeEventListener('mouseleave', element._imageMouseLeaveHandler);
+                        delete element._imageClickHandler;
+                        delete element._imageMouseEnterHandler;
+                        delete element._imageMouseLeaveHandler;
+                    }
+                });
+
+                // 只在快速编辑模式下启用图像选择功能
+                if (!quickEditMode || currentMode !== 'quickedit') {
+                    console.log('图像选择功能仅在快速编辑模式下可用');
+                    return;
+                }
+
+                let imageIndex = 0;
+
+                // 1. 处理 <img> 标签
+                const images = iframeDoc.querySelectorAll('img');
+                images.forEach((img) => {
+                    // 跳过装饰性图像或很小的图像
+                    if (img.width < 30 || img.height < 30) return;
+
+                    setupImageSelection(img, imageIndex++, iframe, 'img');
+                });
+
+                // 2. 处理具有背景图像的元素
+                const allElements = iframeDoc.querySelectorAll('*');
+                allElements.forEach((element) => {
+                    const computedStyle = iframeWindow.getComputedStyle(element);
+                    const backgroundImage = computedStyle.backgroundImage;
+
+                    // 检查是否有背景图像（排除 none 和渐变）
+                    if (backgroundImage &&
+                        backgroundImage !== 'none' &&
+                        backgroundImage.includes('url(')) {
+
+                        // 获取元素尺寸
+                        const rect = element.getBoundingClientRect();
+
+                        // 跳过太小的元素
+                        if (rect.width < 50 || rect.height < 50) return;
+
+                        // 跳过已经处理过的img元素
+                        if (element.tagName.toLowerCase() === 'img') return;
+
+                        setupImageSelection(element, imageIndex++, iframe, 'background');
+                    }
+                });
+
+                // 3. 处理SVG图像
+                const svgElements = iframeDoc.querySelectorAll('svg');
+                svgElements.forEach((svg) => {
+                    const rect = svg.getBoundingClientRect();
+                    if (rect.width < 30 || rect.height < 30) return;
+
+                    setupImageSelection(svg, imageIndex++, iframe, 'svg');
+                });
+
+                // 添加样式到iframe文档
+                addImageSelectionStyles(iframeDoc);
+
+                if (imageIndex > 0) {
+                    console.log(`图像选择功能已启用，共发现 ${imageIndex} 个可选择的图像元素`);
+                } else {
+                    console.log('当前幻灯片中没有可选择的图像元素');
+                }
+
+            } catch (e) {
+                console.error('初始化图像选择功能失败:', e);
+            }
+        }
+
+        // 设置单个元素的图像选择功能
+        function setupImageSelection(element, index, iframe, type) {
+            element.setAttribute('data-image-selectable', 'true');
+            element.setAttribute('data-image-index', index);
+            element.setAttribute('data-image-type', type);
+            element.style.cursor = 'pointer';
+            element.classList.add('image-selectable');
+
+            // 创建事件处理器并保存引用以便后续移除
+            element._imageClickHandler = function(e) {
+                // 只在快速编辑模式下响应点击
+                if (!quickEditMode || currentMode !== 'quickedit') {
+                    return;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+                selectImage(element, iframe);
+            };
+
+            element._imageMouseEnterHandler = function() {
+                // 只在快速编辑模式下显示悬停效果
+                if (!quickEditMode || currentMode !== 'quickedit') {
+                    return;
+                }
+                if (!element.classList.contains('image-selected')) {
+                    element.style.outline = '2px dashed #007bff';
+                    element.style.outlineOffset = '2px';
+                }
+            };
+
+            element._imageMouseLeaveHandler = function() {
+                // 只在快速编辑模式下处理悬停离开
+                if (!quickEditMode || currentMode !== 'quickedit') {
+                    return;
+                }
+                if (!element.classList.contains('image-selected')) {
+                    element.style.outline = '';
+                    element.style.outlineOffset = '';
+                }
+            };
+
+            // 添加事件监听器
+            element.addEventListener('click', element._imageClickHandler);
+            element.addEventListener('mouseenter', element._imageMouseEnterHandler);
+            element.addEventListener('mouseleave', element._imageMouseLeaveHandler);
+        }
+
+        // 添加图像选择相关样式
+        function addImageSelectionStyles(iframeDoc) {
+            let styleElement = iframeDoc.getElementById('image-selection-styles');
+            if (!styleElement) {
+                styleElement = iframeDoc.createElement('style');
+                styleElement.id = 'image-selection-styles';
+                styleElement.textContent = `
+                    .image-selectable {
+                        transition: all 0.2s ease;
+                    }
+                    .image-selectable:hover {
+                        transform: scale(1.02);
+                    }
+                    .image-selected {
+                        outline: 3px solid #007bff !important;
+                        outline-offset: 3px !important;
+                        box-shadow: 0 0 10px rgba(0, 123, 255, 0.3) !important;
+                        transform: scale(1.02) !important;
+                    }
+                `;
+                iframeDoc.head.appendChild(styleElement);
+            }
+        }
+
+        // 选择图像
+        function selectImage(imgElement, iframe) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+                // 清除之前的选择
+                const previousSelected = iframeDoc.querySelectorAll('.image-selected');
+                previousSelected.forEach(img => {
+                    img.classList.remove('image-selected');
+                    img.style.outline = '';
+                    img.style.outlineOffset = '';
+                    img.style.boxShadow = '';
+                    img.style.transform = '';
+                });
+
+                // 选择当前图像
+                imgElement.classList.add('image-selected');
+
+                // 提取图像信息
+                const imageInfo = extractImageInfo(imgElement, iframe);
+                selectedImageInfo = imageInfo;
+
+                // 通知AI助手
+                notifyAIAssistantImageSelected(imageInfo);
+
+                console.log('图像已选择:', imageInfo);
+
+            } catch (e) {
+                console.error('选择图像失败:', e);
+            }
+        }
+
+        // 提取图像信息
+        function extractImageInfo(imageElement, iframe) {
+            const rect = imageElement.getBoundingClientRect();
+            const computedStyle = iframe.contentWindow.getComputedStyle(imageElement);
+            const imageType = imageElement.getAttribute('data-image-type') || 'img';
+
+            let imageInfo = {
+                index: imageElement.getAttribute('data-image-index'),
+                type: imageType,
+                className: imageElement.className,
+                id: imageElement.id || '',
+                style: imageElement.getAttribute('style') || '',
+                width: rect.width,
+                height: rect.height,
+                position: {
+                    top: rect.top,
+                    left: rect.left,
+                    right: rect.right,
+                    bottom: rect.bottom
+                },
+                computedStyle: {
+                    position: computedStyle.position,
+                    display: computedStyle.display,
+                    float: computedStyle.float,
+                    margin: computedStyle.margin,
+                    padding: computedStyle.padding,
+                    border: computedStyle.border,
+                    borderRadius: computedStyle.borderRadius,
+                    transform: computedStyle.transform,
+                    zIndex: computedStyle.zIndex,
+                    opacity: computedStyle.opacity,
+                    backgroundImage: computedStyle.backgroundImage,
+                    backgroundSize: computedStyle.backgroundSize,
+                    backgroundPosition: computedStyle.backgroundPosition,
+                    backgroundRepeat: computedStyle.backgroundRepeat
+                },
+                slideIndex: currentSlideIndex,
+                slideTitle: slidesData[currentSlideIndex]?.title || '',
+                outerHTML: imageElement.outerHTML,
+                parentInfo: extractParentInfo(imageElement)
+            };
+
+            // 根据图像类型提取特定信息
+            if (imageType === 'img') {
+                // <img> 标签的特定属性
+                imageInfo.src = imageElement.src;
+                imageInfo.alt = imageElement.alt || '';
+                imageInfo.title = imageElement.title || '';
+                imageInfo.naturalWidth = imageElement.naturalWidth;
+                imageInfo.naturalHeight = imageElement.naturalHeight;
+                imageInfo.computedStyle.objectFit = computedStyle.objectFit;
+                imageInfo.computedStyle.objectPosition = computedStyle.objectPosition;
+            } else if (imageType === 'background') {
+                // 背景图像的特定属性
+                const backgroundImage = computedStyle.backgroundImage;
+                const urlMatch = backgroundImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+                imageInfo.src = urlMatch ? urlMatch[1] : '';
+                imageInfo.alt = imageElement.getAttribute('alt') || imageElement.getAttribute('title') || '背景图像';
+                imageInfo.title = imageElement.getAttribute('title') || '背景图像';
+                imageInfo.isBackgroundImage = true;
+            } else if (imageType === 'svg') {
+                // SVG 的特定属性
+                imageInfo.src = imageElement.getAttribute('src') || 'data:image/svg+xml;base64,' + btoa(imageElement.outerHTML);
+                imageInfo.alt = imageElement.getAttribute('alt') || imageElement.getAttribute('title') || 'SVG图像';
+                imageInfo.title = imageElement.getAttribute('title') || 'SVG图像';
+                imageInfo.isSVG = true;
+            }
+
+            return imageInfo;
+        }
+
+        // 提取父容器信息
+        function extractParentInfo(imgElement) {
+            const parent = imgElement.parentElement;
+            if (!parent) return null;
+
+            return {
+                tagName: parent.tagName,
+                className: parent.className,
+                style: parent.getAttribute('style') || '',
+                id: parent.id || ''
+            };
+        }
+
+        // 获取图像类型的显示名称
+        function getImageTypeDisplay(type) {
+            const typeMap = {
+                'img': '图片标签',
+                'background': '背景图像',
+                'svg': 'SVG图像'
+            };
+            return typeMap[type] || '未知类型';
+        }
+
+        // 通知AI助手图像已选择
+        function notifyAIAssistantImageSelected(imageInfo) {
+            // 更新AI助手界面显示选中的图像信息
+            updateAIAssistantSelectedImage(imageInfo);
+
+            // 如果AI助手侧栏未打开，则打开它
+            const sidebar = document.getElementById('aiEditSidebar');
+            if (!sidebar.classList.contains('open')) {
+                openAIEditSidebar();
+            }
         }
 
         // 响应式缩放辅助函数

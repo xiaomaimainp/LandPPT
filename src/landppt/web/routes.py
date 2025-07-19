@@ -78,6 +78,15 @@ class AISlideEditRequest(BaseModel):
     chatHistory: Optional[List[Dict[str, str]]] = None
     images: Optional[List[Dict[str, str]]] = None  # 新增：图片信息列表
 
+# 图像重新生成请求数据模型
+class AIImageRegenerateRequest(BaseModel):
+    slide_index: int
+    image_info: Dict[str, Any]
+    slide_content: Dict[str, Any]
+    project_topic: str
+    project_scenario: str
+    regeneration_reason: Optional[str] = None
+
 # Helper function to extract slides from HTML content
 async def _extract_slides_from_html(slides_html: str, existing_slides_data: list) -> list:
     """
@@ -2019,6 +2028,208 @@ async def ai_slide_edit_stream(
             "response": "抱歉，AI编辑服务暂时不可用。请稍后重试。"
         }
 
+@router.post("/api/ai/regenerate-image")
+async def ai_regenerate_image(
+    request: AIImageRegenerateRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """AI重新生成图像接口 - 完全遵循enhanced_ppt_service.py的标准流程"""
+    try:
+        # 获取图像服务和AI提供者
+        from ..services.image.image_service import get_image_service
+
+        image_service = get_image_service()
+        if not image_service:
+            return {
+                "success": False,
+                "message": "图像服务不可用"
+            }
+
+        ai_provider = get_ai_provider()
+        if not ai_provider:
+            return {
+                "success": False,
+                "message": "AI提供者不可用"
+            }
+
+        # 获取图像配置
+        from ..services.config_service import config_service
+        image_config = config_service.get_config_by_category('image_service')
+
+        # 检查是否启用图片生成服务
+        enable_image_service = image_config.get('enable_image_service', False)
+        if not enable_image_service:
+            return {
+                "success": False,
+                "message": "图片生成服务未启用，请在配置中启用"
+            }
+
+        # 第一步：检查启用的图片来源（完全遵循PPTImageProcessor的逻辑）
+        from ..services.models.slide_image_info import ImageSource
+
+        enabled_sources = []
+        if image_config.get('enable_local_images', True):
+            enabled_sources.append(ImageSource.LOCAL)
+        if image_config.get('enable_network_search', False):
+            enabled_sources.append(ImageSource.NETWORK)
+        if image_config.get('enable_ai_generation', False):
+            enabled_sources.append(ImageSource.AI_GENERATED)
+
+        if not enabled_sources:
+            return {
+                "success": False,
+                "message": "没有启用任何图片来源，请在配置中启用至少一种图片来源"
+            }
+
+        # 初始化PPT图像处理器
+        from ..services.ppt_image_processor import PPTImageProcessor
+
+        image_processor = PPTImageProcessor(
+            image_service=image_service,
+            ai_provider=ai_provider
+        )
+
+        # 提取图像信息和幻灯片内容
+        image_info = request.image_info
+        slide_content = request.slide_content
+
+        # 构建幻灯片数据结构（遵循PPTImageProcessor期望的格式）
+        slide_data = {
+            'title': slide_content.get('title', ''),
+            'content_points': [slide_content.get('title', '')],  # 简化的内容点
+        }
+
+        # 构建确认需求结构
+        confirmed_requirements = {
+            'project_topic': request.project_topic,
+            'project_scenario': request.project_scenario
+        }
+
+        # 第二步：直接创建图像重新生成需求（跳过AI配图适用性判断）
+        logger.info(f"开始图片重新生成，启用的来源: {[source.value for source in enabled_sources]}")
+
+        # 分析原图像的用途和上下文
+        image_context = await analyze_image_context(
+            image_info, slide_content, request.project_topic, request.project_scenario
+        )
+
+        # 根据启用的来源和配置，智能选择最佳的图片来源
+        selected_source = select_best_image_source(enabled_sources, image_config, image_context)
+
+        # 创建图像需求对象（直接生成，不需要AI判断是否适合配图）
+        from ..services.models.slide_image_info import ImageRequirement, ImagePurpose
+
+        # 将字符串用途转换为ImagePurpose枚举
+        purpose_str = image_context.get('image_purpose', 'illustration')
+        purpose_mapping = {
+            'background': ImagePurpose.BACKGROUND,
+            'icon': ImagePurpose.ICON,
+            'chart_support': ImagePurpose.CHART_SUPPORT,
+            'decoration': ImagePurpose.DECORATION,
+            'illustration': ImagePurpose.ILLUSTRATION
+        }
+        purpose = purpose_mapping.get(purpose_str, ImagePurpose.ILLUSTRATION)
+
+        requirement = ImageRequirement(
+            source=selected_source,
+            count=1,
+            purpose=purpose,
+            description=f"重新生成图像: {image_info.get('alt', '')} - {request.project_topic}",
+            priority=5  # 高优先级，因为是用户明确请求的重新生成
+        )
+
+        logger.info(f"选择图片来源: {selected_source.value}, 用途: {purpose.value}")
+
+        # 第三步：直接处理图片生成（单个需求）
+        from ..services.models.slide_image_info import SlideImagesCollection
+
+        images_collection = SlideImagesCollection(page_number=request.slide_index + 1, images=[])
+
+        # 根据选择的来源处理图片生成
+        if requirement.source == ImageSource.LOCAL and ImageSource.LOCAL in enabled_sources:
+            local_images = await image_processor._process_local_images(
+                requirement, request.project_topic, request.project_scenario,
+                slide_content.get('title', ''), slide_content.get('title', '')
+            )
+            images_collection.images.extend(local_images)
+
+        elif requirement.source == ImageSource.NETWORK and ImageSource.NETWORK in enabled_sources:
+            network_images = await image_processor._process_network_images(
+                requirement, request.project_topic, request.project_scenario,
+                slide_content.get('title', ''), slide_content.get('title', ''), image_config
+            )
+            images_collection.images.extend(network_images)
+
+        elif requirement.source == ImageSource.AI_GENERATED and ImageSource.AI_GENERATED in enabled_sources:
+            ai_images = await image_processor._process_ai_generated_images(
+                requirement=requirement,
+                project_topic=request.project_topic,
+                project_scenario=request.project_scenario,
+                slide_title=slide_content.get('title', ''),
+                slide_content=slide_content.get('title', ''),
+                image_config=image_config,
+                page_number=request.slide_index + 1,
+                total_pages=1,
+                template_html=slide_content.get('html_content', '')
+            )
+            images_collection.images.extend(ai_images)
+
+        # 重新计算统计信息
+        images_collection.__post_init__()
+
+        if images_collection.total_count == 0:
+            return {
+                "success": False,
+                "message": "未能生成任何图片，请检查配置和网络连接"
+            }
+
+        # 获取第一张生成的图像（用于替换）
+        new_image = images_collection.images[0]
+        new_image_url = new_image.absolute_url
+
+        # 替换HTML中的图像
+        updated_html = replace_image_in_html(
+            slide_content.get('html_content', ''),
+            image_info,
+            new_image_url
+        )
+
+        logger.info(f"图片重新生成成功: {new_image.source.value}来源, URL: {new_image_url}")
+
+        return {
+            "success": True,
+            "message": f"图像重新生成成功（来源：{new_image.source.value}）",
+            "new_image_url": new_image_url,
+            "new_image_id": new_image.image_id,
+            "updated_html_content": updated_html,
+            "generation_prompt": getattr(new_image, 'generation_prompt', ''),
+            "image_source": new_image.source.value,
+            "ai_analysis": {
+                "total_images_analyzed": 1,
+                "reasoning": f"用户请求重新生成{image_context.get('image_purpose', '图像')}，选择{selected_source.value}来源",
+                "enabled_sources": [source.value for source in enabled_sources],
+                "selected_source": selected_source.value
+            },
+            "image_info": {
+                "width": new_image.width,
+                "height": new_image.height,
+                "format": getattr(new_image, 'format', 'unknown'),
+                "alt_text": new_image.alt_text,
+                "title": new_image.title,
+                "source": new_image.source.value,
+                "purpose": new_image.purpose.value
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"AI图像重新生成失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"图像重新生成失败: {str(e)}"
+        }
+
 @router.get("/api/projects/{project_id}/selected-global-template")
 async def get_selected_global_template(
     project_id: str,
@@ -3744,3 +3955,242 @@ async def template_selection_page(
             "request": request,
             "error": str(e)
         })
+
+
+# 图像重新生成相关辅助函数
+async def analyze_image_context(image_info: Dict[str, Any], slide_content: Dict[str, Any],
+                               project_topic: str, project_scenario: str) -> Dict[str, Any]:
+    """分析图像在幻灯片中的上下文"""
+    return {
+        "slide_title": slide_content.get("title", ""),
+        "slide_content": slide_content.get("html_content", ""),
+        "image_alt": image_info.get("alt", ""),
+        "image_title": image_info.get("title", ""),
+        "image_size": f"{image_info.get('width', 0)}x{image_info.get('height', 0)}",
+        "image_position": image_info.get("position", {}),
+        "project_topic": project_topic,
+        "project_scenario": project_scenario,
+        "image_purpose": determine_image_purpose(image_info, slide_content)
+    }
+
+def determine_image_purpose(image_info: Dict[str, Any], slide_content: Dict[str, Any]) -> str:
+    """确定图像在幻灯片中的用途"""
+    # 简单的启发式规则来确定图像用途
+    width = image_info.get('width', 0)
+    height = image_info.get('height', 0)
+    alt_text = image_info.get('alt', '').lower()
+
+    if width > 800 or height > 600:
+        return "background"  # 大图像可能是背景
+    elif 'icon' in alt_text or 'logo' in alt_text:
+        return "icon"
+    elif 'chart' in alt_text or 'graph' in alt_text:
+        return "chart_support"
+    elif width < 200 and height < 200:
+        return "decoration"
+    else:
+        return "illustration"
+
+# 图像重新生成相关辅助函数
+
+def select_best_image_source(enabled_sources: List, image_config: Dict[str, Any], image_context: Dict[str, Any]):
+    """智能选择最佳的图片来源"""
+    from ..services.models.slide_image_info import ImageSource
+
+    # 如果只有一个启用的来源，直接使用
+    if len(enabled_sources) == 1:
+        return enabled_sources[0]
+
+    # 根据图像用途和配置智能选择
+    image_purpose = image_context.get('image_purpose', 'illustration')
+
+    # 优先级规则
+    if image_purpose == 'background':
+        # 背景图优先使用AI生成，其次网络搜索
+        if ImageSource.AI_GENERATED in enabled_sources:
+            return ImageSource.AI_GENERATED
+        elif ImageSource.NETWORK in enabled_sources:
+            return ImageSource.NETWORK
+        elif ImageSource.LOCAL in enabled_sources:
+            return ImageSource.LOCAL
+
+    elif image_purpose == 'icon':
+        # 图标优先使用本地，其次AI生成
+        if ImageSource.LOCAL in enabled_sources:
+            return ImageSource.LOCAL
+        elif ImageSource.AI_GENERATED in enabled_sources:
+            return ImageSource.AI_GENERATED
+        elif ImageSource.NETWORK in enabled_sources:
+            return ImageSource.NETWORK
+
+    elif image_purpose in ['illustration', 'chart_support', 'decoration']:
+        # 说明性图片优先使用网络搜索，其次AI生成
+        if ImageSource.NETWORK in enabled_sources:
+            return ImageSource.NETWORK
+        elif ImageSource.AI_GENERATED in enabled_sources:
+            return ImageSource.AI_GENERATED
+        elif ImageSource.LOCAL in enabled_sources:
+            return ImageSource.LOCAL
+
+    # 默认优先级：AI生成 > 网络搜索 > 本地
+    for source in [ImageSource.AI_GENERATED, ImageSource.NETWORK, ImageSource.LOCAL]:
+        if source in enabled_sources:
+            return source
+
+    # 如果都没有，返回第一个可用的
+    return enabled_sources[0] if enabled_sources else ImageSource.AI_GENERATED
+
+# 注意：generate_image_prompt_for_replacement 函数已被PPTImageProcessor的标准流程替代
+# 现在使用 PPTImageProcessor._ai_generate_image_prompt 方法来生成提示词
+
+def replace_image_in_html(html_content: str, image_info: Dict[str, Any], new_image_url: str) -> str:
+    """在HTML内容中替换指定的图像，支持img标签、背景图像和SVG，保持布局和样式"""
+    try:
+        from bs4 import BeautifulSoup
+        import re
+
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        old_src = image_info.get('src', '')
+        image_type = image_info.get('type', 'img')
+
+        if not old_src:
+            logger.warning("图像信息中没有src属性，无法替换")
+            return html_content
+
+        replacement_success = False
+
+        if image_type == 'img':
+            # 处理 <img> 标签
+            replacement_success = replace_img_tag(soup, image_info, new_image_url, old_src)
+
+        elif image_type == 'background':
+            # 处理背景图像
+            replacement_success = replace_background_image(soup, image_info, new_image_url, old_src)
+
+        elif image_type == 'svg':
+            # 处理SVG图像
+            replacement_success = replace_svg_image(soup, image_info, new_image_url, old_src)
+
+        if replacement_success:
+            logger.info(f"成功替换{image_type}图像: {old_src} -> {new_image_url}")
+            return str(soup)
+        else:
+            logger.warning(f"未找到匹配的{image_type}图像进行替换")
+            return fallback_string_replacement(html_content, old_src, new_image_url)
+
+    except Exception as e:
+        logger.error(f"替换HTML中的图像失败: {e}")
+        return fallback_string_replacement(html_content, image_info.get('src', ''), new_image_url)
+
+def replace_img_tag(soup, image_info: Dict[str, Any], new_image_url: str, old_src: str) -> bool:
+    """替换img标签"""
+    img_elements = soup.find_all('img')
+
+    for img in img_elements:
+        img_src = img.get('src', '')
+
+        # 比较图像源URL（处理相对路径和绝对路径）
+        if (img_src == old_src or
+            img_src.endswith(old_src.split('/')[-1]) or
+            old_src.endswith(img_src.split('/')[-1])):
+
+            # 替换图像URL
+            img['src'] = new_image_url
+
+            # 保持原有的重要属性
+            preserved_attributes = ['class', 'style', 'width', 'height', 'id']
+            for attr in preserved_attributes:
+                if attr in image_info and image_info[attr]:
+                    img[attr] = image_info[attr]
+
+            # 更新或保持alt和title
+            if image_info.get('alt'):
+                img['alt'] = image_info['alt']
+            if image_info.get('title'):
+                img['title'] = image_info['title']
+
+            # 确保图像加载错误时有后备处理
+            if not img.get('onerror'):
+                img['onerror'] = "this.style.display='none'"
+
+            return True
+
+    return False
+
+def replace_background_image(soup, image_info: Dict[str, Any], new_image_url: str, old_src: str) -> bool:
+    """替换CSS背景图像"""
+    # 查找所有元素
+    all_elements = soup.find_all()
+
+    for element in all_elements:
+        # 检查内联样式中的背景图像
+        style = element.get('style', '')
+        if 'background-image' in style and old_src in style:
+            # 替换内联样式中的背景图像URL
+            new_style = style.replace(old_src, new_image_url)
+            element['style'] = new_style
+            return True
+
+        # 检查class属性，可能对应CSS规则中的背景图像
+        class_names = element.get('class', [])
+        if class_names and image_info.get('className'):
+            # 如果class匹配，我们假设这是目标元素
+            if any(cls in image_info.get('className', '') for cls in class_names):
+                # 为元素添加内联背景图像样式
+                current_style = element.get('style', '')
+                if current_style and not current_style.endswith(';'):
+                    current_style += ';'
+                new_style = f"{current_style}background-image: url('{new_image_url}');"
+                element['style'] = new_style
+                return True
+
+    return False
+
+def replace_svg_image(soup, image_info: Dict[str, Any], new_image_url: str, old_src: str) -> bool:
+    """替换SVG图像"""
+    # 查找SVG元素
+    svg_elements = soup.find_all('svg')
+
+    for svg in svg_elements:
+        # 如果SVG有src属性（虽然不常见）
+        if svg.get('src') == old_src:
+            svg['src'] = new_image_url
+            return True
+
+        # 检查SVG的内容或其他标识
+        if image_info.get('outerHTML') and svg.get_text() in image_info.get('outerHTML', ''):
+            # 对于内联SVG，我们可能需要替换整个元素
+            # 这里简化处理，添加一个data属性来标记已替换
+            svg['data-replaced-image'] = new_image_url
+            return True
+
+    return False
+
+def fallback_string_replacement(html_content: str, old_src: str, new_image_url: str) -> str:
+    """后备的字符串替换方案"""
+    try:
+        import re
+
+        if old_src and old_src in html_content:
+            # 尝试多种替换模式
+            patterns = [
+                # img标签的src属性
+                (rf'(<img[^>]*src=")[^"]*({re.escape(old_src)}[^"]*")([^>]*>)', rf'\1{new_image_url}\3'),
+                # CSS背景图像
+                (rf'(background-image:\s*url\([\'"]?)[^\'")]*({re.escape(old_src)}[^\'")]*)', rf'\1{new_image_url}'),
+                # 直接字符串替换
+                (re.escape(old_src), new_image_url)
+            ]
+
+            for pattern, replacement in patterns:
+                updated_html = re.sub(pattern, replacement, html_content, flags=re.IGNORECASE)
+                if updated_html != html_content:
+                    logger.info(f"使用后备方案成功替换图像: {old_src} -> {new_image_url}")
+                    return updated_html
+
+        return html_content
+
+    except Exception as e:
+        logger.error(f"后备替换方案也失败: {e}")
+        return html_content

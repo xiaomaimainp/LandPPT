@@ -113,14 +113,8 @@ class StableDiffusionProvider(ImageGenerationProvider):
     
     def _prepare_api_request(self, request: ImageGenerationRequest) -> Dict[str, Any]:
         """准备API请求"""
-        # 解析尺寸
-        if request.size:
-            try:
-                width, height = map(int, request.size.split('x'))
-            except ValueError:
-                width, height = self.default_width, self.default_height
-        else:
-            width, height = self.default_width, self.default_height
+        # 使用请求中的尺寸
+        width, height = request.width, request.height
         
         api_request = {
             "text_prompts": [
@@ -132,8 +126,8 @@ class StableDiffusionProvider(ImageGenerationProvider):
             "width": width,
             "height": height,
             "steps": request.steps or self.default_steps,
-            "cfg_scale": request.cfg_scale or self.default_cfg_scale,
-            "sampler": request.sampler or self.default_sampler,
+            "cfg_scale": request.guidance_scale or self.default_cfg_scale,
+            "sampler": self.default_sampler,  # 使用默认采样器
             "samples": 1,
             "seed": request.seed if request.seed is not None else 0
         }
@@ -224,14 +218,8 @@ class StableDiffusionProvider(ImageGenerationProvider):
         # 生成图片ID
         image_id = f"sd_{int(time.time())}_{hash(request.prompt) % 10000}"
         
-        # 解析尺寸
-        if request.size:
-            try:
-                width, height = map(int, request.size.split('x'))
-            except ValueError:
-                width, height = self.default_width, self.default_height
-        else:
-            width, height = self.default_width, self.default_height
+        # 使用请求中的尺寸
+        width, height = request.width, request.height
         
         # 创建元数据
         metadata = ImageMetadata(

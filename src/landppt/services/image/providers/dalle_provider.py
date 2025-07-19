@@ -107,19 +107,22 @@ class DalleProvider(ImageGenerationProvider):
     
     def _prepare_api_request(self, request: ImageGenerationRequest) -> Dict[str, Any]:
         """准备API请求"""
+        # 将width和height转换为DALL-E期望的size格式
+        size = f"{request.width}x{request.height}"
+
         api_request = {
             "model": self.model,
             "prompt": request.prompt,
             "n": 1,  # DALL-E 3只支持生成1张图片
-            "size": request.size or self.default_size,
+            "size": size,
             "quality": request.quality or self.default_quality,
             "response_format": "url"
         }
-        
+
         # DALL-E 3支持style参数
         if self.model == "dall-e-3":
             api_request["style"] = request.style or self.default_style
-        
+
         return api_request
     
     async def _process_api_response(self, 
@@ -203,8 +206,8 @@ class DalleProvider(ImageGenerationProvider):
         # 生成图片ID
         image_id = f"dalle_{int(time.time())}_{hash(request.prompt) % 10000}"
         
-        # 解析尺寸
-        width, height = map(int, (request.size or self.default_size).split('x'))
+        # 使用请求中的尺寸
+        width, height = request.width, request.height
         
         # 创建元数据
         metadata = ImageMetadata(
