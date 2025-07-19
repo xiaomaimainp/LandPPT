@@ -81,6 +81,17 @@ class ImageServiceConfig:
                 'timeout': 30,
                 'cache_duration': 86400  # 官方要求：缓存24小时
             },
+
+            # SearXNG配置（网络搜索）
+            'searxng': {
+                'host': '',  # SearXNG实例的主机地址，如 http://209.135.170.113:8888
+                'per_page': 20,
+                'rate_limit_requests': 60,  # 每分钟请求限制
+                'rate_limit_window': 60,  # 60秒窗口
+                'timeout': 30,
+                'language': 'auto',  # 搜索语言
+                'theme': 'simple'  # 主题
+            },
             
             # 缓存配置 - 简化配置，图片永久有效
             'cache': {
@@ -187,7 +198,11 @@ class ImageServiceConfig:
         # Pixabay配置（环境变量）
         if os.getenv('PIXABAY_API_KEY'):
             self._config['pixabay']['api_key'] = os.getenv('PIXABAY_API_KEY')
-        
+
+        # SearXNG配置（环境变量）
+        if os.getenv('SEARXNG_HOST'):
+            self._config['searxng']['host'] = os.getenv('SEARXNG_HOST')
+
         # 缓存目录配置
         if os.getenv('IMAGE_CACHE_DIR'):
             self._config['cache']['base_dir'] = os.getenv('IMAGE_CACHE_DIR')
@@ -215,7 +230,12 @@ class ImageServiceConfig:
         """检查提供者是否已配置"""
         provider_config = self._config.get(provider, {})
 
-        # 检查API密钥是否存在
+        # SearXNG使用host而不是api_key
+        if provider == 'searxng':
+            host = provider_config.get('host', '')
+            return bool(host and host.strip())
+
+        # 其他提供者检查API密钥是否存在
         api_key = provider_config.get('api_key', '')
         return bool(api_key and api_key.strip())
 
@@ -244,7 +264,7 @@ class ImageServiceConfig:
         """获取已配置的提供者列表"""
         providers = []
 
-        for provider in ['dalle', 'stable_diffusion', 'siliconflow', 'unsplash', 'pixabay']:
+        for provider in ['dalle', 'stable_diffusion', 'siliconflow', 'unsplash', 'pixabay', 'searxng']:
             if self.is_provider_configured(provider):
                 providers.append(provider)
 

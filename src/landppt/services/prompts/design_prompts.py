@@ -90,8 +90,6 @@ class DesignPrompts:
         if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_context = f"""
 
-**可用图片资源：**
-{slide_data['images_summary']}
 
 **图片设计指导要求：**
 - 请充分考虑这些图片资源在设计中的运用
@@ -260,8 +258,6 @@ class DesignPrompts:
         if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
 
-**图片资源信息：**
-{slide_data['images_summary']}
 
 **图片使用要求：**
 - 请在HTML中合理使用这些图片资源
@@ -379,9 +375,6 @@ class DesignPrompts:
         images_info = ""
         if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
-
-**图片资源信息：**
-{slide_data['images_summary']}
 
 **图片使用要求：**
 - 请在HTML中合理使用这些图片资源
@@ -590,11 +583,9 @@ class DesignPrompts:
         if _is_image_service_enabled() and 'images_summary' in slide_data:
             images_info = f"""
 
-**图片资源信息：**
-{slide_data['images_summary']}
 
 **图片使用要求：**
-- 请在HTML中合理使用这些图片资源
+- 请在HTML中合理使用已有图片资源
 - 图片地址已经是绝对地址，可以直接使用
 - 根据图片用途、内容描述和实际尺寸选择合适的位置和样式
 - 充分利用图片的尺寸信息（宽度x高度）来优化布局设计

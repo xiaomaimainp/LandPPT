@@ -464,6 +464,12 @@
                         <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                         <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索免费图片和插图</small>
                     </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">SearXNG Host:</label>
+                        <input type="url" name="searxng_host" placeholder="http://localhost:8888" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">SearXNG实例的主机地址，用于开源搜索引擎图片搜索</small>
+                    </div>
                 </div>
             </div>
 
@@ -498,6 +504,7 @@
                             <select name="default_network_search_provider">
                                 <option value="unsplash">Unsplash (高质量摄影图片)</option>
                                 <option value="pixabay" selected>Pixabay (免费图片和插图)</option>
+                                <option value="searxng">SearXNG (开源搜索引擎)</option>
                             </select>
                             <small style="color: #7f8c8d;">选择优先使用的网络搜索源</small>
                         </div>

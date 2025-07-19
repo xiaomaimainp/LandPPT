@@ -269,7 +269,7 @@ async def web_upload_file(
             })
 
         # Read file content in thread pool to avoid blocking
-        content = await run_blocking_io(file.read)
+        content = await file.read()
 
         # Process file in thread pool
         processed_content = await ppt_service.process_uploaded_file(
@@ -3600,7 +3600,7 @@ async def _process_uploaded_file_for_outline(
             return None
 
         # 读取文件内容并保存临时文件（在线程池中执行）
-        content = await run_blocking_io(file_upload.read)
+        content = await file_upload.read()
         temp_file_path = await run_blocking_io(
             _save_temp_file_sync, content, file_upload.filename
         )

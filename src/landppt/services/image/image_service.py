@@ -146,6 +146,16 @@ class ImageService:
             elif is_provider_configured('pixabay'):
                 logger.debug("Pixabay API configured but not set as default network search provider")
 
+            # 注册SearXNG提供者
+            if config_manager.should_enable_search_provider('searxng'):
+                searxng_config = self.config.get('searxng', {})
+                from .providers.searxng_image_provider import SearXNGSearchProvider
+                searxng_provider = SearXNGSearchProvider(searxng_config)
+                provider_registry.register(searxng_provider)
+                logger.debug("SearXNG search provider registered (default provider)")
+            elif is_provider_configured('searxng'):
+                logger.debug("SearXNG host configured but not set as default network search provider")
+
             # 统计已注册的提供者数量
             total_providers = (len(provider_registry.get_generation_providers()) +
                              len(provider_registry.get_search_providers()) +

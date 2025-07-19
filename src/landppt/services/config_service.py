@@ -114,6 +114,7 @@ class ConfigService:
             # Image Search Providers
             "unsplash_access_key": {"type": "password", "category": "image_service"},
             "pixabay_api_key": {"type": "password", "category": "image_service"},
+            "searxng_host": {"type": "url", "category": "image_service"},
             "dalle_image_size": {"type": "select", "category": "image_service", "default": "1792x1024"},
             "dalle_image_quality": {"type": "select", "category": "image_service", "default": "standard"},
             "dalle_image_style": {"type": "select", "category": "image_service", "default": "natural"},

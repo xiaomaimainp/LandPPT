@@ -436,16 +436,24 @@ class PPTImageProcessor:
                 logger.warning("无法生成搜索关键词")
                 return images
 
-            network_images = await self._search_images_directly(search_query, requirement.count)
+            # 搜索更多图片以便在下载失败时有备选
+            search_count = min(requirement.count * 3, 20)  # 搜索3倍数量，但不超过20张
+            network_images = await self._search_images_directly(search_query, search_count)
 
-            # 下载网络图片到本地缓存文件夹
-            for i, image_data in enumerate(network_images):
+            # 下载网络图片到本地缓存文件夹，带重试机制
+            successful_downloads = 0
+            image_index = 0
+
+            while successful_downloads < requirement.count and image_index < len(network_images):
+                image_data = network_images[image_index]
+                image_index += 1
+
                 try:
                     # 生成有意义的图片标题
-                    meaningful_title = self._generate_meaningful_image_title(image_data, slide_title, i+1)
+                    meaningful_title = self._generate_meaningful_image_title(image_data, slide_title, successful_downloads + 1)
 
-                    # 下载图片到本地缓存
-                    cached_image_info = await self._download_network_image_to_cache(image_data, meaningful_title)
+                    # 下载图片到本地缓存，带重试机制
+                    cached_image_info = await self._download_network_image_to_cache_with_retry(image_data, meaningful_title)
 
                     if cached_image_info:
                         slide_image = SlideImageInfo(
@@ -456,18 +464,19 @@ class PPTImageProcessor:
                             content_description=requirement.description,
                             search_keywords=search_query,
                             alt_text=image_data.get('tags', ''),
-                            title=f"网络图片 {i+1}",
+                            title=f"网络图片 {successful_downloads + 1}",
                             width=image_data.get('imageWidth'),
                             height=image_data.get('imageHeight'),
                             format=cached_image_info.get('format', 'jpg')
                         )
                         images.append(slide_image)
+                        successful_downloads += 1
                         logger.info(f"网络图片缓存成功: {cached_image_info['absolute_url']}")
                     else:
-                        logger.warning(f"网络图片缓存失败，跳过第{i+1}张图片")
+                        logger.warning(f"网络图片缓存失败，尝试下一张图片")
 
                 except Exception as e:
-                    logger.error(f"处理第{i+1}张网络图片失败: {e}")
+                    logger.error(f"处理网络图片失败: {e}，尝试下一张图片")
                     continue
 
             logger.info(f"成功获取{len(images)}张网络图片")
@@ -493,6 +502,9 @@ class PPTImageProcessor:
             elif default_provider == 'pixabay':
                 pixabay_key = image_config.get('pixabay_api_key')
                 return bool(pixabay_key and pixabay_key.strip())
+            elif default_provider == 'searxng':
+                searxng_host = image_config.get('searxng_host')
+                return bool(searxng_host and searxng_host.strip())
 
             return False
 
@@ -501,7 +513,10 @@ class PPTImageProcessor:
             # 降级：检查是否有任何配置的API密钥
             unsplash_key = image_config.get('unsplash_access_key')
             pixabay_key = image_config.get('pixabay_api_key')
-            return bool((unsplash_key and unsplash_key.strip()) or (pixabay_key and pixabay_key.strip()))
+            searxng_host = image_config.get('searxng_host')
+            return bool((unsplash_key and unsplash_key.strip()) or
+                       (pixabay_key and pixabay_key.strip()) or
+                       (searxng_host and searxng_host.strip()))
 
     async def _search_images_with_service(self, query: str, count: int) -> List[Dict[str, Any]]:
         """使用图片服务搜索图片"""
@@ -721,6 +736,13 @@ class PPTImageProcessor:
                     return []
                 from .image.providers.pixabay_provider import PixabaySearchProvider
                 provider = PixabaySearchProvider(pixabay_config)
+            elif default_provider == 'searxng':
+                searxng_config = config.get('searxng', {})
+                if not searxng_config.get('host'):
+                    logger.warning("SearXNG host not configured")
+                    return []
+                from .image.providers.searxng_image_provider import SearXNGSearchProvider
+                provider = SearXNGSearchProvider(searxng_config)
             else:  # 默认使用unsplash
                 unsplash_config = config.get('unsplash', {})
                 if not unsplash_config.get('api_key'):
@@ -734,10 +756,17 @@ class PPTImageProcessor:
                 return []
 
             # 创建搜索请求
-            # 注意：Pixabay API 要求 per_page 范围为 3-200
+            # 根据不同提供商调整per_page参数
+            if default_provider == 'pixabay':
+                # Pixabay API 要求 per_page 范围为 3-200
+                per_page = max(3, min(count, 200))
+            else:
+                # 其他提供商使用更宽松的限制
+                per_page = max(1, min(count, 50))
+
             search_request = ImageSearchRequest(
                 query=query,
-                per_page=max(3, min(count, 200)),  # 确保在有效范围内
+                per_page=per_page,
                 page=1
             )
 
@@ -850,6 +879,30 @@ class PPTImageProcessor:
         except Exception as e:
             logger.error(f"下载网络图片到图床失败: {e}")
             return None
+
+    async def _download_network_image_to_cache_with_retry(self, image_data: Dict[str, Any], title: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
+        """下载网络图片并上传到图床系统，带重试机制"""
+        for attempt in range(max_retries):
+            try:
+                result = await self._download_network_image_to_cache(image_data, title)
+                if result:
+                    return result
+                else:
+                    logger.warning(f"第{attempt + 1}次下载网络图片失败，准备重试")
+                    if attempt < max_retries - 1:
+                        # 等待一段时间后重试
+                        await asyncio.sleep(1 * (attempt + 1))  # 递增等待时间
+                        continue
+
+            except Exception as e:
+                logger.warning(f"第{attempt + 1}次下载网络图片异常: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1 * (attempt + 1))  # 递增等待时间
+                    continue
+                else:
+                    logger.error(f"所有{max_retries}次下载尝试都失败")
+
+        return None
 
     def _generate_meaningful_image_title(self, image_data: Dict[str, Any], slide_title: str, index: int) -> str:
         """生成有意义的图片标题"""
@@ -1201,6 +1254,9 @@ class PPTImageProcessor:
                 logger.warning("AI提供者未初始化")
                 return None
 
+            # 检测项目语言
+            project_language = self._detect_project_language(project_topic, slide_title, slide_content)
+
             # 构建需求信息
             requirement_info = ""
             if requirement:
@@ -1211,7 +1267,17 @@ class PPTImageProcessor:
 - 优先级：{requirement.priority}
 """
 
-            prompt = f"""作为专业的图片搜索专家，请为以下PPT幻灯片生成最佳的英文搜索关键词。
+            # 根据项目语言生成不同的提示词
+            if project_language == "zh":
+                language_instruction = "中文关键词"
+                example_format = "商务 会议 演示 图表"
+                search_instruction = "生成3-5个中文关键词，用空格分隔"
+            else:
+                language_instruction = "英文关键词"
+                example_format = "business meeting presentation chart"
+                search_instruction = "生成3-5个英文关键词，用空格分隔"
+
+            prompt = f"""作为专业的图片搜索专家，请为以下PPT幻灯片生成最佳的{language_instruction}。
 
 项目主题：{project_topic}
 项目场景：{project_scenario}
@@ -1220,13 +1286,13 @@ class PPTImageProcessor:
 {requirement_info}
 
 要求：
-1. 生成3-5个英文关键词，用空格分隔，总长度不超过80个字符
+1. {search_instruction}，总长度不超过80个字符
 2. 关键词要准确描述所需图片的内容和用途
 3. 考虑项目场景和图片用途，选择合适的图片风格
 4. 避免过于抽象的词汇，优先选择具体的视觉元素
-5. 确保关键词适合在Pixabay等图片库中搜索
+5. 确保关键词适合在网络图片库中搜索
 
-示例格式：business meeting presentation chart
+示例格式：{example_format}
 请只回复关键词，不要其他内容："""
 
             response = await self.ai_provider.text_completion(
@@ -1236,10 +1302,17 @@ class PPTImageProcessor:
 
             search_query = response.content.strip()
 
-            # 截断查询以符合Pixabay API的100字符限制
-            truncated_query = self._truncate_search_query(search_query, 100)
+            # 根据不同提供商截断查询
+            from .config_service import get_config_service
+            config_service = get_config_service()
+            all_config = config_service.get_all_config()
+            default_provider = all_config.get('default_network_search_provider', 'unsplash')
 
-            if len(search_query) > 100:
+            # Pixabay API的100字符限制，其他提供商使用更宽松的限制
+            max_length = 100 if default_provider == 'pixabay' else 200
+            truncated_query = self._truncate_search_query(search_query, max_length)
+
+            if len(search_query) > max_length:
                 logger.warning(f"搜索关键词过长，已截断: '{search_query}' -> '{truncated_query}'")
 
             logger.info(f"AI生成搜索关键词: {truncated_query}")
@@ -1248,6 +1321,20 @@ class PPTImageProcessor:
         except Exception as e:
             logger.error(f"AI生成搜索关键词失败: {e}")
             return None
+
+    def _detect_project_language(self, project_topic: str, slide_title: str, slide_content: str) -> str:
+        """检测项目语言"""
+        import re
+
+        # 合并所有文本内容
+        combined_text = f"{project_topic} {slide_title} {slide_content}"
+
+        # 检查是否包含中文字符
+        chinese_pattern = r'[\u4e00-\u9fff]'
+        if re.search(chinese_pattern, combined_text):
+            return "zh"
+        else:
+            return "en"
 
     async def _ai_decide_image_dimensions(self, slide_title: str, slide_content: str,
                                         project_topic: str, project_scenario: str,

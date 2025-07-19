@@ -26,6 +26,7 @@ class ImageProvider(str, Enum):
     # 网络搜索
     UNSPLASH = "unsplash"
     PIXABAY = "pixabay"
+    SEARXNG = "searxng"
     GOOGLE_IMAGES = "google_images"
 
     # 本地存储
@@ -249,10 +250,12 @@ class ImageSearchResult(BaseModel):
     per_page: int
     has_next: bool
     has_prev: bool
-    
+
     # 搜索统计
     search_time: float
     provider_results: Dict[str, int] = Field(default_factory=dict)
+    provider: ImageProvider
+    error: Optional[str] = None
 
 
 class ImageOperationResult(BaseModel):

@@ -771,7 +771,7 @@ async def upload_image(
             raise HTTPException(status_code=400, detail="Invalid file type")
 
         # 在线程池中读取文件数据
-        file_data = await run_blocking_io(file.read)
+        file_data = await file.read()
 
         # 创建上传请求
         from ..services.image.models import ImageUploadRequest
