@@ -598,13 +598,20 @@ class ImageService:
 
                     # 构建图片信息
                     image_data = {
+                        "id": image_info.image_id,  # 添加id字段
                         "image_id": image_info.image_id,
                         "title": image_info.title,
                         "description": image_info.description,
                         "filename": image_info.filename,
+                        "url": f"/api/image/view/{image_info.image_id}",  # 添加url字段
                         "file_size": cache_info.file_size,
+                        "width": image_info.metadata.width if image_info.metadata else 0,  # 添加宽度
+                        "height": image_info.metadata.height if image_info.metadata else 0,  # 添加高度
                         "source_type": image_info.source_type.value,
+                        "source": image_info.source_type.value,  # 添加source字段用于分类
+                        "category": image_info.source_type.value,  # 添加category字段用于分类
                         "provider": image_info.provider.value,
+                        "alt_text": image_info.title or image_info.filename,  # 添加alt_text
                         "created_at": cache_info.created_at,
                         "last_accessed": cache_info.last_accessed,
                         "access_count": cache_info.access_count,
@@ -657,13 +664,20 @@ class ImageService:
 
                             # 构建图片信息
                             image_data = {
+                                "id": image_info.image_id,  # 添加id字段
                                 "image_id": image_info.image_id,
                                 "title": image_info.title,
                                 "description": image_info.description,
                                 "filename": image_info.filename,
+                                "url": f"/api/image/view/{image_info.image_id}",  # 添加url字段
                                 "file_size": cache_info.file_size,
+                                "width": image_info.metadata.width if image_info.metadata else 0,  # 添加宽度
+                                "height": image_info.metadata.height if image_info.metadata else 0,  # 添加高度
                                 "source_type": image_info.source_type.value,
+                                "source": image_info.source_type.value,  # 添加source字段用于分类
+                                "category": image_info.source_type.value,  # 添加category字段用于分类
                                 "provider": image_info.provider.value,
+                                "alt_text": image_info.title or image_info.filename,  # 添加alt_text
                                 "created_at": cache_info.created_at,
                                 "last_accessed": cache_info.last_accessed,
                                 "access_count": cache_info.access_count,
