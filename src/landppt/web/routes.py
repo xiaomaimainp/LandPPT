@@ -87,6 +87,13 @@ class AIImageRegenerateRequest(BaseModel):
     project_scenario: str
     regeneration_reason: Optional[str] = None
 
+# 一键配图请求数据模型
+class AIAutoImageGenerateRequest(BaseModel):
+    slide_index: int
+    slide_content: Dict[str, Any]
+    project_topic: str
+    project_scenario: str
+
 # Helper function to extract slides from HTML content
 async def _extract_slides_from_html(slides_html: str, existing_slides_data: list) -> list:
     """
@@ -2228,6 +2235,227 @@ async def ai_regenerate_image(
         return {
             "success": False,
             "message": f"图像重新生成失败: {str(e)}"
+        }
+
+@router.post("/api/ai/auto-generate-slide-images")
+async def ai_auto_generate_slide_images(
+    request: AIAutoImageGenerateRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """AI一键配图接口 - 自动分析幻灯片内容并生成相关配图"""
+    try:
+        # 获取图像服务和AI提供者
+        from ..services.image.image_service import get_image_service
+
+        image_service = get_image_service()
+        if not image_service:
+            return {
+                "success": False,
+                "message": "图像服务不可用"
+            }
+
+        ai_provider = get_ai_provider()
+        if not ai_provider:
+            return {
+                "success": False,
+                "message": "AI提供者不可用"
+            }
+
+        # 获取图像处理器
+        from ..services.ppt_image_processor import PPTImageProcessor
+        image_processor = PPTImageProcessor(image_service, ai_provider)
+
+        slide_content = request.slide_content
+        slide_title = slide_content.get('title', f'第{request.slide_index + 1}页')
+        slide_html = slide_content.get('html_content', '')
+
+        logger.info(f"开始为第{request.slide_index + 1}页进行一键配图")
+
+        # 第一步：AI分析幻灯片内容，确定是否需要配图以及配图需求
+        analysis_prompt = f"""作为专业的PPT设计师，请分析以下幻灯片内容，判断是否需要配图以及配图需求。
+
+项目主题：{request.project_topic}
+项目场景：{request.project_scenario}
+幻灯片标题：{slide_title}
+幻灯片HTML内容：{slide_html[:1000]}...
+
+请分析：
+1. 这个幻灯片是否需要配图？
+2. 如果需要，应该配几张图？
+3. 每张图的用途和描述是什么？
+4. 图片应该插入到什么位置？
+
+请以JSON格式回复：
+{{
+    "needs_images": true/false,
+    "image_count": 数量,
+    "images": [
+        {{
+            "purpose": "图片用途（如：主要插图、装饰图、背景图等）",
+            "description": "图片内容描述",
+            "keywords": "搜索关键词",
+            "position": "插入位置（如：标题下方、内容中间、页面右侧等）"
+        }}
+    ],
+    "reasoning": "分析理由"
+}}"""
+
+        analysis_response = await ai_provider.text_completion(
+            prompt=analysis_prompt,
+            temperature=0.3
+        )
+
+        # 解析AI分析结果
+        import json
+        try:
+            analysis_result = json.loads(analysis_response.content.strip())
+        except json.JSONDecodeError:
+            # 如果JSON解析失败，使用默认配置
+            analysis_result = {
+                "needs_images": True,
+                "image_count": 1,
+                "images": [{
+                    "purpose": "主要插图",
+                    "description": f"与{slide_title}相关的配图",
+                    "keywords": f"{request.project_topic} {slide_title}",
+                    "position": "内容中间"
+                }],
+                "reasoning": "默认为幻灯片添加一张主要配图"
+            }
+
+        if not analysis_result.get("needs_images", False):
+            return {
+                "success": True,
+                "message": "AI分析认为此幻灯片不需要配图",
+                "updated_html_content": slide_html,
+                "generated_images_count": 0,
+                "ai_analysis": analysis_result
+            }
+
+        # 第二步：根据分析结果生成图片需求
+        from ..services.models.slide_image_info import ImageRequirement, ImagePurpose, ImageSource, SlideImagesCollection
+
+        images_collection = SlideImagesCollection(page_number=request.slide_index + 1, images=[])
+
+        # 获取图像配置（使用与重新生成图片相同的配置键）
+        from ..services.config_service import config_service
+        image_config = config_service.get_config_by_category('image_service')
+
+        # 检查是否启用图片生成服务
+        enable_image_service = image_config.get('enable_image_service', False)
+        if not enable_image_service:
+            return {
+                "success": False,
+                "message": "图片生成服务未启用，请在配置中启用"
+            }
+
+        # 获取启用的图像来源（使用与重新生成图片相同的逻辑）
+        from ..services.models.slide_image_info import ImageSource
+
+        enabled_sources = []
+        if image_config.get('enable_local_images', True):
+            enabled_sources.append(ImageSource.LOCAL)
+        if image_config.get('enable_network_search', False):
+            enabled_sources.append(ImageSource.NETWORK)
+        if image_config.get('enable_ai_generation', False):
+            enabled_sources.append(ImageSource.AI_GENERATED)
+
+        if not enabled_sources:
+            return {
+                "success": False,
+                "message": "没有启用的图像来源，请在设置中配置图像获取方式"
+            }
+
+        # 使用与重新生成图片完全相同的图片来源选择逻辑
+        image_context = {
+            'image_purpose': 'illustration',  # 一键配图默认为说明性图片
+            'slide_title': slide_title,
+            'slide_content': slide_html
+        }
+
+        selected_source = select_best_image_source(enabled_sources, image_config, image_context)
+
+        # 为每个图片需求生成图片
+        for i, image_info in enumerate(analysis_result.get("images", [])[:3]):  # 最多3张图
+            # 创建图片需求
+            requirement = ImageRequirement(
+                purpose=ImagePurpose.ILLUSTRATION,
+                description=image_info.get("description", "相关配图"),
+                priority=1,
+                source=selected_source,
+                count=1
+            )
+
+            # 根据选择的来源处理图片生成
+            if requirement.source == ImageSource.AI_GENERATED and ImageSource.AI_GENERATED in enabled_sources:
+                ai_images = await image_processor._process_ai_generated_images(
+                    requirement=requirement,
+                    project_topic=request.project_topic,
+                    project_scenario=request.project_scenario,
+                    slide_title=slide_title,
+                    slide_content=slide_title,
+                    image_config=image_config,
+                    page_number=request.slide_index + 1,
+                    total_pages=1,
+                    template_html=slide_html
+                )
+                images_collection.images.extend(ai_images)
+
+            elif requirement.source == ImageSource.NETWORK and ImageSource.NETWORK in enabled_sources:
+                network_images = await image_processor._process_network_images(
+                    requirement=requirement,
+                    project_topic=request.project_topic,
+                    project_scenario=request.project_scenario,
+                    slide_title=slide_title,
+                    slide_content=slide_title,
+                    image_config=image_config
+                )
+                images_collection.images.extend(network_images)
+
+            elif requirement.source == ImageSource.LOCAL and ImageSource.LOCAL in enabled_sources:
+                local_images = await image_processor._process_local_images(
+                    requirement=requirement,
+                    project_topic=request.project_topic,
+                    project_scenario=request.project_scenario,
+                    slide_title=slide_title,
+                    slide_content=slide_title
+                )
+                images_collection.images.extend(local_images)
+
+        if not images_collection.images:
+            return {
+                "success": False,
+                "message": "未能生成任何配图，请检查图像服务配置"
+            }
+
+        # 第三步：将生成的图片插入到幻灯片中
+        updated_html = await image_processor._insert_images_into_slide(
+            slide_html, images_collection, slide_title
+        )
+
+        logger.info(f"一键配图完成: 生成{len(images_collection.images)}张图片")
+
+        return {
+            "success": True,
+            "message": f"一键配图完成，已生成{len(images_collection.images)}张图片",
+            "updated_html_content": updated_html,
+            "generated_images_count": len(images_collection.images),
+            "generated_images": [
+                {
+                    "image_id": img.image_id,
+                    "url": img.absolute_url,
+                    "description": img.content_description,
+                    "source": img.source.value
+                } for img in images_collection.images
+            ],
+            "ai_analysis": analysis_result
+        }
+
+    except Exception as e:
+        logger.error(f"AI一键配图失败: {e}")
+        return {
+            "success": False,
+            "message": f"一键配图失败: {str(e)}"
         }
 
 @router.get("/api/projects/{project_id}/selected-global-template")

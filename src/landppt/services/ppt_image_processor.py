@@ -56,6 +56,17 @@ class PPTImageProcessor:
             relative_path = '/' + relative_path
         return f"{base_url}{relative_path}"
 
+    def _get_enabled_image_sources(self, image_config: Dict[str, Any]) -> List[ImageSource]:
+        """获取启用的图像来源"""
+        enabled_sources = []
+        if image_config.get('enable_local_images', True):
+            enabled_sources.append(ImageSource.LOCAL)
+        if image_config.get('enable_network_search', False):
+            enabled_sources.append(ImageSource.NETWORK)
+        if image_config.get('enable_ai_generation', False):
+            enabled_sources.append(ImageSource.AI_GENERATED)
+        return enabled_sources
+
     async def process_slide_image(self, slide_data: Dict[str, Any], confirmed_requirements: Dict[str, Any],
                                  page_number: int, total_pages: int, template_html: str = "") -> Optional[SlideImagesCollection]:
         """处理幻灯片多图片生成/搜索/选择逻辑"""
@@ -77,13 +88,7 @@ class PPTImageProcessor:
             slide_content_text = '\n'.join(slide_content) if isinstance(slide_content, list) else str(slide_content)
 
             # 检查启用的图片来源
-            enabled_sources = []
-            if image_config.get('enable_local_images', True):
-                enabled_sources.append(ImageSource.LOCAL)
-            if image_config.get('enable_network_search', False):
-                enabled_sources.append(ImageSource.NETWORK)
-            if image_config.get('enable_ai_generation', False):
-                enabled_sources.append(ImageSource.AI_GENERATED)
+            enabled_sources = self._get_enabled_image_sources(image_config)
 
             if not enabled_sources:
                 logger.info(f"第{page_number}页没有启用任何图片来源，跳过图片处理")
@@ -442,6 +447,15 @@ class PPTImageProcessor:
             # 检查是否有可用的网络搜索提供商
             if not self._has_network_search_providers(image_config):
                 logger.warning("没有配置可用的网络搜索提供商")
+                # 添加详细的配置检查信息
+                from .config_service import get_config_service
+                config_service = get_config_service()
+                all_config = config_service.get_all_config()
+                default_provider = all_config.get('default_network_search_provider', 'unsplash')
+                logger.warning(f"默认网络搜索提供商: {default_provider}")
+                logger.warning(f"Unsplash API Key: {'已配置' if image_config.get('unsplash_access_key') else '未配置'}")
+                logger.warning(f"Pixabay API Key: {'已配置' if image_config.get('pixabay_api_key') else '未配置'}")
+                logger.warning(f"SearXNG Host: {'已配置' if image_config.get('searxng_host') else '未配置'}")
                 return images
 
             # 让AI生成搜索关键词
@@ -453,9 +467,13 @@ class PPTImageProcessor:
                 logger.warning("无法生成搜索关键词")
                 return images
 
+            # logger.info(f"网络搜索关键词: {search_query}")
+
             # 搜索更多图片以便在下载失败时有备选
             search_count = min(requirement.count * 3, 20)  # 搜索3倍数量，但不超过20张
+            # logger.info(f"开始网络搜索，关键词: {search_query}, 搜索数量: {search_count}")
             network_images = await self._search_images_directly(search_query, search_count)
+            # logger.info(f"网络搜索返回 {len(network_images)} 张图片")
 
             # 下载网络图片到本地缓存文件夹，带重试机制
             successful_downloads = 0
@@ -765,6 +783,7 @@ class PPTImageProcessor:
                 if not unsplash_config.get('api_key'):
                     logger.warning("Unsplash API key not configured")
                     return []
+
                 from .image.providers.unsplash_provider import UnsplashSearchProvider
                 provider = UnsplashSearchProvider(unsplash_config)
 
@@ -792,18 +811,20 @@ class PPTImageProcessor:
 
             # 转换为旧格式以兼容现有代码
             images = []
-            for image_info in search_result.images[:count]:
-                image_data = {
-                    'id': image_info.image_id,
-                    'webformatURL': image_info.original_url,
-                    'largeImageURL': image_info.original_url,
-                    'tags': ', '.join([tag.name for tag in (image_info.tags or [])]),
-                    'user': image_info.author or 'Unknown',
-                    'pageURL': image_info.source_url or '',
-                    'imageWidth': image_info.metadata.width if image_info.metadata else 0,
-                    'imageHeight': image_info.metadata.height if image_info.metadata else 0
-                }
-                images.append(image_data)
+            if search_result and search_result.images:
+                for image_info in search_result.images[:count]:
+                    image_data = {
+                        'id': image_info.image_id,
+                        'webformatURL': image_info.original_url,
+                        'largeImageURL': image_info.original_url,
+                        'tags': ', '.join([tag.name for tag in (image_info.tags or [])]),
+                        'user': image_info.author or 'Unknown',
+                        'pageURL': image_info.source_url or '',
+                        'imageWidth': image_info.metadata.width if image_info.metadata else 0,
+                        'imageHeight': image_info.metadata.height if image_info.metadata else 0
+                    }
+                    images.append(image_data)
+                    logger.debug(f"转换图片{len(images)}: {image_info.title[:50] if image_info.title else 'N/A'}...")
 
             # 缓存结果
             async with self._search_lock:
@@ -813,11 +834,13 @@ class PPTImageProcessor:
                     oldest_key = next(iter(self._search_cache))
                     del self._search_cache[oldest_key]
 
-            logger.debug(f"直接搜索获得{len(images)}张图片: {query}")
+            logger.info(f"直接搜索获得{len(images)}张图片: {query}")
             return images
 
         except Exception as e:
             logger.error(f"直接搜索失败: {e}")
+            import traceback
+            logger.error(f"搜索异常详情: {traceback.format_exc()}")
             return []
 
     async def _download_network_image_to_cache(self, image_data: Dict[str, Any], title: str) -> Optional[Dict[str, Any]]:
@@ -1332,7 +1355,7 @@ class PPTImageProcessor:
             if len(search_query) > max_length:
                 logger.warning(f"搜索关键词过长，已截断: '{search_query}' -> '{truncated_query}'")
 
-            logger.info(f"AI生成搜索关键词: {truncated_query}")
+            # logger.info(f"AI生成搜索关键词: {truncated_query}")
             return truncated_query
 
         except Exception as e:
@@ -1575,3 +1598,263 @@ class PPTImageProcessor:
             logger.error(f"AI判断是否添加图片失败: {e}")
             # 出错时默认不添加图片，避免不必要的处理
             return False
+
+    async def _insert_images_into_slide(self, slide_html: str, images_collection: SlideImagesCollection, slide_title: str) -> str:
+        """AI智能将生成的图片插入到幻灯片HTML中"""
+        try:
+            if not images_collection or not images_collection.images:
+                logger.warning("没有图片需要插入")
+                return slide_html
+
+            if not self.ai_provider:
+                logger.warning("AI提供者未初始化，使用默认插入逻辑")
+                return await self._insert_images_with_default_logic(slide_html, images_collection, slide_title)
+
+            # 准备图片信息
+            images_info = []
+            for i, image in enumerate(images_collection.images):
+                image_info = {
+                    "index": i + 1,
+                    "url": image.absolute_url,
+                    "description": image.content_description or f"配图{i+1}",
+                    "alt_text": image.alt_text or f"配图{i+1}",
+                    "title": image.title or f"AI生成配图{i+1}",
+                    "source": image.source.value,
+                    "width": image.width,
+                    "height": image.height
+                }
+                images_info.append(image_info)
+
+            # 构建AI提示词
+            prompt = f"""作为专业的网页设计师，请分析以下幻灯片HTML结构，并智能地将提供的图片融入到页面内。
+
+幻灯片标题：{slide_title}
+
+当前HTML结构：
+```html
+{slide_html}
+```
+
+需要插入的图片信息：
+{images_info}
+
+要求：
+- 请在HTML中合理使用这些图片资源
+- 图片地址已经是绝对地址，可以直接使用
+- 根据图片用途、内容描述和实际尺寸选择合适的位置和样式
+- 充分利用图片的尺寸信息（宽度x高度）来优化布局设计
+- 根据图片文件大小和格式选择合适的显示策略
+- 确保图片与页面内容和设计风格协调
+- 可以使用CSS对图片进行适当的样式调整（大小、位置、边框等）
+
+
+**重要输出格式要求**：
+- 必须使用markdown代码块格式返回HTML代码
+- 格式：```html\\n[HTML代码]\\n```
+- HTML代码必须以<!DOCTYPE html>开始，以</html>结束
+- 不要在代码块前后添加任何解释文字
+- **页眉页脚保持原样**
+"""
+            # 调用AI进行智能插入
+            response = await self.ai_provider.text_completion(
+                prompt=prompt,
+                temperature=0.3
+            )
+
+            # 提取markdown代码块中的HTML内容
+            updated_html = self._extract_html_from_markdown_response(response.content.strip())
+
+            if not updated_html:
+                logger.warning("无法从AI响应中提取HTML内容，使用默认插入逻辑")
+                return await self._insert_images_with_default_logic(slide_html, images_collection, slide_title)
+
+            # 验证返回的HTML是否有效
+            if self._validate_html_structure(updated_html):
+                logger.info(f"AI成功插入{len(images_collection.images)}张图片到幻灯片中")
+                return updated_html
+            else:
+                logger.warning("AI返回的HTML结构无效，使用默认插入逻辑")
+                return await self._insert_images_with_default_logic(slide_html, images_collection, slide_title)
+
+        except Exception as e:
+            logger.error(f"AI智能插入图片失败: {e}")
+            logger.info("回退到默认插入逻辑")
+            return await self._insert_images_with_default_logic(slide_html, images_collection, slide_title)
+
+    def _extract_html_from_markdown_response(self, response_content: str) -> str:
+        """从AI响应中提取markdown代码块中的HTML内容"""
+        try:
+            import re
+
+            # 查找markdown代码块 ```html ... ```
+            html_pattern = r'```html\s*\n(.*?)\n```'
+            match = re.search(html_pattern, response_content, re.DOTALL | re.IGNORECASE)
+
+            if match:
+                html_content = match.group(1).strip()
+                logger.debug(f"成功提取HTML内容，长度: {len(html_content)} 字符")
+                return html_content
+
+            # 如果没找到标准格式，尝试查找其他可能的格式
+            # 查找 ```html ... ``` (不区分大小写)
+            html_pattern2 = r'```(?:html|HTML)\s*\n?(.*?)\n?```'
+            match2 = re.search(html_pattern2, response_content, re.DOTALL)
+
+            if match2:
+                html_content = match2.group(1).strip()
+                logger.debug(f"使用备用模式提取HTML内容，长度: {len(html_content)} 字符")
+                return html_content
+
+            # 如果还是没找到，尝试查找任何代码块
+            code_pattern = r'```\s*\n?(.*?)\n?```'
+            match3 = re.search(code_pattern, response_content, re.DOTALL)
+
+            if match3:
+                potential_html = match3.group(1).strip()
+                # 检查是否看起来像HTML
+                if ('<!DOCTYPE html>' in potential_html or
+                    '<html' in potential_html or
+                    '<div' in potential_html or
+                    '<body' in potential_html):
+                    logger.debug(f"从通用代码块中提取HTML内容，长度: {len(potential_html)} 字符")
+                    return potential_html
+
+            # 最后尝试：如果响应内容本身就是HTML（没有代码块包装）
+            if ('<!DOCTYPE html>' in response_content or
+                '<html' in response_content or
+                ('<div' in response_content and '</' in response_content)):
+                logger.debug("响应内容本身就是HTML格式")
+                return response_content.strip()
+
+            logger.warning("无法从AI响应中提取HTML内容")
+            logger.debug(f"AI响应内容预览: {response_content[:200]}...")
+            return ""
+
+        except Exception as e:
+            logger.error(f"提取HTML内容失败: {e}")
+            return ""
+
+    def _validate_html_structure(self, html: str) -> bool:
+        """验证HTML结构是否有效"""
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # 检查基本结构 - 至少要有一个容器元素
+            container_elements = soup.find_all(['body', 'div', 'section', 'main', 'article'])
+            if not container_elements:
+                return False
+
+            # 检查是否包含图片元素
+            img_elements = soup.find_all('img')
+            if not img_elements:
+                return False
+
+            # 检查HTML长度是否合理（不能太短或太长）
+            if len(html.strip()) < 50 or len(html.strip()) > 50000:
+                return False
+
+            # 检查图片元素是否有有效的src属性
+            valid_images = 0
+            for img in img_elements:
+                src = img.get('src', '').strip()
+                if src and (src.startswith('http') or src.startswith('/') or src.startswith('data:')):
+                    valid_images += 1
+
+            if valid_images == 0:
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"HTML验证失败: {e}")
+            return False
+
+    async def _insert_images_with_default_logic(self, slide_html: str, images_collection: SlideImagesCollection, slide_title: str) -> str:
+        """使用默认逻辑插入图片（备用方案）"""
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(slide_html, 'html.parser')
+
+            # 查找合适的插入位置
+            # 1. 优先查找现有的图片容器
+            img_containers = soup.find_all(['div', 'section'], class_=lambda x: x and any(
+                keyword in x.lower() for keyword in ['image', 'img', 'picture', 'photo', 'visual']
+            ))
+
+            # 2. 查找内容区域
+            content_areas = soup.find_all(['div', 'section'], class_=lambda x: x and any(
+                keyword in x.lower() for keyword in ['content', 'main', 'body', 'text']
+            ))
+
+            # 3. 查找标题后的位置
+            title_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+
+            inserted_count = 0
+            for i, image in enumerate(images_collection.images):
+                if inserted_count >= 3:  # 最多插入3张图片
+                    break
+
+                # 创建图片元素
+                img_element = soup.new_tag('img')
+                img_element['src'] = image.absolute_url
+                img_element['alt'] = image.alt_text or f"配图{i+1}"
+                img_element['title'] = image.title or f"AI生成配图{i+1}"
+                img_element['style'] = "max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;"
+
+                # 创建图片容器
+                img_container = soup.new_tag('div')
+                img_container['class'] = 'auto-generated-image-container'
+                img_container['style'] = "text-align: center; margin: 20px 0; padding: 10px;"
+                img_container.append(img_element)
+
+                # 添加图片说明
+                if image.content_description:
+                    caption = soup.new_tag('p')
+                    caption['style'] = "font-size: 0.9em; color: #666; margin-top: 8px; font-style: italic;"
+                    caption.string = image.content_description
+                    img_container.append(caption)
+
+                # 选择插入位置
+                inserted = False
+
+                # 方法1: 插入到现有图片容器中
+                if img_containers and not inserted:
+                    target_container = img_containers[min(i, len(img_containers) - 1)]
+                    target_container.clear()
+                    target_container.append(img_container)
+                    inserted = True
+                    logger.info(f"图片{i+1}插入到现有图片容器中")
+
+                # 方法2: 插入到内容区域
+                elif content_areas and not inserted:
+                    target_area = content_areas[0]
+                    # 在内容区域的末尾插入
+                    target_area.append(img_container)
+                    inserted = True
+                    logger.info(f"图片{i+1}插入到内容区域")
+
+                # 方法3: 插入到标题后
+                elif title_elements and not inserted:
+                    title_element = title_elements[0]
+                    title_element.insert_after(img_container)
+                    inserted = True
+                    logger.info(f"图片{i+1}插入到标题后")
+
+                # 方法4: 插入到body末尾
+                elif not inserted:
+                    body = soup.find('body')
+                    if body:
+                        body.append(img_container)
+                        inserted = True
+                        logger.info(f"图片{i+1}插入到body末尾")
+
+                if inserted:
+                    inserted_count += 1
+
+            logger.info(f"默认逻辑成功插入{inserted_count}张图片到幻灯片中")
+            return str(soup)
+
+        except Exception as e:
+            logger.error(f"默认插入图片逻辑失败: {e}")
+            return slide_html

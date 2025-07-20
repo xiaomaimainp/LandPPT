@@ -3424,6 +3424,9 @@
                     <button class="ai-outline-btn" onclick="showSlideOutline()" title="查看当前页大纲">
                         <i class="fas fa-list"></i>
                     </button>
+                    <button class="ai-outline-btn" onclick="autoGenerateSlideImages()" title="一键配图">
+                        <i class="fas fa-magic"></i>
+                    </button>
                     <button class="ai-edit-sidebar-close" onclick="closeAIEditSidebar()">
                         <i class="fas fa-times"></i>
                     </button>
@@ -4736,6 +4739,169 @@
             }
         }
 
+        // 一键配图功能
+        async function autoGenerateSlideImages() {
+            if (currentSlideIndex < 0 || currentSlideIndex >= slidesData.length) {
+                showNotification('请先选择一个幻灯片', 'warning');
+                return;
+            }
+
+            const currentSlide = slidesData[currentSlideIndex];
+            if (!currentSlide) {
+                showNotification('当前幻灯片数据无效', 'error');
+                return;
+            }
+
+            // 显示确认对话框
+            const confirmed = await showAutoImageGenerateConfirmDialog();
+            if (!confirmed) return;
+
+            // 显示进度提示
+            const progressToast = showProgressToast('正在分析幻灯片内容...');
+
+            try {
+                // 更新进度
+                updateProgressToast(progressToast, '正在生成配图...', 30);
+
+                // 构建一键配图请求
+                const requestData = {
+                    slide_index: currentSlideIndex,
+                    slide_content: {
+                        title: currentSlide.title || `第${currentSlideIndex + 1}页`,
+                        html_content: currentSlide.html_content
+                    },
+                    project_topic: '{{ project.topic }}',
+                    project_scenario: '{{ project.scenario }}'
+                };
+
+                // 发送一键配图请求
+                const response = await fetch('/api/ai/auto-generate-slide-images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新进度
+                    updateProgressToast(progressToast, '正在更新幻灯片...', 80);
+
+                    // 更新幻灯片内容
+                    if (result.updated_html_content) {
+                        slidesData[currentSlideIndex].html_content = result.updated_html_content;
+
+                        // 更新预览
+                        const slideFrame = document.getElementById('slideFrame');
+                        if (slideFrame) {
+                            setSafeIframeContent(slideFrame, result.updated_html_content);
+                            setTimeout(() => {
+                                forceReinitializeIframeJS(slideFrame);
+                            }, 300);
+                        }
+
+                        // 更新缩略图
+                        const thumbnailIframe = document.querySelectorAll('.slide-thumbnail .slide-preview iframe')[currentSlideIndex];
+                        if (thumbnailIframe) {
+                            setSafeIframeContent(thumbnailIframe, result.updated_html_content);
+                        }
+
+                        // 更新代码编辑器
+                        if (codeMirrorEditor && isCodeMirrorInitialized) {
+                            codeMirrorEditor.setValue(result.updated_html_content);
+                        } else {
+                            const codeEditor = document.getElementById('codeEditor');
+                            if (codeEditor) {
+                                codeEditor.value = result.updated_html_content;
+                            }
+                        }
+
+                        // 保存到服务器
+                        await saveToServer();
+
+                        // 完成进度
+                        updateProgressToast(progressToast, '配图完成！', 100);
+                        setTimeout(() => {
+                            closeProgressToast(progressToast);
+                        }, 1500);
+
+                        // 显示成功消息
+                        const imageCount = result.generated_images_count || 0;
+                        showNotification(`一键配图完成！已为当前幻灯片生成${imageCount}张图片`, 'success');
+
+                        // 显示AI分析信息
+                        if (result.ai_analysis) {
+                            addAIMessage('assistant', `配图分析：${result.ai_analysis.reasoning || '已完成图片生成和插入'}`);
+                        }
+
+                    } else {
+                        closeProgressToast(progressToast);
+                        showNotification('配图生成成功，但未能更新幻灯片内容', 'warning');
+                    }
+
+                } else {
+                    closeProgressToast(progressToast);
+                    showNotification(result.message || '一键配图失败，请重试', 'error');
+                }
+
+            } catch (error) {
+                closeProgressToast(progressToast);
+                console.error('一键配图失败:', error);
+                showNotification('一键配图失败，请检查网络连接后重试', 'error');
+            }
+        }
+
+        // 显示一键配图确认对话框
+        async function showAutoImageGenerateConfirmDialog() {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'modal fade show';
+                modal.style.display = 'block';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                modal.style.zIndex = '20000';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-magic text-primary"></i> 一键配图
+                                </h5>
+                            </div>
+                            <div class="modal-body">
+                                <p>AI将自动分析当前幻灯片内容，为其生成合适的配图并插入到适当位置。</p>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>功能说明：</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>AI会分析幻灯片的标题和内容</li>
+                                        <li>根据内容生成相关的图片描述和关键词</li>
+                                        <li>自动生成配图并插入到合适位置</li>
+                                        <li>保持原有的布局和样式</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" onclick="closeAutoImageConfirmDialog(false)">取消</button>
+                                <button type="button" class="btn btn-primary" onclick="closeAutoImageConfirmDialog(true)">
+                                    <i class="fas fa-magic"></i> 开始配图
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                window.closeAutoImageConfirmDialog = (confirmed) => {
+                    document.body.removeChild(modal);
+                    delete window.closeAutoImageConfirmDialog;
+                    resolve(confirmed);
+                };
+            });
+        }
+
         // 用户体验优化功能
 
         // 显示图像重新生成确认对话框
@@ -5136,7 +5302,7 @@
                         }
                     }, 300);
                 }
-            }, 15000);
+            }, 5000);
         }
 
         // 撤销图像操作（重新生成、删除、替换）
