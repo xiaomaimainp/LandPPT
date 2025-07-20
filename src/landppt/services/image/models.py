@@ -22,6 +22,7 @@ class ImageProvider(str, Enum):
     DALLE = "dalle"
     STABLE_DIFFUSION = "stable_diffusion"
     SILICONFLOW = "siliconflow"
+    POLLINATIONS = "pollinations"
 
     # 网络搜索
     UNSPLASH = "unsplash"
@@ -199,13 +200,17 @@ class ImageUploadRequest(BaseModel):
     filename: str
     content_type: str
     file_size: int
-    
+
     # 可选信息
     title: Optional[str] = None
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     category: Optional[str] = None
-    
+
+    # 来源信息
+    source_type: Optional[ImageSourceType] = None  # 实际来源类型，如果为None则默认为LOCAL_STORAGE
+    original_url: Optional[str] = None  # 原始URL（用于网络图片）
+
     # 处理选项
     auto_resize: bool = True
     auto_optimize: bool = True

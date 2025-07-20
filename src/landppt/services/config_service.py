@@ -121,7 +121,17 @@ class ConfigService:
             "openai_api_key_image": {"type": "password", "category": "image_service"},
             "stability_api_key": {"type": "password", "category": "image_service"},
             "siliconflow_api_key": {"type": "password", "category": "image_service"},
-            "default_image_provider": {"type": "select", "category": "image_service", "default": "dalle"},
+            "default_ai_image_provider": {"type": "select", "category": "image_service", "default": "dalle"},
+
+            # Pollinations Configuration
+            "pollinations_api_token": {"type": "password", "category": "image_service"},
+            "pollinations_referrer": {"type": "text", "category": "image_service"},
+            "pollinations_model": {"type": "select", "category": "image_service", "default": "flux"},
+            "pollinations_enhance": {"type": "boolean", "category": "image_service", "default": "false"},
+            "pollinations_safe": {"type": "boolean", "category": "image_service", "default": "false"},
+            "pollinations_nologo": {"type": "boolean", "category": "image_service", "default": "false"},
+            "pollinations_private": {"type": "boolean", "category": "image_service", "default": "false"},
+            "pollinations_transparent": {"type": "boolean", "category": "image_service", "default": "false"},
 
             # Image Search Providers
             "unsplash_access_key": {"type": "password", "category": "image_service"},
@@ -271,6 +281,37 @@ class ConfigService:
 
             # 重新加载环境变量配置
             image_config._load_env_config()
+
+            # 同时更新Pollinations特定配置
+            current_config = self.get_all_config()
+            pollinations_updates = {}
+
+            # 映射配置项到Pollinations配置
+            if 'pollinations_api_token' in current_config:
+                pollinations_updates['api_token'] = current_config['pollinations_api_token']
+            if 'pollinations_referrer' in current_config:
+                pollinations_updates['referrer'] = current_config['pollinations_referrer']
+            if 'pollinations_model' in current_config:
+                pollinations_updates['model'] = current_config['pollinations_model']
+            if 'pollinations_enhance' in current_config:
+                value = current_config['pollinations_enhance']
+                pollinations_updates['default_enhance'] = value if isinstance(value, bool) else str(value).lower() == 'true'
+            if 'pollinations_safe' in current_config:
+                value = current_config['pollinations_safe']
+                pollinations_updates['default_safe'] = value if isinstance(value, bool) else str(value).lower() == 'true'
+            if 'pollinations_nologo' in current_config:
+                value = current_config['pollinations_nologo']
+                pollinations_updates['default_nologo'] = value if isinstance(value, bool) else str(value).lower() == 'true'
+            if 'pollinations_private' in current_config:
+                value = current_config['pollinations_private']
+                pollinations_updates['default_private'] = value if isinstance(value, bool) else str(value).lower() == 'true'
+            if 'pollinations_transparent' in current_config:
+                value = current_config['pollinations_transparent']
+                pollinations_updates['default_transparent'] = value if isinstance(value, bool) else str(value).lower() == 'true'
+
+            # 如果有Pollinations配置更新，应用它们
+            if pollinations_updates:
+                image_config.update_config({'pollinations': pollinations_updates})
 
             logger.info("Image service configuration reloaded")
         except Exception as e:

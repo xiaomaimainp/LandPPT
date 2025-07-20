@@ -15,6 +15,7 @@ from .models.slide_image_info import (
     SlideImageInfo, SlideImagesCollection, SlideImageRequirements,
     ImageRequirement, ImageSource, ImagePurpose
 )
+from .image.models import ImageSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -627,6 +628,7 @@ class PPTImageProcessor:
 
             # 获取默认AI图片提供商
             default_provider = image_config.get('default_ai_image_provider', 'dalle')
+            logger.info(f"使用AI图片提供商: {default_provider}")
 
             # 让AI决定图片尺寸（对于多张图片，使用相同尺寸保持一致性）
             width, height = await self._ai_decide_image_dimensions(
@@ -654,6 +656,8 @@ class PPTImageProcessor:
                     provider = ImageProvider.SILICONFLOW
                 elif default_provider == 'stable_diffusion':
                     provider = ImageProvider.STABLE_DIFFUSION
+                elif default_provider == 'pollinations':
+                    provider = ImageProvider.POLLINATIONS
 
                 generation_request = ImageGenerationRequest(
                     prompt=image_prompt,
@@ -891,7 +895,9 @@ class PPTImageProcessor:
                             title=title,
                             description=description,
                             tags=tags,
-                            category="network_search"
+                            category="network_search",
+                            source_type=ImageSourceType.WEB_SEARCH,
+                            original_url=image_url
                         )
 
                         # 上传到图床系统

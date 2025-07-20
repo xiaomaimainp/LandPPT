@@ -266,15 +266,28 @@ class FileSystemStorageProvider(LocalStorageProvider):
                 category="user_defined"
             ))
         
+        # 根据请求中的source_type设置正确的来源类型
+        actual_source_type = request.source_type or ImageSourceType.LOCAL_STORAGE
+
+        # 根据来源类型设置相应的提供者
+        # 对于网络搜索的图片，我们无法确定具体的提供者，所以使用通用的本地存储标识
+        # 但保持正确的source_type来区分来源
+        if actual_source_type == ImageSourceType.WEB_SEARCH:
+            provider = ImageProvider.USER_UPLOAD  # 使用USER_UPLOAD来表示用户通过网络搜索获得的图片
+        elif actual_source_type == ImageSourceType.AI_GENERATED:
+            provider = ImageProvider.USER_UPLOAD  # 使用USER_UPLOAD来表示用户通过AI生成获得的图片
+        else:
+            provider = ImageProvider.LOCAL_STORAGE
+
         return ImageInfo(
             image_id=image_id,
             filename=file_path.name,
             title=request.title or file_path.stem,
             description=request.description or f"Uploaded image: {request.filename}",
             alt_text=request.title or file_path.stem,
-            source_type=ImageSourceType.LOCAL_STORAGE,
-            provider=ImageProvider.LOCAL_STORAGE,
-            original_url="",
+            source_type=actual_source_type,
+            provider=provider,
+            original_url=request.original_url or "",
             local_path=str(file_path),
             metadata=metadata,
             tags=tags,

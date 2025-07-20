@@ -490,6 +490,26 @@
                     </div>
 
                     <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">Pollinations API Token (可选):</label>
+                        <input type="password" name="pollinations_api_token" placeholder="your-pollinations-token" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">可选的API Token，用于移除logo和获得更高的使用限制</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">Pollinations Referrer (可选):</label>
+                        <input type="text" name="pollinations_referrer" placeholder="MyApp" style="margin-top: 5px;">
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">推荐人标识符，用于认证和统计（可选）</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 500; color: #495057;">Pollinations (免费服务):</label>
+                        <div style="padding: 10px 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; margin-top: 5px;">
+                            <span style="color: #155724; font-weight: 500;">✅ 基础功能免费</span>
+                        </div>
+                        <small style="color: #6c757d; margin-top: 5px; display: block;">Pollinations提供免费的AI图片生成服务，Token可选用于高级功能</small>
+                    </div>
+
+                    <div class="form-group">
                         <label style="font-weight: 500; color: #495057;">Unsplash Access Key:</label>
                         <input type="password" name="unsplash_access_key" placeholder="your-unsplash-access-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                         <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索Unsplash高质量摄影图片，支持多语言搜索</small>
@@ -556,9 +576,10 @@
                         <h5 style="color: #9b59b6; margin-bottom: 10px;">🎨 AI生成配置</h5>
                         <div class="form-group">
                             <label>默认AI图片生成提供商:</label>
-                            <select name="default_ai_image_provider">
+                            <select name="default_ai_image_provider" onchange="toggleProviderSpecificConfig()">
                                 <option value="dalle">DALL-E 3 (OpenAI)</option>
                                 <option value="siliconflow">SiliconFlow (Kolors)</option>
+                                <option value="pollinations">Pollinations (免费)</option>
                             </select>
                             <small style="color: #7f8c8d;">选择默认的AI图片生成服务</small>
                         </div>
@@ -574,6 +595,55 @@
                                 <option value="hd">高清质量</option>
                             </select>
                             <small style="color: #7f8c8d;">更高质量的图片需要更多时间和成本</small>
+                        </div>
+
+                        <!-- Pollinations特定配置 -->
+                        <div id="pollinations-specific-config" style="display: none; margin-top: 15px; padding: 15px; background: #e8f5e8; border-radius: 5px; border-left: 4px solid #28a745;">
+                            <h6 style="color: #155724; margin-bottom: 10px; font-weight: 600;">🌸 Pollinations 配置</h6>
+                            <div class="form-group">
+                                <label>生成模型:</label>
+                                <select name="pollinations_model">
+                                    <option value="flux">Flux (高质量，默认)</option>
+                                    <option value="turbo">Turbo (快速生成)</option>
+                                    <option value="gptimage">GPT Image (支持透明背景)</option>
+                                </select>
+                                <small style="color: #155724;">选择Pollinations的图片生成模型</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" name="pollinations_enhance">
+                                    启用提示词增强
+                                </label>
+                                <small style="color: #155724;">AI会自动优化和扩展您的提示词以获得更好的效果</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" name="pollinations_safe">
+                                    启用安全过滤
+                                </label>
+                                <small style="color: #155724;">启用严格的NSFW内容过滤</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" name="pollinations_nologo">
+                                    移除Pollinations Logo
+                                </label>
+                                <small style="color: #155724;">需要API Token或Referrer认证才能生效</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" name="pollinations_private">
+                                    私有模式
+                                </label>
+                                <small style="color: #155724;">生成的图片不会出现在公共feed中</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" name="pollinations_transparent">
+                                    透明背景
+                                </label>
+                                <small style="color: #155724;">生成透明背景图片（仅GPT Image模型支持）</small>
+                            </div>
                         </div>
                     </div>
 
@@ -1844,10 +1914,34 @@ async function saveImageServiceConfig() {
                 // 重新加载配置
                 loadAllConfigs();
             } else {
-                showNotification('图片服务配置保存失败: ' + (result.errors || '未知错误'), 'error');
+                // 正确处理错误信息
+                let errorMessage = '未知错误';
+                if (result.errors) {
+                    if (typeof result.errors === 'string') {
+                        errorMessage = result.errors;
+                    } else if (typeof result.errors === 'object') {
+                        // 如果errors是对象，将其转换为可读的字符串
+                        errorMessage = JSON.stringify(result.errors, null, 2);
+                    }
+                } else if (result.message) {
+                    errorMessage = result.message;
+                }
+                showNotification('图片服务配置保存失败: ' + errorMessage, 'error');
             }
         } else {
-            showNotification('图片服务配置保存失败', 'error');
+            // 尝试解析错误响应
+            try {
+                const errorResult = await response.json();
+                let errorMessage = '请求失败';
+                if (errorResult.detail) {
+                    errorMessage = errorResult.detail;
+                } else if (errorResult.message) {
+                    errorMessage = errorResult.message;
+                }
+                showNotification('图片服务配置保存失败: ' + errorMessage, 'error');
+            } catch (parseError) {
+                showNotification('图片服务配置保存失败: HTTP ' + response.status, 'error');
+            }
         }
     } catch (error) {
         showNotification('保存失败: ' + error.message, 'error');
@@ -1896,8 +1990,26 @@ function toggleImageSourceConfig() {
 
     if (aiCheckbox && aiCheckbox.checked) {
         aiConfig.style.display = 'block';
+        // 当AI生成配置显示时，也检查提供商特定配置
+        toggleProviderSpecificConfig();
     } else {
         aiConfig.style.display = 'none';
+    }
+}
+
+function toggleProviderSpecificConfig() {
+    const providerSelect = document.querySelector('select[name="default_ai_image_provider"]');
+    const pollinationsConfig = document.getElementById('pollinations-specific-config');
+
+    if (!providerSelect || !pollinationsConfig) return;
+
+    const selectedProvider = providerSelect.value;
+
+    // 显示/隐藏Pollinations特定配置
+    if (selectedProvider === 'pollinations') {
+        pollinationsConfig.style.display = 'block';
+    } else {
+        pollinationsConfig.style.display = 'none';
     }
 }
 

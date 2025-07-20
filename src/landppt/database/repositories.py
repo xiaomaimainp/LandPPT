@@ -4,7 +4,7 @@ Repository classes for database operations
 
 import time
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, and_
 from sqlalchemy.orm import selectinload
@@ -480,6 +480,94 @@ class GlobalMasterTemplateRepository:
         stmt = stmt.order_by(GlobalMasterTemplate.usage_count.desc())
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def get_templates_paginated(
+        self,
+        active_only: bool = True,
+        offset: int = 0,
+        limit: int = 6,
+        search: Optional[str] = None
+    ) -> Tuple[List[GlobalMasterTemplate], int]:
+        """Get templates with pagination"""
+        from sqlalchemy import func, or_
+
+        # Base query
+        stmt = select(GlobalMasterTemplate)
+        count_stmt = select(func.count(GlobalMasterTemplate.id))
+
+        if active_only:
+            stmt = stmt.where(GlobalMasterTemplate.is_active == True)
+            count_stmt = count_stmt.where(GlobalMasterTemplate.is_active == True)
+
+        # Add search filter
+        if search and search.strip():
+            search_filter = or_(
+                GlobalMasterTemplate.template_name.ilike(f"%{search}%"),
+                GlobalMasterTemplate.description.ilike(f"%{search}%")
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # Order and paginate
+        stmt = stmt.order_by(
+            GlobalMasterTemplate.is_default.desc(),
+            GlobalMasterTemplate.usage_count.desc()
+        ).offset(offset).limit(limit)
+
+        # Execute queries
+        result = await self.session.execute(stmt)
+        count_result = await self.session.execute(count_stmt)
+
+        templates = result.scalars().all()
+        total_count = count_result.scalar()
+
+        return templates, total_count
+
+    async def get_templates_by_tags_paginated(
+        self,
+        tags: List[str],
+        active_only: bool = True,
+        offset: int = 0,
+        limit: int = 6,
+        search: Optional[str] = None
+    ) -> Tuple[List[GlobalMasterTemplate], int]:
+        """Get templates by tags with pagination"""
+        from sqlalchemy import func, or_
+
+        # Base query
+        stmt = select(GlobalMasterTemplate)
+        count_stmt = select(func.count(GlobalMasterTemplate.id))
+
+        if active_only:
+            stmt = stmt.where(GlobalMasterTemplate.is_active == True)
+            count_stmt = count_stmt.where(GlobalMasterTemplate.is_active == True)
+
+        # Filter by tags (any tag matches)
+        for tag in tags:
+            tag_filter = GlobalMasterTemplate.tags.contains([tag])
+            stmt = stmt.where(tag_filter)
+            count_stmt = count_stmt.where(tag_filter)
+
+        # Add search filter
+        if search and search.strip():
+            search_filter = or_(
+                GlobalMasterTemplate.template_name.ilike(f"%{search}%"),
+                GlobalMasterTemplate.description.ilike(f"%{search}%")
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # Order and paginate
+        stmt = stmt.order_by(GlobalMasterTemplate.usage_count.desc()).offset(offset).limit(limit)
+
+        # Execute queries
+        result = await self.session.execute(stmt)
+        count_result = await self.session.execute(count_stmt)
+
+        templates = result.scalars().all()
+        total_count = count_result.scalar()
+
+        return templates, total_count
 
     async def update_template(self, template_id: int, update_data: Dict[str, Any]) -> bool:
         """Update a global master template"""

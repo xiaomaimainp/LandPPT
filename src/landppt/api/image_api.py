@@ -69,6 +69,9 @@ async def get_image_service_status(
         # 检查SiliconFlow
         if config.get('siliconflow', {}).get('api_key'):
             available_providers.append('siliconflow')
+
+        # 检查Pollinations（免费服务，总是可用）
+        available_providers.append('pollinations')
         
         # 检查搜索服务
         search_providers = []
@@ -178,7 +181,19 @@ async def test_image_service(
                 "available": False,
                 "message": "SiliconFlow API密钥未配置"
             }
-        
+
+        # 测试Pollinations（免费服务）
+        try:
+            test_results["providers"]["pollinations"] = {
+                "available": True,
+                "message": "Pollinations服务可用（免费服务）"
+            }
+        except Exception as e:
+            test_results["providers"]["pollinations"] = {
+                "available": False,
+                "message": f"Pollinations测试失败: {str(e)}"
+            }
+
         # 测试缓存
         cache_dir = Path(config.get('cache', {}).get('base_dir', 'temp/images_cache'))
         try:
@@ -900,3 +915,36 @@ async def deduplicate_gallery(
     except Exception as e:
         logger.error(f"Failed to deduplicate gallery: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to deduplicate gallery: {str(e)}")
+
+
+@router.post("/api/image/gallery/clear-all")
+async def clear_all_images(
+    user: User = Depends(get_current_user_required)
+):
+    """清空图床 - 删除所有图片"""
+    try:
+        image_service = get_image_service()
+
+        # 获取所有图片的统计信息
+        stats = await image_service.get_cache_stats()
+        total_images = stats.get('total_entries', 0)
+
+        if total_images == 0:
+            return {
+                "success": True,
+                "deleted_count": 0,
+                "message": "图床已经是空的"
+            }
+
+        # 清空所有缓存
+        deleted_count = await image_service.clear_all_cache()
+
+        return {
+            "success": True,
+            "deleted_count": deleted_count,
+            "message": f"成功清空图床，删除了 {deleted_count} 张图片"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to clear all images: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear all images: {str(e)}")

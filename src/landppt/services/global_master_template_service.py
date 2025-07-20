@@ -112,6 +112,66 @@ class GlobalMasterTemplateService:
             logger.error(f"Failed to get global master templates: {e}")
             raise
 
+    async def get_all_templates_paginated(
+        self,
+        active_only: bool = True,
+        page: int = 1,
+        page_size: int = 6,
+        search: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get all global master templates with pagination"""
+        try:
+            async with AsyncSessionLocal() as session:
+                db_service = DatabaseService(session)
+
+                # Calculate offset
+                offset = (page - 1) * page_size
+
+                # Get templates with pagination
+                templates, total_count = await db_service.get_global_master_templates_paginated(
+                    active_only=active_only,
+                    offset=offset,
+                    limit=page_size,
+                    search=search
+                )
+
+                # Calculate pagination info
+                total_pages = (total_count + page_size - 1) // page_size
+                has_next = page < total_pages
+                has_prev = page > 1
+
+                template_list = [
+                    {
+                        "id": template.id,
+                        "template_name": template.template_name,
+                        "description": template.description,
+                        "preview_image": template.preview_image,
+                        "tags": template.tags,
+                        "is_default": template.is_default,
+                        "is_active": template.is_active,
+                        "usage_count": template.usage_count,
+                        "created_by": template.created_by,
+                        "created_at": template.created_at,
+                        "updated_at": template.updated_at
+                    }
+                    for template in templates
+                ]
+
+                return {
+                    "templates": template_list,
+                    "pagination": {
+                        "current_page": page,
+                        "page_size": page_size,
+                        "total_count": total_count,
+                        "total_pages": total_pages,
+                        "has_next": has_next,
+                        "has_prev": has_prev
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Failed to get paginated templates: {e}")
+            raise
+
     async def get_template_by_id(self, template_id: int) -> Optional[Dict[str, Any]]:
         """Get global master template by ID"""
         try:
@@ -569,6 +629,68 @@ class GlobalMasterTemplateService:
 
         except Exception as e:
             logger.error(f"Failed to get global master templates by tags: {e}")
+            raise
+
+    async def get_templates_by_tags_paginated(
+        self,
+        tags: List[str],
+        active_only: bool = True,
+        page: int = 1,
+        page_size: int = 6,
+        search: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get global master templates by tags with pagination"""
+        try:
+            async with AsyncSessionLocal() as session:
+                db_service = DatabaseService(session)
+
+                # Calculate offset
+                offset = (page - 1) * page_size
+
+                # Get templates with pagination
+                templates, total_count = await db_service.get_global_master_templates_by_tags_paginated(
+                    tags=tags,
+                    active_only=active_only,
+                    offset=offset,
+                    limit=page_size,
+                    search=search
+                )
+
+                # Calculate pagination info
+                total_pages = (total_count + page_size - 1) // page_size
+                has_next = page < total_pages
+                has_prev = page > 1
+
+                template_list = [
+                    {
+                        "id": template.id,
+                        "template_name": template.template_name,
+                        "description": template.description,
+                        "preview_image": template.preview_image,
+                        "tags": template.tags,
+                        "is_default": template.is_default,
+                        "is_active": template.is_active,
+                        "usage_count": template.usage_count,
+                        "created_by": template.created_by,
+                        "created_at": template.created_at,
+                        "updated_at": template.updated_at
+                    }
+                    for template in templates
+                ]
+
+                return {
+                    "templates": template_list,
+                    "pagination": {
+                        "current_page": page,
+                        "page_size": page_size,
+                        "total_count": total_count,
+                        "total_pages": total_pages,
+                        "has_next": has_next,
+                        "has_prev": has_prev
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Failed to get paginated templates by tags: {e}")
             raise
 
     async def increment_template_usage(self, template_id: int) -> bool:

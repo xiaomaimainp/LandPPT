@@ -91,6 +91,7 @@ class ImageService:
             from .providers.dalle_provider import DalleProvider
             from .providers.stable_diffusion_provider import StableDiffusionProvider
             from .providers.silicon_flow_provider import SiliconFlowProvider
+            from .providers.pollinations_provider import PollinationsProvider
             from .config.image_config import is_provider_configured
 
             # 注册DALL-E提供者
@@ -119,6 +120,15 @@ class ImageService:
                 logger.debug("SiliconFlow provider registered")
             else:
                 logger.debug("SiliconFlow API key not configured, skipping provider registration")
+
+            # 注册Pollinations提供者
+            if is_provider_configured('pollinations'):
+                pollinations_config = self.config.get('pollinations', {})
+                pollinations_provider = PollinationsProvider(pollinations_config)
+                provider_registry.register(pollinations_provider)
+                logger.debug("Pollinations provider registered")
+            else:
+                logger.debug("Pollinations provider not configured, skipping provider registration")
 
             # 初始化网络搜索提供者
             from .config.image_config import ImageServiceConfig
@@ -858,6 +868,20 @@ class ImageService:
             'oversized_removed': 0,
             'total_removed': 0
         }
+
+    async def clear_all_cache(self) -> int:
+        """清空所有缓存"""
+        if not self.initialized:
+            await self.initialize()
+
+        try:
+            # 清空所有缓存
+            deleted_count = await self.cache_manager.clear_cache()
+            logger.info(f"Cleared all cache, deleted {deleted_count} images")
+            return deleted_count
+        except Exception as e:
+            logger.error(f"Failed to clear all cache: {e}")
+            raise
 
     async def deduplicate_cache(self) -> Dict[str, int]:
         """去重缓存中的重复图片"""

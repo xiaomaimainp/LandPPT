@@ -36,20 +36,30 @@ async def create_template(template_data: GlobalMasterTemplateCreate):
         raise HTTPException(status_code=500, detail="Failed to create template")
 
 
-@router.get("/", response_model=List[GlobalMasterTemplateResponse])
+@router.get("/", response_model=dict)
 async def get_all_templates(
     active_only: bool = Query(True, description="Only return active templates"),
-    tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)")
+    tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(6, ge=1, le=100, description="Number of items per page"),
+    search: Optional[str] = Query(None, description="Search in template name and description")
 ):
-    """Get all global master templates"""
+    """Get all global master templates with pagination"""
     try:
         if tags:
             tag_list = [tag.strip() for tag in tags.split(",")]
-            templates = await template_service.get_templates_by_tags(tag_list, active_only)
+            result = await template_service.get_templates_by_tags_paginated(
+                tag_list, active_only, page, page_size, search
+            )
         else:
-            templates = await template_service.get_all_templates(active_only)
-        
-        return [GlobalMasterTemplateResponse(**template) for template in templates]
+            result = await template_service.get_all_templates_paginated(
+                active_only, page, page_size, search
+            )
+
+        return {
+            "templates": [GlobalMasterTemplateResponse(**template) for template in result["templates"]],
+            "pagination": result["pagination"]
+        }
     except Exception as e:
         logger.error(f"Failed to get templates: {e}")
         raise HTTPException(status_code=500, detail="Failed to get templates")

@@ -5,7 +5,7 @@ Database service layer for converting between database models and API models
 import time
 import uuid
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -521,6 +521,29 @@ class DatabaseService:
         """Get global master templates by tags"""
         template_repo = GlobalMasterTemplateRepository(self.session)
         return await template_repo.get_templates_by_tags(tags, active_only)
+
+    async def get_global_master_templates_paginated(
+        self,
+        active_only: bool = True,
+        offset: int = 0,
+        limit: int = 6,
+        search: Optional[str] = None
+    ) -> Tuple[List[DBGlobalMasterTemplate], int]:
+        """Get global master templates with pagination"""
+        template_repo = GlobalMasterTemplateRepository(self.session)
+        return await template_repo.get_templates_paginated(active_only, offset, limit, search)
+
+    async def get_global_master_templates_by_tags_paginated(
+        self,
+        tags: List[str],
+        active_only: bool = True,
+        offset: int = 0,
+        limit: int = 6,
+        search: Optional[str] = None
+    ) -> Tuple[List[DBGlobalMasterTemplate], int]:
+        """Get global master templates by tags with pagination"""
+        template_repo = GlobalMasterTemplateRepository(self.session)
+        return await template_repo.get_templates_by_tags_paginated(tags, active_only, offset, limit, search)
 
     async def update_global_master_template(self, template_id: int, update_data: Dict[str, Any]) -> bool:
         """Update a global master template"""

@@ -60,6 +60,24 @@ class ImageServiceConfig:
                 'rate_limit_window': 60,  # 时间窗口（秒）
                 'timeout': 120  # 请求超时（秒）
             },
+
+            # Pollinations配置
+            'pollinations': {
+                'api_base': 'https://image.pollinations.ai',
+                'api_token': '',  # API token（可选，用于认证和移除logo）
+                'referrer': '',  # 推荐人标识符（可选，用于认证）
+                'model': 'flux',  # flux, turbo, gptimage
+                'default_width': 1024,
+                'default_height': 1024,
+                'default_enhance': False,  # 是否增强提示词
+                'default_safe': False,  # 是否启用安全过滤
+                'default_nologo': False,  # 是否移除logo（需要注册用户或token）
+                'default_private': False,  # 是否私有模式
+                'default_transparent': False,  # 是否生成透明背景（仅gptimage模型）
+                'rate_limit_requests': 60,  # 每分钟请求数
+                'rate_limit_window': 60,  # 时间窗口（秒）
+                'timeout': 300  # 请求超时（秒，增加以适应图片生成时间）
+            },
             
             # Unsplash配置（网络搜索）
             'unsplash': {
@@ -203,6 +221,73 @@ class ImageServiceConfig:
         if os.getenv('SEARXNG_HOST'):
             self._config['searxng']['host'] = os.getenv('SEARXNG_HOST')
 
+        # Pollinations配置（环境变量）
+        if os.getenv('POLLINATIONS_API_BASE'):
+            self._config['pollinations']['api_base'] = os.getenv('POLLINATIONS_API_BASE')
+        if os.getenv('POLLINATIONS_API_TOKEN'):
+            self._config['pollinations']['api_token'] = os.getenv('POLLINATIONS_API_TOKEN')
+        if os.getenv('POLLINATIONS_REFERRER'):
+            self._config['pollinations']['referrer'] = os.getenv('POLLINATIONS_REFERRER')
+        if os.getenv('POLLINATIONS_MODEL'):
+            self._config['pollinations']['model'] = os.getenv('POLLINATIONS_MODEL')
+
+        # 从配置服务加载Pollinations配置
+        try:
+            from ...config_service import config_service
+            all_config = config_service.get_all_config()
+
+            # 加载Pollinations配置
+            pollinations_token = all_config.get('pollinations_api_token')
+            if pollinations_token:
+                self._config['pollinations']['api_token'] = pollinations_token
+
+            pollinations_referrer = all_config.get('pollinations_referrer')
+            if pollinations_referrer:
+                self._config['pollinations']['referrer'] = pollinations_referrer
+
+            pollinations_model = all_config.get('pollinations_model')
+            if pollinations_model:
+                self._config['pollinations']['model'] = pollinations_model
+
+            pollinations_enhance = all_config.get('pollinations_enhance')
+            if pollinations_enhance is not None:
+                # 处理布尔值或字符串
+                if isinstance(pollinations_enhance, bool):
+                    self._config['pollinations']['default_enhance'] = pollinations_enhance
+                else:
+                    self._config['pollinations']['default_enhance'] = str(pollinations_enhance).lower() == 'true'
+
+            pollinations_safe = all_config.get('pollinations_safe')
+            if pollinations_safe is not None:
+                if isinstance(pollinations_safe, bool):
+                    self._config['pollinations']['default_safe'] = pollinations_safe
+                else:
+                    self._config['pollinations']['default_safe'] = str(pollinations_safe).lower() == 'true'
+
+            pollinations_nologo = all_config.get('pollinations_nologo')
+            if pollinations_nologo is not None:
+                if isinstance(pollinations_nologo, bool):
+                    self._config['pollinations']['default_nologo'] = pollinations_nologo
+                else:
+                    self._config['pollinations']['default_nologo'] = str(pollinations_nologo).lower() == 'true'
+
+            pollinations_private = all_config.get('pollinations_private')
+            if pollinations_private is not None:
+                if isinstance(pollinations_private, bool):
+                    self._config['pollinations']['default_private'] = pollinations_private
+                else:
+                    self._config['pollinations']['default_private'] = str(pollinations_private).lower() == 'true'
+
+            pollinations_transparent = all_config.get('pollinations_transparent')
+            if pollinations_transparent is not None:
+                if isinstance(pollinations_transparent, bool):
+                    self._config['pollinations']['default_transparent'] = pollinations_transparent
+                else:
+                    self._config['pollinations']['default_transparent'] = str(pollinations_transparent).lower() == 'true'
+
+        except Exception as e:
+            logger.debug(f"Could not load Pollinations config from config service: {e}")
+
         # 缓存目录配置
         if os.getenv('IMAGE_CACHE_DIR'):
             self._config['cache']['base_dir'] = os.getenv('IMAGE_CACHE_DIR')
@@ -235,6 +320,10 @@ class ImageServiceConfig:
             host = provider_config.get('host', '')
             return bool(host and host.strip())
 
+        # Pollinations不需要API密钥，只要配置存在就认为已配置
+        if provider == 'pollinations':
+            return True  # Pollinations是免费服务，不需要API密钥
+
         # 其他提供者检查API密钥是否存在
         api_key = provider_config.get('api_key', '')
         return bool(api_key and api_key.strip())
@@ -264,7 +353,7 @@ class ImageServiceConfig:
         """获取已配置的提供者列表"""
         providers = []
 
-        for provider in ['dalle', 'stable_diffusion', 'siliconflow', 'unsplash', 'pixabay', 'searxng']:
+        for provider in ['dalle', 'stable_diffusion', 'siliconflow', 'pollinations', 'unsplash', 'pixabay', 'searxng']:
             if self.is_provider_configured(provider):
                 providers.append(provider)
 

@@ -469,10 +469,48 @@ class ImageCacheManager:
         else:
             # 清空所有缓存
             keys_to_remove = list(self._cache_index.keys())
+
+            # 先通过索引删除已知的文件
             for cache_key in keys_to_remove:
                 await self.remove_from_cache(cache_key)
 
+            # 然后清理可能存在的孤立文件
+            await self._clear_orphaned_files()
+
             return len(keys_to_remove)
+
+    async def _clear_orphaned_files(self):
+        """清理孤立的缓存文件"""
+        try:
+            def _clear_directory_contents(directory: Path):
+                """清理目录中的所有文件，但保留目录结构"""
+                if not directory.exists():
+                    return
+
+                for item in directory.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        # 递归清理子目录
+                        _clear_directory_contents(item)
+
+            # 清理所有缓存目录中的文件
+            directories_to_clear = [
+                self.ai_generated_dir,
+                self.web_search_dir,
+                self.local_storage_dir,
+                self.metadata_dir,
+                self.thumbnails_dir
+            ]
+
+            for directory in directories_to_clear:
+                await asyncio.get_event_loop().run_in_executor(None, _clear_directory_contents, directory)
+
+            logger.info("Cleared all orphaned cache files")
+
+        except Exception as e:
+            logger.error(f"Failed to clear orphaned files: {e}")
+            # 不抛出异常，因为主要的清理已经完成
 
     async def deduplicate_cache(self) -> int:
         """去重缓存中的重复图片"""

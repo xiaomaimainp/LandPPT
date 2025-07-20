@@ -1,39 +1,37 @@
 // Global Master Templates Management JavaScript
 
-function updateTagFilter() {
+async function updateTagFilter() {
     const tagFilter = document.getElementById('tagFilter');
-    const allTags = new Set();
-    
-    templates.forEach(template => {
-        template.tags.forEach(tag => allTags.add(tag));
-    });
-    
-    // Clear existing options except "所有标签"
-    tagFilter.innerHTML = '<option value="">所有标签</option>';
-    
-    // Add tag options
-    Array.from(allTags).sort().forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = tag;
-        tagFilter.appendChild(option);
-    });
+
+    try {
+        // Get all templates to extract tags (without pagination)
+        const response = await fetch('/api/global-master-templates/?active_only=true&page_size=1000');
+        if (response.ok) {
+            const data = await response.json();
+            const allTemplates = data.templates || [];
+
+            const allTags = new Set();
+            allTemplates.forEach(template => {
+                template.tags.forEach(tag => allTags.add(tag));
+            });
+
+            // Clear existing options except "所有标签"
+            tagFilter.innerHTML = '<option value="">所有标签</option>';
+
+            // Add tag options
+            Array.from(allTags).sort().forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.warn('Failed to load tags for filter:', error);
+    }
 }
 
-function filterTemplates() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const selectedTag = document.getElementById('tagFilter').value;
-    
-    const filtered = templates.filter(template => {
-        const matchesSearch = template.template_name.toLowerCase().includes(searchTerm) ||
-                            template.description.toLowerCase().includes(searchTerm);
-        const matchesTag = !selectedTag || template.tags.includes(selectedTag);
-        
-        return matchesSearch && matchesTag;
-    });
-    
-    renderTemplates(filtered);
-}
+// filterTemplates function removed - now using server-side pagination
 
 function showLoading(show) {
     document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
@@ -143,7 +141,7 @@ async function handleTemplateSubmit(event) {
         }
         
         closeTemplateModal();
-        loadTemplates();
+        loadTemplates(currentPage);
         alert(editingTemplateId ? '模板更新成功！' : '模板创建成功！');
     } catch (error) {
         console.error('Error saving template:', error);
@@ -262,7 +260,7 @@ async function startStreamingGeneration(requestData) {
         if (generatedTemplateId) {
             document.getElementById('viewGeneratedTemplateBtn').onclick = () => {
                 closeAIGenerationModal();
-                loadTemplates();
+                loadTemplates(1); // 回到第一页查看新生成的模板
                 // 可以添加滚动到新模板的逻辑
             };
         }
@@ -404,7 +402,7 @@ async function handleTemplateImport(event) {
         event.target.value = '';
 
         // 重新加载模板列表
-        loadTemplates();
+        loadTemplates(1); // 回到第一页查看新导入的模板
         alert('模板导入成功！');
 
     } catch (error) {

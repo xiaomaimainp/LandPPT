@@ -40,17 +40,17 @@
             </select>
         </div>
         
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
             <!-- 上传按钮 -->
             <button onclick="showUploadModal()" class="btn btn-primary">
                 📤 上传图片
             </button>
-            
+
             <!-- 批量操作 -->
             <button onclick="toggleBatchMode()" class="btn btn-info" id="batch-mode-btn">
                 ☑️ 批量选择
             </button>
-            
+
             <!-- 刷新按钮 -->
             <button onclick="refreshGallery()" class="btn btn-success">
                 🔄 刷新
@@ -70,6 +70,7 @@
             <button onclick="clearSelection()" class="btn btn-warning">清除选择</button>
             <button onclick="batchDelete()" class="btn btn-danger">删除选中</button>
             <button onclick="batchDownload()" class="btn btn-success">下载选中</button>
+            <button onclick="clearAllImages()" class="btn btn-danger" style="margin-left: 20px; border: 2px solid #dc3545;">🗑️ 清空图床</button>
         </div>
     </div>
 </div>
@@ -591,6 +592,50 @@ async function batchDownload() {
     } catch (error) {
         console.error('Batch download failed:', error);
         showError('批量下载失败');
+    }
+}
+
+// 清空图床
+async function clearAllImages() {
+    // 第一次确认
+    if (!confirm('⚠️ 警告：此操作将删除图床中的所有图片！\n\n确定要继续吗？')) {
+        return;
+    }
+
+    // 第二次确认
+    if (!confirm('🚨 最后确认：删除后无法恢复！\n\n请再次确认是否要清空整个图床？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/image/gallery/clear-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showSuccess(`成功清空图床，删除了 ${data.deleted_count} 张图片`);
+
+            // 清除选择状态
+            selectedImages.clear();
+
+            // 退出批量模式
+            if (batchMode) {
+                toggleBatchMode();
+            }
+
+            // 刷新图库
+            refreshGallery();
+        } else {
+            showError('清空图床失败: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Clear all images failed:', error);
+        showError('清空图床失败');
     }
 }
 
