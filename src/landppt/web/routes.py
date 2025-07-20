@@ -78,6 +78,16 @@ class AISlideEditRequest(BaseModel):
     chatHistory: Optional[List[Dict[str, str]]] = None
     images: Optional[List[Dict[str, str]]] = None  # 新增：图片信息列表
 
+# AI要点增强请求数据模型
+class AIBulletPointEnhanceRequest(BaseModel):
+    slideIndex: int
+    slideTitle: str
+    slideContent: str
+    userRequest: str
+    projectInfo: Dict[str, Any]
+    slideOutline: Optional[Dict[str, Any]] = None
+    contextInfo: Optional[Dict[str, Any]] = None  # 包含原始要点、其他要点等上下文信息
+
 # 图像重新生成请求数据模型
 class AIImageRegenerateRequest(BaseModel):
     slide_index: int
@@ -2456,6 +2466,236 @@ async def ai_auto_generate_slide_images(
         return {
             "success": False,
             "message": f"一键配图失败: {str(e)}"
+        }
+
+@router.post("/api/ai/enhance-bullet-point")
+async def ai_enhance_bullet_point(
+    request: AIBulletPointEnhanceRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """AI增强要点接口"""
+    try:
+        # 获取AI提供者
+        ai_provider = get_ai_provider()
+
+        # 构建上下文信息
+        context_info = ""
+        if request.contextInfo:
+            original_point = request.contextInfo.get('originalBulletPoint', '')
+            other_points = request.contextInfo.get('otherBulletPoints', [])
+            point_index = request.contextInfo.get('pointIndex', 0)
+
+            context_info = f"""
+当前要点上下文信息：
+- 要点位置：第{point_index + 1}个要点
+- 原始要点内容：{original_point}
+- 同页面其他要点：{', '.join(other_points) if other_points else '无'}
+"""
+
+        # 构建大纲信息
+        outline_info = ""
+        if request.slideOutline:
+            outline_info = f"""
+当前幻灯片大纲信息：
+- 幻灯片类型：{request.slideOutline.get('slide_type', '未知')}
+- 描述：{request.slideOutline.get('description', '无')}
+- 所有要点：{', '.join(request.slideOutline.get('content_points', [])) if request.slideOutline.get('content_points') else '无'}
+"""
+
+        # 构建AI增强提示词
+        context = f"""
+你是一位专业的PPT内容编辑专家。用户需要你增强和优化一个PPT要点的内容。
+
+项目信息：
+- 项目标题：{request.projectInfo.get('title', '未知')}
+- 项目主题：{request.projectInfo.get('topic', '未知')}
+- 应用场景：{request.projectInfo.get('scenario', '未知')}
+
+幻灯片信息：
+- 幻灯片标题：{request.slideTitle}
+- 幻灯片位置：第{request.slideIndex}页
+
+{outline_info}
+
+{context_info}
+
+用户请求：{request.userRequest}
+
+请根据以上信息，对要点进行增强和优化。要求：
+
+1. **保持核心意思不变**：不要改变要点的基本含义和方向
+2. **增加具体细节**：添加更多具体的描述、数据、例子或说明
+3. **提升表达质量**：使用更专业、更有吸引力的表达方式
+4. **保持简洁性**：虽然要增强内容，但仍要保持要点的简洁特性，不要过于冗长
+5. **与其他要点协调**：确保增强后的要点与同页面其他要点在风格和层次上保持一致
+6. **符合场景需求**：根据应用场景调整语言风格和专业程度
+
+请直接返回增强后的要点内容，不需要额外的解释或格式化。
+"""
+
+        # 调用AI生成增强内容
+        response = await ai_provider.text_completion(
+            prompt=context,
+            max_tokens=ai_config.max_tokens // 2,  # 使用较小的token限制
+            temperature=0.7
+        )
+
+        enhanced_text = response.content.strip()
+
+        # 简单的内容验证
+        if not enhanced_text or len(enhanced_text) < 5:
+            raise ValueError("AI生成的增强内容过短或为空")
+
+        return {
+            "success": True,
+            "enhancedText": enhanced_text,
+            "originalText": request.contextInfo.get('originalBulletPoint', '') if request.contextInfo else ""
+        }
+
+    except Exception as e:
+        logger.error(f"AI要点增强请求失败: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "抱歉，AI要点增强服务暂时不可用。请稍后重试。"
+        }
+
+@router.post("/api/ai/enhance-all-bullet-points")
+async def ai_enhance_all_bullet_points(
+    request: AIBulletPointEnhanceRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """AI增强所有要点接口"""
+    try:
+        # 获取AI提供者
+        ai_provider = get_ai_provider()
+
+        # 构建上下文信息
+        context_info = ""
+        all_points = []
+        if request.contextInfo:
+            all_points = request.contextInfo.get('allBulletPoints', [])
+            total_points = request.contextInfo.get('totalPoints', 0)
+
+            context_info = f"""
+当前要点上下文信息：
+- 要点总数：{total_points}个
+- 所有要点内容：
+"""
+            for i, point in enumerate(all_points, 1):
+                context_info += f"  {i}. {point}\n"
+
+        # 构建大纲信息
+        outline_info = ""
+        if request.slideOutline:
+            outline_info = f"""
+当前幻灯片大纲信息：
+- 幻灯片类型：{request.slideOutline.get('slide_type', '未知')}
+- 描述：{request.slideOutline.get('description', '无')}
+"""
+
+        # 构建AI增强提示词
+        context = f"""
+请对以下PPT要点进行增强和优化。
+
+项目背景：
+- 项目：{request.projectInfo.get('title', '未知')}
+- 主题：{request.projectInfo.get('topic', '未知')}
+- 场景：{request.projectInfo.get('scenario', '未知')}
+- 幻灯片：{request.slideTitle}（第{request.slideIndex}页）
+
+{outline_info}
+
+{context_info}
+
+增强要求：
+1. 保持每个要点的核心意思不变
+2. 添加具体细节、数据或例子
+3. 使用更专业、准确的表达
+4. 保持简洁，避免冗长
+5. 确保要点间逻辑连贯、风格统一
+6. 符合{request.projectInfo.get('scenario', '商务')}场景的专业要求
+
+重要：请直接返回增强后的要点列表，每行一个要点，不要包含任何解释、开场白或格式说明。不要添加编号、符号或其他标记。
+
+示例格式：
+第一个增强后的要点内容
+第二个增强后的要点内容
+第三个增强后的要点内容
+"""
+
+        # 调用AI生成增强内容
+        response = await ai_provider.text_completion(
+            prompt=context,
+            max_tokens=ai_config.max_tokens,  # 使用完整的token限制，因为要处理多个要点
+            temperature=0.7
+        )
+
+        enhanced_content = response.content.strip()
+
+        # 解析增强后的要点 - 改进的过滤逻辑
+        enhanced_points = []
+        if enhanced_content:
+            # 按行分割，过滤空行
+            lines = [line.strip() for line in enhanced_content.split('\n') if line.strip()]
+
+            # 过滤掉常见的无关内容
+            filtered_lines = []
+            skip_patterns = [
+                '好的', '作为', '我将', '我会', '以下是', '根据', '请注意', '需要说明',
+                '增强后的要点', '优化后的', '改进后的', '以上', '总结', '希望',
+                '如有', '如果', '建议', '推荐', '注意', '提醒', '说明',
+                '要点1', '要点2', '要点3', '要点4', '要点5',
+                '第一', '第二', '第三', '第四', '第五', '第六', '第七', '第八', '第九', '第十',
+                '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.', '10.',
+                '•', '·', '-', '*', '→', '▪', '▫'
+            ]
+
+            for line in lines:
+                # 跳过过短的行（可能是格式标记）
+                if len(line) < 5:
+                    continue
+
+                # 跳过包含常见开场白模式的行
+                should_skip = False
+                for pattern in skip_patterns:
+                    if line.startswith(pattern) or (pattern in ['好的', '作为', '我将', '我会'] and pattern in line[:10]):
+                        should_skip = True
+                        break
+
+                # 跳过纯数字或符号开头的行（可能是编号）
+                if line[0].isdigit() or line[0] in ['•', '·', '-', '*', '→', '▪', '▫']:
+                    # 但保留去掉编号后的内容
+                    cleaned_line = line
+                    # 移除开头的编号和符号
+                    import re
+                    cleaned_line = re.sub(r'^[\d\s\.\-\*\•\·\→\▪\▫]+', '', cleaned_line).strip()
+                    if len(cleaned_line) >= 5:
+                        filtered_lines.append(cleaned_line)
+                    continue
+
+                if not should_skip:
+                    filtered_lines.append(line)
+
+            enhanced_points = filtered_lines
+
+        # 简单的内容验证
+        if not enhanced_points or len(enhanced_points) == 0:
+            raise ValueError("AI生成的增强内容为空或被过滤")
+
+        return {
+            "success": True,
+            "enhancedPoints": enhanced_points,
+            "originalPoints": all_points,
+            "totalEnhanced": len(enhanced_points)
+        }
+
+    except Exception as e:
+        logger.error(f"AI增强所有要点请求失败: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "抱歉，AI要点增强服务暂时不可用。请稍后重试。"
         }
 
 @router.get("/api/projects/{project_id}/selected-global-template")
