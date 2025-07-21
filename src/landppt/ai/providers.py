@@ -44,7 +44,7 @@ class OpenAIProvider(AIProvider):
             response = await self.client.chat.completions.create(
                 model=config.get("model", self.model),
                 messages=openai_messages,
-                max_tokens=config.get("max_tokens", 2000),
+                # max_tokens=config.get("max_tokens", 2000),
                 temperature=config.get("temperature", 0.7),
                 top_p=config.get("top_p", 1.0)
             )
@@ -98,7 +98,7 @@ class OpenAIProvider(AIProvider):
             stream = await self.client.chat.completions.create(
                 model=config.get("model", self.model),
                 messages=openai_messages,
-                max_tokens=config.get("max_tokens", 2000),
+                # max_tokens=config.get("max_tokens", 2000),
                 temperature=config.get("temperature", 0.7),
                 top_p=config.get("top_p", 1.0),
                 stream=True
@@ -155,7 +155,7 @@ class AnthropicProvider(AIProvider):
         try:
             response = await self.client.messages.create(
                 model=config.get("model", self.model),
-                max_tokens=config.get("max_tokens", 2000),
+                # max_tokens=config.get("max_tokens", 2000),
                 temperature=config.get("temperature", 0.7),
                 system=system_message,
                 messages=claude_messages
@@ -228,7 +228,7 @@ class GoogleProvider(AIProvider):
             generation_config = {
                 "temperature": config.get("temperature", 0.7),
                 "top_p": config.get("top_p", 1.0),
-                "max_output_tokens": max_tokens,
+                # "max_output_tokens": max_tokens,
             }
 
             # 配置安全设置 - 设置为较宽松的安全级别以减少误拦截
@@ -371,7 +371,7 @@ class OllamaProvider(AIProvider):
                 options={
                     "temperature": config.get("temperature", 0.7),
                     "top_p": config.get("top_p", 1.0),
-                    "num_predict": config.get("max_tokens", 2000)
+                    # "num_predict": config.get("max_tokens", 2000)
                 }
             )
             

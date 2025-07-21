@@ -674,13 +674,27 @@ function setupEventListeners() {
 async function loadTemplates() {
     showLoading(true);
     try {
-        const response = await fetch('/api/global-master-templates/?active_only=true');
-        
+        const response = await fetch('/api/global-master-templates/?active_only=true&page_size=100');
+
         if (!response.ok) {
             throw new Error('Failed to load templates');
         }
-        
-        templates = await response.json();
+
+        const data = await response.json();
+        console.log('API response:', data);
+
+        // 确保我们获取的是模板数组
+        if (data && Array.isArray(data.templates)) {
+            templates = data.templates;
+        } else if (Array.isArray(data)) {
+            // 如果直接返回数组（向后兼容）
+            templates = data;
+        } else {
+            console.error('Unexpected API response format:', data);
+            throw new Error('Invalid response format from templates API');
+        }
+
+        console.log('Loaded templates:', templates);
         renderTemplates(templates);
     } catch (error) {
         console.error('Error loading templates:', error);
@@ -692,7 +706,23 @@ async function loadTemplates() {
 
 function renderTemplates(templatesToRender) {
     const grid = document.getElementById('templatesGrid');
-    
+
+    // 确保 templatesToRender 是一个数组
+    if (!Array.isArray(templatesToRender)) {
+        console.error('renderTemplates: templatesToRender is not an array:', templatesToRender);
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl); background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--border-radius-lg); box-shadow: var(--glass-shadow);">
+                <div style="font-size: 4rem; margin-bottom: var(--spacing-lg); opacity: 0.6;">⚠️</div>
+                <h3 style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: var(--spacing-md); font-weight: 600;">数据格式错误</h3>
+                <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: var(--spacing-lg);">模板数据格式不正确，请刷新页面重试</p>
+                <button class="btn btn-primary" onclick="window.location.reload()" style="margin-top: var(--spacing-md);">
+                    🔄 刷新页面
+                </button>
+            </div>
+        `;
+        return;
+    }
+
     if (templatesToRender.length === 0) {
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: var(--spacing-2xl); background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--border-radius-lg); box-shadow: var(--glass-shadow);">
