@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg?style=flat-square)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/docker-supported-blue.svg?style=flat-square)](https://hub.docker.com/r/bradleylzh/landppt)
 
 **English** | [中文](README.md)
 
@@ -14,6 +15,7 @@
 ## 📋 Table of Contents
 
 - [Project Overview](#-project-overview)
+- [Feature Highlights](#-feature-highlights)
 - [Key Features](#-key-features)
 - [Quick Start](#-quick-start)
 - [Usage Guide](#-usage-guide)
@@ -21,52 +23,78 @@
 - [API Documentation](#-api-documentation)
 - [Tech Stack](#️-tech-stack)
 - [Contributing](#-contributing)
+- [FAQ](#-faq)
 - [License](#-license)
 
 ## 🎯 Project Overview
 
-LandPPT is an AI-powered presentation generation platform that automatically converts document content into professional PPT presentations. The platform supports multiple AI models and provides rich templates and style options, enabling users to create high-quality presentations.
+LandPPT is an intelligent presentation generation platform powered by Large Language Models (LLMs) that automatically converts document content into professional PPT presentations. The platform integrates multiple AI models, intelligent image processing, deep research capabilities, and rich template systems, enabling users to effortlessly create high-quality presentations.
 
 
 ![image](https://img.pub/p/17ebc2a837fc02827d4a.png)
 
-![image](https://img.pub/p/3a7dff4a4b9aebedc260.png)
+![image](https://img.pub/p/1f9e79326ddeae3b8716.png)
 
-![image](https://img.pub/p/56e2a5801875736f9fc5.png)
+![image](https://img.pub/p/02bac27fe8097c012d9e.png)
 
-![image](https://img.pub/p/b6efaedcbff7c4f96d39.png)
+![image](https://img.pub/p/bebe9fe671d0125ceac6.png)
 
-![image](https://img.pub/p/61800c015f600210e8c4.png)
+![image](https://img.pub/p/0d2ffc650792c4a133a4.png)
 
+## 🌟 Feature Highlights
+
+- **🚀 One-Click Generation**: From topic to complete PPT, fully automated AI processing
+- **🎨 Smart Image Matching**: AI automatically matches the most suitable images with multi-source support
+- **🔍 Deep Research**: Integrated multiple search engines for latest and comprehensive information
+- **📱 Responsive Design**: Perfect adaptation to various devices and screen sizes
+processing
+- **🔒 Enterprise Security**: Support for local deployment with controllable data security
 
 ## ✨ Key Features
 
 ### 🤖 Multi-AI Provider Support
-- **OpenAI GPT Series**: GPT-4.5/GPT-5 and other mainstream models
-- **Anthropic Claude**: Claude-3 series models
-- **Google Gemini**: Gemini-2.5 series models
-- **Azure OpenAI**: Enterprise-grade AI services
-- **Ollama**: Locally deployed open-source models
+- **OpenAI GPT Series**: GPT-4o, GPT-4o-mini and other latest models
+- **Anthropic Claude**: Claude-3.5 Sonnet, Claude-3 Haiku series models
+- **Google Gemini**: Gemini-1.5 Flash, Gemini-1.5 Pro series models
+- **Azure OpenAI**: Enterprise-grade AI services with custom deployments
+- **Ollama**: Locally deployed open-source models supporting Llama, Mistral, etc.
 
 ### 📄 Powerful File Processing
-- **Multi-format Support**: PDF, Word, Markdown, TXT, etc.
-- **Intelligent Parsing**: Content extraction using minueru and markitdown
-- **Deep Research**: DEEP research functionality with Tavily API integration
+- **Multi-format Support**: PDF, Word, Markdown, TXT, Excel and more formats
+- **Intelligent Parsing**: High-quality content extraction using MinerU and MarkItDown
+- **Deep Research**: Multi-source research with Tavily API and SearXNG integration
+- **Content Enhancement**: Automatic web content extraction and intelligent summarization
+
+### 🎨 Intelligent Image Processing System
+- **Multi-source Image Acquisition**: Local gallery, network search, and AI generation in one
+- **Network Image Search**: Support for premium galleries like Pixabay, Unsplash
+- **AI Image Generation**: Integration with DALL-E, SiliconFlow, Pollinations services
+- **Smart Image Selection**: AI automatically matches the most suitable image content
+- **Image Processing Optimization**: Automatic resizing, format conversion, quality optimization
+
+### 🔍 Enhanced Research Capabilities
+- **Multi-engine Search**: Dual engine support with Tavily and SearXNG
+- **Deep Content Extraction**: Intelligent web content parsing and structured processing
+- **Multi-language Support**: Support for Chinese, English and other languages
+- **Real-time Information**: Access to latest web information and data
 
 ### 🎨 Rich Template System
-- **Global Master Templates**: Unified HTML template system
-- **Diverse Layouts**: AI-generated creative page layouts
+- **Global Master Templates**: Unified HTML template system with responsive design
+- **Diverse Layouts**: AI-generated creative page layouts and design styles
+- **Scenario-based Templates**: Professional templates for general, tourism, education scenarios
 - **Custom Templates**: Support for importing and creating personalized templates
 
 ### 📊 Complete Project Management
 - **Three-stage Workflow**: Requirements confirmation → Outline generation → PPT generation
-- **Visual Editing**: Outline editor
-- **Real-time Preview**: 16:9 responsive page preview
+- **Visual Editing**: Intuitive outline editor with real-time preview
+- **Version Management**: Project history and version rollback functionality
+- **Batch Operations**: Support for batch generation and processing multiple projects
 
 ### 🌐 Modern Web Interface
-- **Intuitive Operation**: User-friendly web interface
-- **AI Chat Editing**: Sidebar AI editing functionality
+- **Intuitive Operation**: User-friendly responsive web interface
+- **AI Chat Editing**: Sidebar AI editing with real-time conversation support
 - **Multi-format Export**: PDF/HTML/PPTX export support
+- **Real-time Preview**: 16:9 standard ratio real-time page preview
 
 ## 🚀 Quick Start
 
@@ -77,7 +105,7 @@ LandPPT is an AI-powered presentation generation platform that automatically con
 
 ### Local Installation
 
-#### Method 1: Manual Setup with uv (Recommended)
+#### Method 1: uv Setup (Recommended)
 
 ```bash
 # Clone the repository
@@ -93,13 +121,41 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Sync environment with uv
 uv sync
 
+# Install additional dependencies (optional, for PPTX export)
 uv pip install apryse-sdk --extra-index-url=https://pypi.apryse.com
+
 # Configure environment variables
 cp .env.example .env
 # Edit .env file and configure your AI API keys
 
 # Start the service
 uv run python run.py
+```
+
+#### Method 2: Traditional pip Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/sligter/LandPPT.git
+cd LandPPT
+
+# Create virtual environment
+python -m venv venv
+# Activate virtual environment
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+
+# Install dependencies
+pip install -e .
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env file and configure your AI API keys
+
+# Start the service
+python run.py
 ```
 
 ### Docker Deployment
@@ -149,14 +205,18 @@ Configure your AI API keys in the settings page:
 - Or configure local Ollama service
 
 ### 3. Create PPT Projects
-1. **Requirements Confirmation**: Input topic, select audience, set page range
-2. **Outline Generation**: AI generates editable mind map outline
-3. **PPT Generation**: Generate complete HTML presentation based on outline
+1. **Requirements Confirmation**: Input topic, select audience, set page range, choose scenario template
+2. **Outline Generation**: AI intelligently generates structured outline with visual editing support
+3. **Content Research**: Optionally enable deep research functionality to get latest relevant information
+4. **Image Configuration**: Configure image acquisition methods (local/network/AI generation)
+5. **PPT Generation**: Generate complete HTML presentation based on outline
 
 ### 4. Edit and Export
-- Use AI chat functionality to edit content
+- Use AI chat functionality for real-time content and style editing
+- Support image replacement and optimization
 - Export as PDF, HTML, or PPTX format
 - Save project versions and history
+- Support batch processing and template reuse
 
 ## 🔧 Configuration
 
@@ -176,9 +236,20 @@ HOST=0.0.0.0
 PORT=8000
 SECRET_KEY=your-secure-secret-key
 
-# Feature Configuration
-TAVILY_API_KEY=your_tavily_api_key_here  # Research functionality
-APRYSE_LICENSE_KEY=your_apryse_key_here  # PPTX export
+# Research Functionality Configuration
+TAVILY_API_KEY=your_tavily_api_key_here        # Tavily search engine
+SEARXNG_HOST=http://localhost:8888             # SearXNG instance URL
+RESEARCH_PROVIDER=tavily                       # Research provider: tavily, searxng, both
+
+# Image Service Configuration
+ENABLE_IMAGE_SERVICE=true                      # Enable image service
+PIXABAY_API_KEY=your_pixabay_api_key_here     # Pixabay gallery
+UNSPLASH_ACCESS_KEY=your_unsplash_key_here    # Unsplash gallery
+SILICONFLOW_API_KEY=your_siliconflow_key_here # AI image generation
+POLLINATIONS_API_TOKEN=your_pollinations_token # Pollinations AI
+
+# Export Functionality Configuration
+APRYSE_LICENSE_KEY=your_apryse_key_here       # PPTX export
 
 # Generation Parameters
 MAX_TOKENS=8192
@@ -194,24 +265,38 @@ After starting the service, visit:
 ## 🛠️ Tech Stack
 
 ### Backend Technologies
-- **FastAPI**: Modern Python web framework
-- **SQLAlchemy**: ORM database operations
-- **Pydantic**: Data validation and serialization
-- **Uvicorn**: ASGI server
+- **FastAPI**: Modern Python web framework with async support
+- **SQLAlchemy**: ORM database operations supporting multiple databases
+- **Pydantic**: Data validation and serialization with type safety
+- **Uvicorn**: High-performance ASGI server
 
 ### AI Integration
-- **OpenAI**: GPT series models
-- **Anthropic**: Claude series models
-- **Google AI**: Gemini series models
-- **LangChain**: AI application development framework
+- **OpenAI**: GPT-4o, GPT-4o-mini and other latest models
+- **Anthropic**: Claude-3.5 series models
+- **Google AI**: Gemini-1.5 series models
+- **LangChain**: AI application development framework and toolchain
+- **Ollama**: Local model deployment and management
 
 ### File Processing
-- **mineru**: Intelligent PDF parsing
-- **markitdown**: Multi-format document conversion
+- **MinerU**: High-quality PDF intelligent parsing and structured extraction
+- **MarkItDown**: Multi-format document conversion (Word, Excel, PowerPoint, etc.)
+- **BeautifulSoup4**: HTML/XML parsing and processing
+
+### Image Processing
+- **Pillow**: Image processing and format conversion
+- **OpenAI DALL-E**: AI image generation
+- **SiliconFlow**: Domestic AI image generation service
+- **Pollinations**: Open-source AI image generation platform
+
+### Research Capabilities
+- **Tavily**: Professional search engine API
+- **SearXNG**: Open-source meta search engine
+- **HTTPX**: Asynchronous HTTP client
+- **Playwright**: Web content extraction
 
 ### Export Functionality
-- **Pyppeteer**: HTML to PDF conversion
-- **Apryse SDK**: PPTX generation
+- **Playwright**: High-quality HTML to PDF export
+- **Apryse SDK**: Professional PPTX generation and conversion
 
 ## 🤝 Contributing
 
@@ -228,6 +313,26 @@ For details, please see [Contributing Guide](CONTRIBUTING.md).
 
 ### Reporting Issues
 If you find bugs or have feature suggestions, please create a new issue on the [Issues](https://github.com/sligter/LandPPT/issues) page.
+
+## ❓ FAQ
+
+### Q: Which AI models are supported?
+A: Supports OpenAI GPT, Anthropic Claude, Google Gemini, Azure OpenAI, and Ollama local models. You can switch between different AI providers in the configuration page.
+
+### Q: How to configure image functionality?
+A: Configure the corresponding API keys in the `.env` file:
+- Pixabay: `PIXABAY_API_KEY`
+- Unsplash: `UNSPLASH_ACCESS_KEY`
+- AI Generation: `SILICONFLOW_API_KEY` or `POLLINATIONS_API_TOKEN`
+
+### Q: How to use the research functionality?
+A: Configure `TAVILY_API_KEY` or deploy a SearXNG instance, then enable research functionality when creating PPTs to automatically get relevant information.
+
+### Q: Does it support local deployment?
+A: Fully supports local deployment, can use Docker or direct installation. Supports Ollama local models without relying on external APIs.
+
+### Q: How to export PPTX format?
+A: Need to configure `APRYSE_LICENSE_KEY`, then select PPTX format in export options.
 
 ## 📄 License
 
