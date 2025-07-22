@@ -22,8 +22,7 @@ from ..core.config import ai_config
 from .ppt_service import PPTService
 from .db_project_manager import DatabaseProjectManager
 from .global_master_template_service import GlobalMasterTemplateService
-from .deep_research_service import DEEPResearchService
-from .research_report_generator import ResearchReportGenerator
+
 from .research.enhanced_research_service import EnhancedResearchService
 from .research.enhanced_report_generator import EnhancedReportGenerator
 from .prompts import prompts_manager
@@ -99,87 +98,28 @@ class EnhancedPPTService(PPTService):
         return get_ai_provider(provider_name)
 
     def _initialize_research_services(self):
-        """Initialize research services if available"""
+        """Initialize enhanced research service"""
         try:
-            # Initialize legacy research service
-            self.research_service = DEEPResearchService()
-            self.report_generator = ResearchReportGenerator()
-
             # Initialize enhanced research service
             self.enhanced_research_service = EnhancedResearchService()
             self.enhanced_report_generator = EnhancedReportGenerator()
 
             # Check availability
-            legacy_available = self.research_service.is_available()
             enhanced_available = self.enhanced_research_service.is_available()
 
             if enhanced_available:
                 logger.info("Enhanced Research service initialized successfully")
                 available_providers = self.enhanced_research_service.get_available_providers()
                 logger.info(f"Available research providers: {', '.join(available_providers)}")
-            elif legacy_available:
-                logger.info("DEEP Research service initialized successfully")
             else:
-                logger.warning("No research services available - check API configurations")
+                logger.warning("Enhanced research service not available - check API configurations")
 
         except Exception as e:
-            logger.warning(f"Failed to initialize research services: {e}")
-            self.research_service = None
-            self.report_generator = None
+            logger.warning(f"Failed to initialize enhanced research service: {e}")
             self.enhanced_research_service = None
             self.enhanced_report_generator = None
 
-    def _convert_enhanced_to_legacy_report(self, enhanced_report):
-        """Convert enhanced research report to legacy format for compatibility"""
-        try:
-            from .deep_research_service import ResearchReport, ResearchStep
 
-            # Convert enhanced steps to legacy steps
-            legacy_steps = []
-            for enhanced_step in enhanced_report.steps:
-                # Combine all search results for legacy format
-                combined_results = []
-
-                if enhanced_step.tavily_results:
-                    combined_results.extend(enhanced_step.tavily_results)
-
-                if enhanced_step.searxng_results:
-                    for result in enhanced_step.searxng_results.results:
-                        combined_results.append({
-                            'url': result.url,
-                            'title': result.title,
-                            'content': result.content,
-                            'score': result.score
-                        })
-
-                legacy_step = ResearchStep(
-                    step_number=enhanced_step.step_number,
-                    query=enhanced_step.query,
-                    description=enhanced_step.description,
-                    results=combined_results,
-                    analysis=enhanced_step.analysis,
-                    completed=enhanced_step.completed
-                )
-                legacy_steps.append(legacy_step)
-
-            # Create legacy report
-            legacy_report = ResearchReport(
-                topic=enhanced_report.topic,
-                language=enhanced_report.language,
-                steps=legacy_steps,
-                executive_summary=enhanced_report.executive_summary,
-                key_findings=enhanced_report.key_findings,
-                recommendations=enhanced_report.recommendations,
-                sources=enhanced_report.sources,
-                created_at=enhanced_report.created_at,
-                total_duration=enhanced_report.total_duration
-            )
-
-            return legacy_report
-
-        except Exception as e:
-            logger.error(f"Failed to convert enhanced report to legacy format: {e}")
-            return None
 
     def _initialize_image_service(self):
         """Initialize image service"""
@@ -231,13 +171,14 @@ class EnhancedPPTService(PPTService):
             logger.error(f"Failed to async initialize image service: {e}")
 
     def reload_research_config(self):
-        """Reload research service configuration"""
-        if self.research_service:
+        """Reload enhanced research service configuration"""
+        if hasattr(self, 'enhanced_research_service') and self.enhanced_research_service:
             try:
-                self.research_service.reload_config()
-                logger.info("Research service configuration reloaded in EnhancedPPTService")
+                # Enhanced research service doesn't have reload_config method, so reinitialize
+                self._initialize_research_services()
+                logger.info("Enhanced research service configuration reloaded in EnhancedPPTService")
             except Exception as e:
-                logger.warning(f"Failed to reload research service config: {e}")
+                logger.warning(f"Failed to reload enhanced research service config: {e}")
                 # If reload fails, reinitialize
                 self._initialize_research_services()
 
@@ -392,27 +333,34 @@ class EnhancedPPTService(PPTService):
             logger.error(f"设计基因缓存清理失败: {e}")
 
     async def generate_outline(self, request: PPTGenerationRequest, page_count_settings: Dict[str, Any] = None) -> PPTOutline:
-        """Generate PPT outline using real AI with optional DEEP research and page count settings"""
+        """Generate PPT outline using real AI with optional Enhanced research and page count settings"""
         try:
             research_context = ""
-            research_report = None
 
             # Check if network mode is enabled and research service is available
             if request.network_mode:
-                # Try enhanced research service first, fallback to legacy
+                # Use enhanced research service
                 if hasattr(self, 'enhanced_research_service') and self.enhanced_research_service.is_available():
                     logger.info(f"Starting Enhanced research for topic: {request.topic}")
                     try:
-                        # Conduct enhanced research
+                        # Prepare research context
+                        research_context = {
+                            'scenario': request.scenario,
+                            'target_audience': getattr(request, 'target_audience', '普通大众'),
+                            'requirements': request.requirements,
+                            'ppt_style': getattr(request, 'ppt_style', 'general'),
+                            'description': getattr(request, 'description', '')
+                        }
+
+                        # Conduct enhanced research with context
                         enhanced_report = await self.enhanced_research_service.conduct_enhanced_research(
                             topic=request.topic,
-                            language=request.language
+                            language=request.language,
+                            context=research_context
                         )
 
-                        # Convert enhanced report to legacy format for compatibility
-                        research_report = self._convert_enhanced_to_legacy_report(enhanced_report)
-
-                        # Save enhanced report
+                        # Save enhanced report first
+                        report_path = None
                         if hasattr(self, 'enhanced_report_generator'):
                             try:
                                 report_path = self.enhanced_report_generator.save_report_to_file(enhanced_report)
@@ -420,36 +368,69 @@ class EnhancedPPTService(PPTService):
                             except Exception as save_error:
                                 logger.warning(f"Failed to save enhanced research report: {save_error}")
 
+                        # Use the saved markdown file to generate outline using file-based method
+                        if report_path and Path(report_path).exists():
+                            logger.info(f"Using saved research report file for outline generation: {report_path}")
+                            try:
+                                # Create a file request object for the saved report
+                                from ..api.models import FileOutlineGenerationRequest
+                                file_request = FileOutlineGenerationRequest(
+                                    file_path=report_path,
+                                    filename=Path(report_path).name,
+                                    topic=request.topic,
+                                    scenario=request.scenario,
+                                    requirements=request.requirements,
+                                    target_audience=getattr(request, 'target_audience', '普通大众'),
+                                    ppt_style=getattr(request, 'ppt_style', 'general'),
+                                    custom_style_prompt=getattr(request, 'custom_style_prompt', ''),
+                                    page_count_mode=page_count_settings.get('mode', 'ai_decide') if page_count_settings else 'ai_decide',
+                                    min_pages=page_count_settings.get('min_pages') if page_count_settings else None,
+                                    max_pages=page_count_settings.get('max_pages') if page_count_settings else None,
+                                    fixed_pages=page_count_settings.get('fixed_pages') if page_count_settings else None,
+                                    language=request.language
+                                )
+
+                                # Generate outline from the research report file
+                                file_outline_result = await self.generate_outline_from_file(file_request)
+
+                                # Convert the file-based outline result to PPTOutline format
+                                if file_outline_result.success and file_outline_result.outline:
+                                    outline_data = file_outline_result.outline
+                                    outline = PPTOutline(
+                                        title=outline_data.get('title', request.topic),
+                                        slides=outline_data.get('slides', []),
+                                        metadata={
+                                            **outline_data.get('metadata', {}),
+                                            'research_enhanced': True,
+                                            'research_file_path': report_path,
+                                            'generated_from_research_file': True
+                                        }
+                                    )
+
+                                    # Add page count settings to metadata
+                                    if page_count_settings:
+                                        outline.metadata["page_count_settings"] = page_count_settings
+
+                                    logger.info("Successfully generated outline from research report file")
+                                    return outline
+                                else:
+                                    logger.warning("File-based outline generation failed, falling back to traditional method")
+
+                            except Exception as file_error:
+                                logger.warning(f"Failed to generate outline from research file, falling back to traditional method: {file_error}")
+
+                        # Fallback: No research context available when file method fails
+                        research_context = ""
+                        logger.info("Enhanced research completed but file-based outline generation failed")
+
                     except Exception as e:
                         logger.error(f"Enhanced research failed: {e}")
-                        research_report = None
-
-                elif self.research_service and self.research_service.is_available():
-                    logger.info(f"Starting DEEP research for topic: {request.topic}")
-                    try:
-                        # Conduct DEEP research
-                        research_report = await self.research_service.conduct_deep_research(
-                            topic=request.topic,
-                            language=request.language
-                        )
-
-                        # Generate research context for outline generation
-                        research_context = self._create_research_context(research_report)
-                        logger.info("DEEP research completed successfully")
-
-                        # Save research report if generator is available
-                        if self.report_generator:
-                            try:
-                                report_path = self.report_generator.save_report_to_file(research_report)
-                                logger.info(f"Research report saved to: {report_path}")
-                            except Exception as save_error:
-                                logger.warning(f"Failed to save research report: {save_error}")
-
-                    except Exception as research_error:
-                        logger.warning(f"DEEP research failed, proceeding without research context: {research_error}")
                         research_context = ""
+
+
                 else:
                     logger.info("Network mode enabled but no research services available")
+                    research_context = ""
 
             # Create AI prompt for outline generation (with or without research context and page count settings)
             prompt = self._create_outline_prompt(request, research_context, page_count_settings)
@@ -464,11 +445,7 @@ class EnhancedPPTService(PPTService):
             # Parse AI response to create structured outline
             outline = self._parse_ai_outline(response.content, request)
 
-            # Add research metadata if available
-            if research_report:
-                outline.metadata["research_enhanced"] = True
-                outline.metadata["research_duration"] = research_report.total_duration
-                outline.metadata["research_sources"] = len(research_report.sources)
+            # Research metadata is now handled in the file-based generation method above
 
             # Add page count settings to metadata
             if page_count_settings:
@@ -516,167 +493,7 @@ class EnhancedPPTService(PPTService):
             logger.error(f"Error enhancing content: {str(e)}")
             return content  # Return original content if enhancement fails
     
-    def _create_research_context(self, research_report) -> str:
-        """Create comprehensive structured Markdown research context for outline generation"""
-        if not research_report:
-            return ""
 
-        # 构建详细的结构化Markdown研究报告内容
-        markdown_content = []
-
-        # 标题和基本信息
-        markdown_content.append(f"# {research_report.topic} - 深度研究报告")
-        markdown_content.append("")
-        markdown_content.append("---")
-        markdown_content.append("")
-
-        # 报告元信息
-        markdown_content.append("## 📊 报告信息")
-        markdown_content.append("")
-        markdown_content.append(f"- **研究主题**: {research_report.topic}")
-        markdown_content.append(f"- **报告语言**: {research_report.language}")
-        markdown_content.append(f"- **生成时间**: {research_report.created_at.strftime('%Y年%m月%d日 %H:%M:%S')}")
-        markdown_content.append(f"- **研究耗时**: {research_report.total_duration:.2f} 秒")
-        markdown_content.append(f"- **研究步骤**: {len(research_report.steps)} 个")
-        markdown_content.append(f"- **信息来源**: {len(research_report.sources)} 个")
-        markdown_content.append("")
-
-        # 执行摘要
-        if research_report.executive_summary:
-            markdown_content.append("## 📋 执行摘要")
-            markdown_content.append("")
-            markdown_content.append(research_report.executive_summary)
-            markdown_content.append("")
-
-        # 关键发现
-        if research_report.key_findings:
-            markdown_content.append("## 🔍 关键发现")
-            markdown_content.append("")
-            for i, finding in enumerate(research_report.key_findings, 1):
-                markdown_content.append(f"### {i}. {finding}")
-                markdown_content.append("")
-            markdown_content.append("")
-
-        # 建议与推荐
-        if research_report.recommendations:
-            markdown_content.append("## 💡 建议与推荐")
-            markdown_content.append("")
-            for i, recommendation in enumerate(research_report.recommendations, 1):
-                markdown_content.append(f"### {i}. {recommendation}")
-                markdown_content.append("")
-            markdown_content.append("")
-
-        # 详细研究过程和分析
-        if research_report.steps:
-            markdown_content.append("## 🔬 详细研究过程")
-            markdown_content.append("")
-            markdown_content.append("本节包含了完整的研究过程，每个步骤都包含了深入的分析和权威的信息来源。")
-            markdown_content.append("")
-
-            for step_num, step in enumerate(research_report.steps, 1):
-                if step.completed and step.analysis:
-                    markdown_content.append(f"### 步骤 {step_num}: {step.description}")
-                    markdown_content.append("")
-                    markdown_content.append(f"**🎯 研究目标**: {step.description}")
-                    markdown_content.append("")
-                    markdown_content.append(f"**🔍 搜索查询**: `{step.query}`")
-                    markdown_content.append("")
-                    markdown_content.append("**📊 研究状态**: ✅ 已完成")
-                    markdown_content.append("")
-
-                    # 详细分析结果
-                    markdown_content.append("#### 📝 深度分析")
-                    markdown_content.append("")
-                    markdown_content.append(step.analysis)
-                    markdown_content.append("")
-
-                    # 详细的信息源列表
-                    if step.results:
-                        markdown_content.append("#### 📚 权威信息源")
-                        markdown_content.append("")
-                        markdown_content.append("以下是本研究步骤中使用的主要信息源，按相关性排序：")
-                        markdown_content.append("")
-
-                        for i, result in enumerate(step.results[:5], 1):  # 显示前5个来源
-                            title = result.get('title', '未知标题')
-                            url = result.get('url', '#')
-                            content = result.get('content', '')
-                            score = result.get('score', 0)
-                            published_date = result.get('published_date', '')
-
-                            markdown_content.append(f"**{i}. [{title}]({url})**")
-                            if published_date:
-                                markdown_content.append(f"   - 发布时间: {published_date}")
-                            if score:
-                                markdown_content.append(f"   - 相关性评分: {score:.2f}")
-                            if content:
-                                # 显示内容摘要（前300字符）
-                                content_preview = content[:300] + "..." if len(content) > 300 else content
-                                markdown_content.append(f"   - 内容摘要: {content_preview}")
-                            markdown_content.append("")
-
-                        # 如果还有更多来源，显示统计
-                        if len(step.results) > 5:
-                            markdown_content.append(f"*注：本步骤共找到 {len(step.results)} 个相关信息源，以上显示前5个最相关的来源。*")
-                            markdown_content.append("")
-
-                    markdown_content.append("---")
-                    markdown_content.append("")
-
-        # 综合分析和结论
-        markdown_content.append("## 🎯 综合分析")
-        markdown_content.append("")
-        markdown_content.append("基于以上多维度的深度研究，我们可以得出以下综合性分析：")
-        markdown_content.append("")
-
-        # 重新整理关键发现作为综合分析的一部分
-        if research_report.key_findings:
-            markdown_content.append("### 核心洞察")
-            markdown_content.append("")
-            for finding in research_report.key_findings:
-                markdown_content.append(f"- {finding}")
-            markdown_content.append("")
-
-        # 重新整理建议作为行动指南
-        if research_report.recommendations:
-            markdown_content.append("### 行动指南")
-            markdown_content.append("")
-            for recommendation in research_report.recommendations:
-                markdown_content.append(f"- {recommendation}")
-            markdown_content.append("")
-
-        # 完整的信息源列表
-        if research_report.sources:
-            markdown_content.append("## 📖 完整信息源列表")
-            markdown_content.append("")
-            markdown_content.append("以下是本研究中使用的所有信息源：")
-            markdown_content.append("")
-            for i, source in enumerate(research_report.sources, 1):
-                markdown_content.append(f"{i}. {source}")
-            markdown_content.append("")
-
-        # 研究方法说明
-        markdown_content.append("## 🔬 研究方法说明")
-        markdown_content.append("")
-        markdown_content.append("本研究采用DEEP研究方法论：")
-        markdown_content.append("")
-        markdown_content.append("- **D (Define)**: 定义研究目标和范围")
-        markdown_content.append("- **E (Explore)**: 探索多个信息维度和视角")
-        markdown_content.append("- **E (Evaluate)**: 评估信息源的权威性和可靠性")
-        markdown_content.append("- **P (Present)**: 呈现结构化的研究发现")
-        markdown_content.append("")
-        markdown_content.append(f"通过 {len(research_report.steps)} 个研究步骤，从 {len(research_report.sources)} 个权威信息源中")
-        markdown_content.append(f"收集和分析了相关信息，耗时 {research_report.total_duration:.2f} 秒完成了这份综合性研究报告。")
-        markdown_content.append("")
-
-        # 结尾
-        markdown_content.append("---")
-        markdown_content.append("")
-        markdown_content.append("*本报告由 LandPPT DEEP Research 系统自动生成，基于多个权威信息源的深度分析。*")
-        markdown_content.append("")
-        markdown_content.append(f"*生成时间: {research_report.created_at.strftime('%Y-%m-%d %H:%M:%S')}*")
-
-        return "\n".join(markdown_content)
 
 
     def _create_outline_prompt(self, request: PPTGenerationRequest, research_context: str = "", page_count_settings: Dict[str, Any] = None) -> str:
@@ -1316,10 +1133,20 @@ class EnhancedPPTService(PPTService):
             if network_mode and self.research_service and self.research_service.is_available():
                 logger.info(f"🔍 Project {project_id} has network mode enabled, starting DEEP research for topic: {project.topic}")
                 try:
-                    # Conduct DEEP research
+                    # Prepare research context from confirmed requirements
+                    research_context_data = {
+                        'scenario': project.scenario,
+                        'target_audience': confirmed_requirements.get('target_audience', '普通大众'),
+                        'requirements': project.requirements,
+                        'ppt_style': confirmed_requirements.get('ppt_style', 'general'),
+                        'description': confirmed_requirements.get('description', '')
+                    }
+
+                    # Conduct DEEP research with context
                     research_report = await self.research_service.conduct_deep_research(
                         topic=project.topic,
-                        language="zh"  # Default to Chinese for now
+                        language="zh",  # Default to Chinese for now
+                        context=research_context_data
                     )
 
                     # Generate structured Markdown research context
@@ -5934,11 +5761,19 @@ class EnhancedPPTService(PPTService):
 
                 # 创建配置 - 使用最新的AI配置
                 min_slides, max_slides = self._get_slides_range_from_request(request)
+                chunk_strategy = self._get_chunk_strategy_from_request(request)
+                chunk_size = self._get_chunk_size_from_request(request)
+
+                # 记录分块策略信息
+                logger.info(f"分块配置: strategy={chunk_strategy}, chunk_size={chunk_size}")
+                if self._is_enhanced_research_file(request):
+                    logger.info("✅ 增强研究报告将使用快速分块策略 (FastChunker) 进行处理")
+
                 config = ProcessingConfig(
                     min_slides=min_slides,
                     max_slides=max_slides,
-                    chunk_size=self._get_chunk_size_from_request(request),
-                    chunk_strategy=self._get_chunk_strategy_from_request(request),
+                    chunk_size=chunk_size,
+                    chunk_strategy=chunk_strategy,
                     llm_model=current_ai_config["llm_model"],
                     llm_provider=current_ai_config["llm_provider"],
                     temperature=current_ai_config["temperature"],
@@ -6158,6 +5993,11 @@ class EnhancedPPTService(PPTService):
         try:
             from summeryanyfile.core.models import ChunkStrategy
 
+            # 检查是否为增强研究生成的markdown报告
+            if self._is_enhanced_research_file(request):
+                logger.info("🔍 检测到增强研究报告，强制使用快速分块策略 (FastChunker)")
+                return ChunkStrategy.FAST
+
             if request.content_analysis_depth == "fast":
                 return ChunkStrategy.FAST
             elif request.content_analysis_depth == "deep":
@@ -6166,6 +6006,54 @@ class EnhancedPPTService(PPTService):
                 return ChunkStrategy.PARAGRAPH
         except ImportError:
             return "paragraph"  # 回退值
+
+    def _is_enhanced_research_file(self, request):
+        """检测是否为增强研究生成的markdown文件"""
+        try:
+            # 检查文件名是否包含增强研究报告的特征
+            filename = getattr(request, 'filename', '')
+            file_path = getattr(request, 'file_path', '')
+
+            # 检查文件名模式
+            enhanced_research_patterns = [
+                'enhanced_research_',
+                'research_reports/',
+                'enhanced_research',
+            ]
+
+            for pattern in enhanced_research_patterns:
+                if pattern in filename or pattern in file_path:
+                    return True
+
+            # 检查文件内容的前几行是否包含增强研究报告的标识
+            if file_path and Path(file_path).exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        first_lines = f.read(1000)  # 读取前1000个字符
+
+                    # 检查是否包含增强研究报告的标识
+                    research_indicators = [
+                        '深度研究报告',
+                        '增强研究报告',
+                        'Enhanced Research Report',
+                        '# 深度研究报告：',
+                        '## 研究概述',
+                        '## 核心发现',
+                        '## 详细分析'
+                    ]
+
+                    for indicator in research_indicators:
+                        if indicator in first_lines:
+                            return True
+
+                except Exception as e:
+                    logger.debug(f"检查文件内容时出错: {e}")
+
+            return False
+
+        except Exception as e:
+            logger.debug(f"检测增强研究文件时出错: {e}")
+            return False
 
     async def _generate_outline_from_file_fallback(self, request):
         """当summeryanyfile不可用时的回退方法"""

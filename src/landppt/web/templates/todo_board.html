@@ -154,306 +154,372 @@
     margin-bottom: 10px;
 }
 
-/* 书本翻页动画 */
-.book-container {
+/* 创意AI大脑思考动画 */
+.brain-container {
     display: flex;
     justify-content: center;
     align-items: center;
     margin: 20px 0;
-    height: 150px;
+    height: 180px;
     perspective: 1000px;
-}
-
-.book {
     position: relative;
-    width: 140px;
-    height: 100px;
-    transform-style: preserve-3d;
-    animation: bookFloat 3s ease-in-out infinite;
 }
 
-@keyframes bookFloat {
+.ai-brain {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    animation: brainFloat 4s ease-in-out infinite;
+}
+
+@keyframes brainFloat {
     0%, 100% {
-        transform: translateY(0px) rotateY(-5deg);
+        transform: translateY(0px) scale(1);
     }
     50% {
-        transform: translateY(-8px) rotateY(5deg);
+        transform: translateY(-10px) scale(1.05);
     }
 }
 
-.book-spine {
+.brain-core {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 7px;
-    height: 100px;
-    background: linear-gradient(180deg, #8B4513, #654321);
-    border-radius: 2px 0 0 2px;
-    box-shadow: inset -2px 0 4px rgba(0,0,0,0.3);
-}
-
-.book-cover {
-    position: absolute;
-    left: 7px;
-    top: 0;
-    width: 133px;
-    height: 100px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 0 4px 4px 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    border-radius: 50%;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
     overflow: hidden;
 }
 
-.book-cover::before {
+.brain-core::before {
     content: '';
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 2px;
+    top: 20%;
+    left: 20%;
+    width: 60%;
+    height: 60%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: brainPulse 2s ease-in-out infinite;
 }
 
-.book-cover::after {
-    content: 'PPT大纲';
+@keyframes brainPulse {
+    0%, 100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+.brain-icon {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    font-size: 48px;
     color: white;
-    font-size: 14px;
-    font-weight: bold;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    animation: iconGlow 3s ease-in-out infinite;
 }
 
-.book-pages {
-    position: absolute;
-    left: 10px;
-    top: 2px;
-    width: 128px;
-    height: 96px;
-    background: #f8f9fa;
-    border-radius: 0 2px 2px 0;
-    overflow: hidden;
+@keyframes iconGlow {
+    0%, 100% {
+        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    50% {
+        text-shadow: 0 2px 20px rgba(255,255,255,0.5), 0 0 30px rgba(102, 126, 234, 0.8);
+    }
 }
 
-.page {
+/* 思维连接线动画 */
+.neural-network {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    background: white;
-    border-radius: 0 2px 2px 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transform-origin: left center;
-    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
 }
 
-.page:nth-child(1) {
-    z-index: 5;
-    background: linear-gradient(45deg, #f8f9fa 0%, #ffffff 100%);
+.neural-line {
+    position: absolute;
+    background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.6) 50%, transparent 100%);
+    border-radius: 2px;
+    opacity: 0;
+    animation: neuralPulse 3s ease-in-out infinite;
 }
 
-.page:nth-child(2) {
-    z-index: 4;
-    background: linear-gradient(45deg, #ffffff 0%, #f1f3f4 100%);
-    transform: translateX(-2px);
-}
-
-.page:nth-child(3) {
-    z-index: 3;
-    background: linear-gradient(45deg, #f1f3f4 0%, #e8eaed 100%);
-    transform: translateX(-4px);
-}
-
-.page:nth-child(4) {
-    z-index: 2;
-    background: linear-gradient(45deg, #e8eaed 0%, #dadce0 100%);
-    transform: translateX(-6px);
-}
-
-.page:nth-child(5) {
-    z-index: 1;
-    background: linear-gradient(45deg, #dadce0 0%, #bdc1c6 100%);
-    transform: translateX(-8px);
-}
-
-.page-content {
-    padding: 12px;
-    font-size: 10px;
-    line-height: 1.4;
-    color: #333;
-    opacity: 0.7;
-}
-
-.page-content::before {
-    content: '';
-    display: block;
-    width: 60%;
+.neural-line:nth-child(1) {
+    top: 30%;
+    left: -20%;
+    width: 60px;
     height: 2px;
-    background: #667eea;
-    margin-bottom: 8px;
-    border-radius: 1px;
+    transform: rotate(45deg);
+    animation-delay: 0s;
 }
 
-.page-content::after {
-    content: '• 标题页\A• 目录页\A• 内容页\A• 总结页';
-    white-space: pre-line;
-    font-size: 8px;
-    color: #666;
+.neural-line:nth-child(2) {
+    top: 60%;
+    right: -20%;
+    width: 50px;
+    height: 2px;
+    transform: rotate(-30deg);
+    animation-delay: 0.5s;
 }
 
-/* 翻页动画状态 */
-.book.flipping .page:nth-child(1) {
-    animation: pageFlip 2s ease-in-out infinite;
+.neural-line:nth-child(3) {
+    bottom: 20%;
+    left: -15%;
+    width: 45px;
+    height: 2px;
+    transform: rotate(-45deg);
+    animation-delay: 1s;
 }
 
-.book.flipping .page:nth-child(2) {
-    animation: pageFlip 2s ease-in-out infinite 0.3s;
+.neural-line:nth-child(4) {
+    top: 20%;
+    right: -15%;
+    width: 55px;
+    height: 2px;
+    transform: rotate(60deg);
+    animation-delay: 1.5s;
 }
 
-.book.flipping .page:nth-child(3) {
-    animation: pageFlip 2s ease-in-out infinite 0.6s;
-}
-
-@keyframes pageFlip {
+@keyframes neuralPulse {
     0%, 70% {
-        transform: rotateY(0deg) translateX(0px);
+        opacity: 0;
+        transform: scale(0.5) rotate(var(--rotation, 0deg));
     }
-    15%, 55% {
-        transform: rotateY(-180deg) translateX(0px);
+    10%, 60% {
+        opacity: 1;
+        transform: scale(1) rotate(var(--rotation, 0deg));
     }
     100% {
-        transform: rotateY(0deg) translateX(0px);
+        opacity: 0;
+        transform: scale(0.5) rotate(var(--rotation, 0deg));
     }
 }
 
-/* 书本发光效果 */
-.book-glow {
+/* 思考气泡动画 */
+.thought-bubbles {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 60px;
+}
+
+.thought-bubble {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    animation: bubbleFloat 4s ease-in-out infinite;
+}
+
+.thought-bubble:nth-child(1) {
+    width: 12px;
+    height: 12px;
+    bottom: 0;
+    left: 45%;
+    animation-delay: 0s;
+}
+
+.thought-bubble:nth-child(2) {
+    width: 18px;
+    height: 18px;
+    bottom: 15px;
+    left: 35%;
+    animation-delay: 0.3s;
+}
+
+.thought-bubble:nth-child(3) {
+    width: 24px;
+    height: 24px;
+    bottom: 35px;
+    left: 25%;
+    animation-delay: 0.6s;
+}
+
+@keyframes bubbleFloat {
+    0%, 80% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.5);
+    }
+    10%, 70% {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.8);
+    }
+}
+
+/* 进度环动画 */
+.progress-ring {
     position: absolute;
     top: -10px;
     left: -10px;
-    right: -10px;
-    bottom: -10px;
-    background: radial-gradient(ellipse at center, rgba(102, 126, 234, 0.3) 0%, transparent 70%);
-    border-radius: 10px;
-    animation: glowPulse 3s ease-in-out infinite;
-    z-index: -1;
+    width: 140px;
+    height: 140px;
 }
 
-@keyframes glowPulse {
-    0%, 100% {
-        opacity: 0.5;
-        transform: scale(1);
+.progress-ring-circle {
+    fill: none;
+    stroke: rgba(102, 126, 234, 0.3);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+    animation: progressRotate 8s linear infinite;
+}
+
+.progress-ring-progress {
+    fill: none;
+    stroke: #667eea;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 440;
+    stroke-dashoffset: 440;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+    animation: progressFill 8s ease-in-out infinite;
+}
+
+@keyframes progressRotate {
+    0% {
+        transform: rotate(-90deg);
     }
-    50% {
-        opacity: 0.8;
-        transform: scale(1.05);
+    100% {
+        transform: rotate(270deg);
+    }
+}
+
+@keyframes progressFill {
+    0%, 20% {
+        stroke-dashoffset: 440;
+    }
+    80%, 100% {
+        stroke-dashoffset: 0;
     }
 }
 
 /* 文字生成效果 */
 .text-generation {
     position: absolute;
-    top: 50%;
+    bottom: -40px;
     left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    height: 60%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    opacity: 0;
-    animation: textAppear 4s ease-in-out infinite;
+    transform: translateX(-50%);
+    width: 200px;
+    text-align: center;
 }
 
-@keyframes textAppear {
+.generating-text {
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    opacity: 0;
+    animation: textFade 4s ease-in-out infinite;
+}
+
+.generating-dots {
+    color: #667eea;
+    font-size: 16px;
+    letter-spacing: 2px;
+    animation: dotsAnimation 2s ease-in-out infinite;
+}
+
+@keyframes textFade {
     0%, 20% {
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.8);
+        transform: translateY(10px);
     }
     30%, 70% {
         opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
+        transform: translateY(0px);
     }
     80%, 100% {
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.8);
+        transform: translateY(-10px);
     }
 }
 
-.generated-line {
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent 0%, #667eea 50%, transparent 100%);
-    margin: 2px 0;
-    opacity: 0;
-    animation: lineGenerate 0.8s ease-out forwards;
-}
-
-.generated-line:nth-child(1) { animation-delay: 0.2s; }
-.generated-line:nth-child(2) { animation-delay: 0.4s; }
-.generated-line:nth-child(3) { animation-delay: 0.6s; }
-.generated-line:nth-child(4) { animation-delay: 0.8s; }
-.generated-line:nth-child(5) { animation-delay: 1.0s; }
-
-@keyframes lineGenerate {
-    0% {
-        opacity: 0;
-        width: 0%;
-    }
-    100% {
-        opacity: 1;
-        width: 100%;
-    }
-}
-
-/* 完成动画 */
-@keyframes completionGlow {
-    0% {
-        opacity: 0.5;
-        transform: scale(1);
+@keyframes dotsAnimation {
+    0%, 20% {
+        opacity: 0.3;
     }
     50% {
         opacity: 1;
-        transform: scale(1.1);
     }
     100% {
-        opacity: 0.8;
-        transform: scale(1.05);
+        opacity: 0.3;
+    }
+}
+
+/* 完成状态动画 */
+.ai-brain.completed {
+    animation: brainComplete 2s ease-out forwards;
+}
+
+.ai-brain.completed .brain-core {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 50%, #58d68d 100%);
+    animation: completionGlow 1.5s ease-out;
+}
+
+.ai-brain.completed .brain-icon::before {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 32px;
+    color: white;
+    animation: checkmarkAppear 1s ease-out;
+}
+
+@keyframes brainComplete {
+    0% {
+        transform: translateY(0px) scale(1);
+    }
+    50% {
+        transform: translateY(-20px) scale(1.2);
+    }
+    100% {
+        transform: translateY(-5px) scale(1.1);
+    }
+}
+
+@keyframes completionGlow {
+    0% {
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
+    50% {
+        box-shadow: 0 12px 48px rgba(39, 174, 96, 0.6);
+    }
+    100% {
+        box-shadow: 0 10px 40px rgba(39, 174, 96, 0.4);
     }
 }
 
 @keyframes checkmarkAppear {
     0% {
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.5);
+        transform: translate(-50%, -50%) scale(0.3);
     }
     50% {
         opacity: 1;
-        transform: translate(-50%, -50%) scale(1.2);
+        transform: translate(-50%, -50%) scale(1.3);
     }
     100% {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
-    }
-}
-
-/* 书本完成状态 */
-.book.completed {
-    animation: bookComplete 1.5s ease-out forwards;
-}
-
-@keyframes bookComplete {
-    0% {
-        transform: translateY(0px) rotateY(0deg);
-    }
-    50% {
-        transform: translateY(-15px) rotateY(10deg) scale(1.05);
-    }
-    100% {
-        transform: translateY(-5px) rotateY(0deg) scale(1.02);
     }
 }
 
@@ -641,7 +707,7 @@
 {% block content %}
 <!-- 页面头部美化 -->
 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 0; margin: -20px -20px 30px -20px; text-align: center; position: relative; overflow: hidden;">
-    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><pattern id=\"dots\" width=\"20\" height=\"20\" patternUnits=\"userSpaceOnUse\"><circle cx=\"10\" cy=\"10\" r=\"1\" fill=\"white\" opacity=\"0.1\"/></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23dots)\"/></svg></div>
+    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><pattern id=\"dots\" width=\"20\" height=\"20\" patternUnits=\"userSpaceOnUse\"><circle cx=\"10\" cy=\"10\" r=\"1\" fill=\"white\" opacity=\"0.1\"/></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23dots)\"/></svg>');"></div>
     <div style="position: relative; z-index: 1;">
         <h2 style="font-size: 2em; font-weight: 700; margin-bottom: 12px; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">📋 {{ todo_board.title }}</h2>
         <p style="opacity: 0.9; font-size: 1em;">项目ID: <code style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 0.9em;">{{ todo_board.task_id }}</code></p>
@@ -1069,155 +1135,136 @@ function initializeOutlineDisplay() {
     }
 }
 
-// 书本翻页动画控制函数
-let bookAnimationInterval = null;
-let activeBooks = new Set();
+// AI大脑思考动画控制函数
+let brainAnimationInterval = null;
+let activeBrains = new Set();
 
-function startBookAnimation(prefix = '') {
-    const bookId = prefix ? `loading-book-${prefix}` : 'loading-book';
-    const book = document.getElementById(bookId);
+function startBrainAnimation(prefix = '') {
+    const brainId = prefix ? `loading-brain-${prefix}` : 'loading-brain';
+    const brain = document.getElementById(brainId);
 
-    if (!book) return;
+    if (!brain) return;
 
-    // 添加到活动书本集合
-    activeBooks.add(prefix);
+    // 添加到活动大脑集合
+    activeBrains.add(prefix);
 
-    // 启动书本翻页状态
-    book.classList.add('flipping');
+    // 启动大脑思考状态
+    brain.classList.remove('completed');
 
-    // 创建文字生成效果
-    function generateTextLines() {
-        if (!activeBooks.has(prefix)) return;
+    // 创建动态文字效果
+    function updateThinkingText() {
+        if (!activeBrains.has(prefix)) return;
 
-        const textGeneration = book.querySelector('.text-generation');
-        if (textGeneration) {
-            const lines = textGeneration.querySelectorAll('.generated-line');
-            lines.forEach((line, index) => {
-                setTimeout(() => {
-                    line.style.animationDelay = `${index * 0.2}s`;
-                    line.style.animation = 'lineGenerate 0.8s ease-out forwards';
-                }, index * 200);
-            });
+        const textElement = brain.querySelector('.generating-text');
+        if (textElement) {
+            const texts = [
+                '正在分析内容结构',
+                '正在构建逻辑框架',
+                '正在优化大纲层次',
+                '正在完善内容要点',
+                '正在生成PPT大纲'
+            ];
 
-            // 重置动画，准备下一轮
-            setTimeout(() => {
-                lines.forEach(line => {
-                    line.style.animation = '';
-                    line.style.opacity = '0';
-                });
-            }, 3000);
+            const randomText = texts[Math.floor(Math.random() * texts.length)];
+            textElement.textContent = randomText;
         }
     }
 
-    // 每4秒重新生成文字效果
-    generateTextLines();
-    const textInterval = setInterval(generateTextLines, 4000);
+    // 每3秒更新思考文字
+    updateThinkingText();
+    const textInterval = setInterval(updateThinkingText, 3000);
 
     // 存储定时器引用
-    if (!bookAnimationInterval) {
-        bookAnimationInterval = {};
+    if (!brainAnimationInterval) {
+        brainAnimationInterval = {};
     }
-    bookAnimationInterval[prefix] = textInterval;
+    brainAnimationInterval[prefix] = textInterval;
 }
 
-function stopBookAnimation(prefix = '') {
-    const bookId = prefix ? `loading-book-${prefix}` : 'loading-book';
-    const book = document.getElementById(bookId);
+function stopBrainAnimation(prefix = '') {
+    const brainId = prefix ? `loading-brain-${prefix}` : 'loading-brain';
+    const brain = document.getElementById(brainId);
 
-    // 从活动书本集合中移除
-    activeBooks.delete(prefix);
+    // 从活动大脑集合中移除
+    activeBrains.delete(prefix);
 
-    if (book) {
-        book.classList.remove('flipping');
-        book.classList.add('completed');
+    if (brain) {
+        brain.classList.add('completed');
 
-        // 添加完成效果
-        setTimeout(() => {
-            const bookGlow = book.querySelector('.book-glow');
-            if (bookGlow) {
-                bookGlow.style.background = 'radial-gradient(ellipse at center, rgba(39, 174, 96, 0.4) 0%, transparent 70%)';
-            }
-        }, 100);
+        // 更新完成文字
+        const textElement = brain.querySelector('.generating-text');
+        if (textElement) {
+            textElement.textContent = '大纲生成完成';
+        }
+
+        const dotsElement = brain.querySelector('.generating-dots');
+        if (dotsElement) {
+            dotsElement.textContent = '✓';
+        }
     }
 
-    // 清除文字生成定时器
-    if (bookAnimationInterval && bookAnimationInterval[prefix]) {
-        clearInterval(bookAnimationInterval[prefix]);
-        delete bookAnimationInterval[prefix];
+    // 清除文字更新定时器
+    if (brainAnimationInterval && brainAnimationInterval[prefix]) {
+        clearInterval(brainAnimationInterval[prefix]);
+        delete brainAnimationInterval[prefix];
     }
 }
 
 // 兼容旧的函数名
 function startLoadingAnimation(prefix = '') {
-    startBookAnimation(prefix);
+    startBrainAnimation(prefix);
 }
 
 function stopLoadingAnimation(prefix = '') {
-    stopBookAnimation(prefix);
+    stopBrainAnimation(prefix);
 }
 
 // 兼容漏斗动画函数名
 function startFunnelAnimation(prefix = '') {
-    startBookAnimation(prefix);
+    startBrainAnimation(prefix);
 }
 
 function stopFunnelAnimation(prefix = '') {
-    stopBookAnimation(prefix);
+    stopBrainAnimation(prefix);
+}
+
+// 兼容书本动画函数名
+function startBookAnimation(prefix = '') {
+    startBrainAnimation(prefix);
+}
+
+function stopBookAnimation(prefix = '') {
+    stopBrainAnimation(prefix);
 }
 
 
 
 // 显示成功完成动画
-function showBookCompletion(prefix = '') {
-    const bookId = prefix ? `loading-book-${prefix}` : 'loading-book';
-    const book = document.getElementById(bookId);
+function showBrainCompletion(prefix = '') {
+    const brainId = prefix ? `loading-brain-${prefix}` : 'loading-brain';
+    const brain = document.getElementById(brainId);
 
-    if (book) {
-        // 停止翻页动画
-        book.classList.remove('flipping');
-        book.classList.add('completed');
+    if (brain) {
+        // 停止思考动画并显示完成状态
+        stopBrainAnimation(prefix);
+        brain.classList.add('completed');
 
-        // 改变书本发光效果表示完成
-        const bookGlow = book.querySelector('.book-glow');
-        const bookCover = book.querySelector('.book-cover');
-
-        if (bookGlow) {
-            bookGlow.style.background = 'radial-gradient(ellipse at center, rgba(39, 174, 96, 0.4) 0%, transparent 70%)';
-            bookGlow.style.animation = 'completionGlow 1.5s ease-out';
-        }
-
-        if (bookCover) {
-            bookCover.style.background = 'linear-gradient(135deg, #27ae60, #229954)';
-        }
-
-        // 显示完成标记
-        const completionMark = document.createElement('div');
-        completionMark.innerHTML = '✓';
-        completionMark.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            z-index: 10;
-            animation: checkmarkAppear 0.8s ease-out;
-        `;
-        book.appendChild(completionMark);
-
-        // 2秒后隐藏
+        // 2秒后隐藏整个动画容器
         setTimeout(() => {
-            if (book.parentNode && book.parentNode.parentNode) {
-                book.parentNode.parentNode.style.display = 'none';
+            if (brain.parentNode && brain.parentNode.parentNode) {
+                brain.parentNode.parentNode.style.display = 'none';
             }
         }, 2000);
     }
 }
 
 // 兼容旧的函数名
+function showBookCompletion(prefix = '') {
+    showBrainCompletion(prefix);
+}
+
 function showFunnelCompletion(prefix = '') {
-    showBookCompletion(prefix);
+    showBrainCompletion(prefix);
 }
 
 // Handle requirements form submission and AI suggestions loading
@@ -1377,34 +1424,29 @@ function showOutlineSection() {
                         </div>
                         <div class="loading-title">AI正在生成PPT大纲</div>
 
-                        <div class="book-container">
-                            <div class="book flipping" id="loading-book-dynamic">
-                                <div class="book-glow"></div>
-                                <div class="book-spine"></div>
-                                <div class="book-cover"></div>
-                                <div class="book-pages">
-                                    <div class="page">
-                                        <div class="page-content"></div>
-                                        <div class="text-generation">
-                                            <div class="generated-line"></div>
-                                            <div class="generated-line"></div>
-                                            <div class="generated-line"></div>
-                                            <div class="generated-line"></div>
-                                            <div class="generated-line"></div>
-                                        </div>
-                                    </div>
-                                    <div class="page">
-                                        <div class="page-content"></div>
-                                    </div>
-                                    <div class="page">
-                                        <div class="page-content"></div>
-                                    </div>
-                                    <div class="page">
-                                        <div class="page-content"></div>
-                                    </div>
-                                    <div class="page">
-                                        <div class="page-content"></div>
-                                    </div>
+                        <div class="brain-container">
+                            <div class="ai-brain" id="loading-brain-dynamic">
+                                <div class="brain-core">
+                                    <div class="brain-icon">🧠</div>
+                                </div>
+                                <svg class="progress-ring" width="140" height="140">
+                                    <circle class="progress-ring-circle" cx="70" cy="70" r="70"></circle>
+                                    <circle class="progress-ring-progress" cx="70" cy="70" r="70"></circle>
+                                </svg>
+                                <div class="neural-network">
+                                    <div class="neural-line" style="--rotation: 45deg;"></div>
+                                    <div class="neural-line" style="--rotation: -30deg;"></div>
+                                    <div class="neural-line" style="--rotation: -45deg;"></div>
+                                    <div class="neural-line" style="--rotation: 60deg;"></div>
+                                </div>
+                                <div class="thought-bubbles">
+                                    <div class="thought-bubble"></div>
+                                    <div class="thought-bubble"></div>
+                                    <div class="thought-bubble"></div>
+                                </div>
+                                <div class="text-generation">
+                                    <div class="generating-text">正在分析内容结构</div>
+                                    <div class="generating-dots">• • •</div>
                                 </div>
                             </div>
                         </div>
@@ -1735,34 +1777,29 @@ async function startFileOutlineGeneration() {
             </div>
             <div class="loading-title">正在从文件生成PPT大纲</div>
 
-            <div class="book-container">
-                <div class="book flipping" id="loading-book-file">
-                    <div class="book-glow"></div>
-                    <div class="book-spine"></div>
-                    <div class="book-cover"></div>
-                    <div class="book-pages">
-                        <div class="page">
-                            <div class="page-content"></div>
-                            <div class="text-generation">
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                            </div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
+            <div class="brain-container">
+                <div class="ai-brain" id="loading-brain-file">
+                    <div class="brain-core">
+                        <div class="brain-icon">📄</div>
+                    </div>
+                    <svg class="progress-ring" width="140" height="140">
+                        <circle class="progress-ring-circle" cx="70" cy="70" r="70"></circle>
+                        <circle class="progress-ring-progress" cx="70" cy="70" r="70"></circle>
+                    </svg>
+                    <div class="neural-network">
+                        <div class="neural-line" style="--rotation: 45deg;"></div>
+                        <div class="neural-line" style="--rotation: -30deg;"></div>
+                        <div class="neural-line" style="--rotation: -45deg;"></div>
+                        <div class="neural-line" style="--rotation: 60deg;"></div>
+                    </div>
+                    <div class="thought-bubbles">
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                    </div>
+                    <div class="text-generation">
+                        <div class="generating-text">正在解析文件内容</div>
+                        <div class="generating-dots">• • •</div>
                     </div>
                 </div>
             </div>
@@ -1776,7 +1813,7 @@ async function startFileOutlineGeneration() {
         placeholderDiv.style.display = 'block';
 
         // 启动文件处理动画
-        startBookAnimation('file');
+        startBrainAnimation('file');
     }
 
     // 隐藏光标（文件生成不需要流式效果）
@@ -1909,34 +1946,29 @@ async function startOutlineGenerationNew() {
             </div>
             <div class="loading-title">AI正在生成PPT大纲</div>
 
-            <div class="book-container">
-                <div class="book flipping" id="loading-book-stream">
-                    <div class="book-glow"></div>
-                    <div class="book-spine"></div>
-                    <div class="book-cover"></div>
-                    <div class="book-pages">
-                        <div class="page">
-                            <div class="page-content"></div>
-                            <div class="text-generation">
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                                <div class="generated-line"></div>
-                            </div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
-                        <div class="page">
-                            <div class="page-content"></div>
-                        </div>
+            <div class="brain-container">
+                <div class="ai-brain" id="loading-brain-stream">
+                    <div class="brain-core">
+                        <div class="brain-icon">🧠</div>
+                    </div>
+                    <svg class="progress-ring" width="140" height="140">
+                        <circle class="progress-ring-circle" cx="70" cy="70" r="70"></circle>
+                        <circle class="progress-ring-progress" cx="70" cy="70" r="70"></circle>
+                    </svg>
+                    <div class="neural-network">
+                        <div class="neural-line" style="--rotation: 45deg;"></div>
+                        <div class="neural-line" style="--rotation: -30deg;"></div>
+                        <div class="neural-line" style="--rotation: -45deg;"></div>
+                        <div class="neural-line" style="--rotation: 60deg;"></div>
+                    </div>
+                    <div class="thought-bubbles">
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                    </div>
+                    <div class="text-generation">
+                        <div class="generating-text">正在生成PPT大纲</div>
+                        <div class="generating-dots">• • •</div>
                     </div>
                 </div>
             </div>
@@ -1950,7 +1982,7 @@ async function startOutlineGenerationNew() {
         placeholderDiv.style.display = 'block';
 
         // 启动动画
-        startBookAnimation('stream');
+        startBrainAnimation('stream');
     }
 
     // 隐藏光标元素（非流式生成不需要）
@@ -2099,8 +2131,45 @@ async function regenerateOutlineNew() {
             <div class="loading-icon">
                 <i class="fas fa-brain"></i>
             </div>
-            <div class="loading-text">正在重新生成大纲...</div>
+            <div class="loading-title">正在重新生成大纲</div>
+
+            <div class="brain-container">
+                <div class="ai-brain" id="loading-brain-regenerate">
+                    <div class="brain-core">
+                        <div class="brain-icon">🧠</div>
+                    </div>
+                    <svg class="progress-ring" width="140" height="140">
+                        <circle class="progress-ring-circle" cx="70" cy="70" r="70"></circle>
+                        <circle class="progress-ring-progress" cx="70" cy="70" r="70"></circle>
+                    </svg>
+                    <div class="neural-network">
+                        <div class="neural-line" style="--rotation: 45deg;"></div>
+                        <div class="neural-line" style="--rotation: -30deg;"></div>
+                        <div class="neural-line" style="--rotation: -45deg;"></div>
+                        <div class="neural-line" style="--rotation: 60deg;"></div>
+                    </div>
+                    <div class="thought-bubbles">
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                        <div class="thought-bubble"></div>
+                    </div>
+                    <div class="text-generation">
+                        <div class="generating-text">正在重新分析内容</div>
+                        <div class="generating-dots">• • •</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading-tips">
+                <h5><i class="fas fa-lightbulb"></i> 小贴士</h5>
+                <p>AI正在重新分析您的需求并生成全新的PPT大纲，请稍候...</p>
+            </div>
         `;
+
+        // 启动重新生成动画
+        setTimeout(() => {
+            startBrainAnimation('regenerate');
+        }, 100);
     }
 
     // 重置生成标志
@@ -2136,6 +2205,7 @@ async function regenerateOutlineNew() {
                     <i class="fas fa-exclamation-triangle"></i> 错误: ${result.error}
                 </div>`;
             }
+            stopBrainAnimation('regenerate');
             if (placeholderDiv) placeholderDiv.style.display = 'none';
 
             // 重新显示操作按钮
@@ -2148,7 +2218,8 @@ async function regenerateOutlineNew() {
             return;
         }
 
-        // 隐藏加载状态
+        // 停止重新生成动画并隐藏加载状态
+        stopBrainAnimation('regenerate');
         if (placeholderDiv) {
             placeholderDiv.style.display = 'none';
         }
@@ -2188,6 +2259,7 @@ async function regenerateOutlineNew() {
             </div>`;
         }
 
+        stopBrainAnimation('regenerate');
         if (placeholderDiv) {
             placeholderDiv.style.display = 'none';
         }

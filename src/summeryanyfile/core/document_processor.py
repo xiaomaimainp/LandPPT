@@ -545,6 +545,7 @@ class DocumentProcessor:
             elif strategy == ChunkStrategy.HYBRID:
                 self._chunkers[key] = HybridChunker(chunk_size, chunk_overlap)
             elif strategy == ChunkStrategy.FAST:
+                logger.info(f"🚀 创建快速分块器 (FastChunker): max_tokens={max_tokens}")
                 self._chunkers[key] = FastChunker(max_tokens=max_tokens)
             else:
                 raise ValueError(f"不支持的分块策略: {strategy}")
@@ -576,9 +577,11 @@ class DocumentProcessor:
             return []
 
         # 使用新的分块器
+        logger.info(f"📄 使用分块策略: {strategy}, chunk_size={chunk_size}, max_tokens={max_tokens}")
         chunker = self._get_chunker(strategy, chunk_size, chunk_overlap, max_tokens)
         document_chunks = chunker.chunk_text(text)
 
+        logger.info(f"📊 分块完成: 生成 {len(document_chunks)} 个文档块")
         # 转换为字符串列表以保持向后兼容
         return [chunk.content for chunk in document_chunks]
 

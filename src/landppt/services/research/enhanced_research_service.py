@@ -12,7 +12,6 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
 from ...ai import get_ai_provider, AIMessage, MessageRole
@@ -62,12 +61,20 @@ class EnhancedResearchService:
         self.searxng_provider = SearXNGContentProvider()
         self.content_extractor = WebContentExtractor()
         
-        # Text processing
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000,
-            chunk_overlap=200,
-            length_function=len
-        )
+        # Text processing - 使用基于 max_tokens 的简单快速分块策略
+        try:
+            # 尝试导入 FastChunker
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+            from summeryanyfile.core.chunkers.fast_chunker import FastChunker
+
+            self.text_splitter = FastChunker(max_tokens=ai_config.max_tokens)
+            logger.info(f"使用 FastChunker 进行文本分块，max_tokens={ai_config.max_tokens}")
+        except ImportError as e:
+            logger.warning(f"无法导入 FastChunker，使用简单分块策略: {e}")
+            # 回退到简单的分块策略
+            self.text_splitter = None
         
     @property
     def ai_provider(self):
@@ -91,68 +98,187 @@ class EnhancedResearchService:
         if self.searxng_provider.is_available():
             providers.append('searxng')
         return providers
+
+    def split_text(self, text: str) -> List[str]:
+        """
+        分块文本，使用 FastChunker 或简单分块策略
+
+        Args:
+            text: 要分块的文本
+
+        Returns:
+            文本块列表
+        """
+        if self.text_splitter:
+            # 使用 FastChunker
+            try:
+                chunks = self.text_splitter.chunk_text(text)
+                return [chunk.content for chunk in chunks]
+            except Exception as e:
+                logger.warning(f"FastChunker 分块失败，使用简单分块策略: {e}")
+
+        # 简单分块策略：基于 max_tokens 的快速分块
+        return self._simple_text_split(text)
+
+    def _simple_text_split(self, text: str) -> List[str]:
+        """
+        简单的文本分块策略，基于 max_tokens
+
+        Args:
+            text: 要分块的文本
+
+        Returns:
+            文本块列表
+        """
+        if not text.strip():
+            return []
+
+        # 估算每个 token 约 4 个字符
+        chars_per_token = 4.0
+        chunk_size_tokens = ai_config.max_tokens // 3  # 使用 max_tokens 的 1/3
+        chunk_overlap_tokens = ai_config.max_tokens // 10  # 重叠 1/10
+
+        max_chars = int(chunk_size_tokens * chars_per_token)
+        overlap_chars = int(chunk_overlap_tokens * chars_per_token)
+
+        if len(text) <= max_chars:
+            return [text]
+
+        chunks = []
+        start = 0
+
+        while start < len(text):
+            end = min(start + max_chars, len(text))
+
+            if end >= len(text):
+                # 最后一个块
+                remaining_text = text[start:]
+                if remaining_text.strip():
+                    chunks.append(remaining_text)
+                break
+
+            # 尝试在自然断点处分割
+            chunk_text = text[start:end]
+            split_point = self._find_natural_split_point(chunk_text)
+
+            if split_point > 0:
+                actual_end = start + split_point
+                chunks.append(text[start:actual_end])
+                start = actual_end - overlap_chars
+            else:
+                chunks.append(chunk_text)
+                start = end - overlap_chars
+
+            # 防止无限循环
+            if start < 0:
+                start = 0
+
+        return [chunk for chunk in chunks if chunk.strip()]
+
+    def _find_natural_split_point(self, text: str) -> int:
+        """
+        在文本中找到自然分割点
+
+        Args:
+            text: 要分析的文本
+
+        Returns:
+            分割点位置，如果没有找到返回0
+        """
+        # 分隔符优先级列表
+        separators = ["\n\n", "\n", ". ", "。", "! ", "！", "? ", "？", "; ", "；", ", ", "，", " "]
+
+        # 从文本后半部分开始查找
+        search_start = len(text) // 2
+        for separator in separators:
+            pos = text.rfind(separator, search_start)
+            if pos != -1:
+                return pos + len(separator)
+
+        return 0
     
-    async def conduct_enhanced_research(self, topic: str, language: str = "zh") -> EnhancedResearchReport:
+    async def conduct_enhanced_research(self, topic: str, language: str = "zh", context: Optional[Dict[str, Any]] = None) -> EnhancedResearchReport:
         """
         Conduct comprehensive enhanced research with multiple providers
-        
+
         Args:
             topic: Research topic
             language: Language for research and report
-            
+            context: Additional context information (scenario, audience, requirements, etc.)
+
         Returns:
             EnhancedResearchReport with comprehensive findings
         """
         start_time = time.time()
         logger.info(f"Starting enhanced research for topic: {topic}")
-        
+
         try:
-            # Step 1: Generate research plan
-            research_plan = await self._generate_research_plan(topic, language)
-            
+            # Step 1: Generate research plan with context
+            research_plan = await self._generate_research_plan(topic, language, context)
+
             # Step 2: Execute research steps with multiple providers
             research_steps = []
             provider_stats = {'tavily': 0, 'searxng': 0, 'content_extraction': 0}
-            
+
             for i, step_plan in enumerate(research_plan, 1):
                 step = await self._execute_enhanced_research_step(
                     i, step_plan, topic, language, provider_stats
                 )
                 research_steps.append(step)
-                
+
                 # Add delay between steps
                 if i < len(research_plan):
                     await asyncio.sleep(1)
-            
+
             # Step 3: Analyze all collected content
             content_analysis = await self._analyze_collected_content(research_steps, topic, language)
-            
+
             # Step 4: Generate comprehensive report
             report = await self._generate_enhanced_report(
-                topic, language, research_steps, content_analysis, 
+                topic, language, research_steps, content_analysis,
                 time.time() - start_time, provider_stats
             )
-            
+
             logger.info(f"Enhanced research completed in {report.total_duration:.2f} seconds")
             return report
-            
+
         except Exception as e:
             logger.error(f"Enhanced research failed: {e}")
             raise
     
-    async def _generate_research_plan(self, topic: str, language: str) -> List[Dict[str, str]]:
-        """Generate research plan using AI"""
+    async def _generate_research_plan(self, topic: str, language: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
+        """Generate research plan using AI with context information"""
+
+        # Extract context information
+        scenario = context.get('scenario', '通用') if context else '通用'
+        target_audience = context.get('target_audience', '普通大众') if context else '普通大众'
+        requirements = context.get('requirements', '') if context else ''
+        ppt_style = context.get('ppt_style', 'general') if context else 'general'
+        description = context.get('description', '') if context else ''
+
+        # Build context description
+        context_info = f"""
+项目背景信息：
+- 应用场景：{scenario}
+- 目标受众：{target_audience}
+- 具体要求：{requirements or '无特殊要求'}
+- 演示风格：{ppt_style}
+- 补充说明：{description or '无'}
+"""
+
         prompt = f"""
-作为专业研究员，请为以下主题制定详细的研究计划：
+作为专业研究员，请根据以下项目信息为主题制定精准的研究计划：
 
-主题：{topic}
-语言：{language}
+研究主题：{topic}
+语言环境：{language}
 
-请生成6个不同角度的研究步骤，每个步骤应该：
-1. 有明确的研究目标
-2. 包含具体的搜索查询
-3. 覆盖不同的信息维度
-4. 适合多种搜索引擎
+{context_info}
+
+请基于上述项目背景，生成多个针对性的搜索查询。每个查询应该：
+
+1. **场景适配**：根据应用场景（{scenario}）调整研究重点和深度
+2. **受众导向**：考虑目标受众（{target_audience}）的知识背景和关注点
+3. **需求匹配**：紧密结合具体要求，确保研究内容的实用性
 
 请严格按照以下JSON格式返回：
 
@@ -167,16 +293,17 @@ class EnhancedResearchService:
 
 要求：
 - 查询词要具体、专业，能获取高质量信息
-- 覆盖基础概念、现状分析、趋势预测、案例研究、专家观点、技术细节等维度
+- 根据应用场景和受众特点调整研究角度和深度
 - 适合{language}语言环境的搜索习惯
 - 每个查询都应该能产生独特且有价值的信息
+- 确保研究内容与项目需求高度匹配
 """
         
         try:
             response = await self.ai_provider.text_completion(
                 prompt=prompt,
                 max_tokens=min(ai_config.max_tokens, 2000),
-                temperature=0.3
+                temperature=0.7
             )
             # Extract text content from AIResponse object
             response_text = response.content if hasattr(response, 'content') else str(response)
@@ -200,31 +327,8 @@ class EnhancedResearchService:
                 pass
                 
         except Exception as e:
-            logger.warning(f"Failed to generate AI research plan: {e}")
-        
-        # Fallback to default plan
-        return self._get_default_research_plan(topic, language)
-    
-    def _get_default_research_plan(self, topic: str, language: str) -> List[Dict[str, str]]:
-        """Fallback research plan"""
-        if language == "zh":
-            return [
-                {"query": f"{topic} 基础概念 定义 原理", "description": "了解主题的基本概念和核心原理"},
-                {"query": f"{topic} 现状 发展趋势 2024 最新", "description": "分析当前发展现状和最新趋势"},
-                {"query": f"{topic} 技术细节 实现方法 架构", "description": "深入了解技术实现和架构细节"},
-                {"query": f"{topic} 案例研究 实践应用 成功案例", "description": "收集实际案例和应用实践"},
-                {"query": f"{topic} 专家观点 研究报告 学术论文", "description": "获取专家观点和权威研究"},
-                {"query": f"{topic} 未来发展 前景预测 挑战机遇", "description": "探索未来发展方向和挑战机遇"}
-            ]
-        else:
-            return [
-                {"query": f"{topic} fundamentals concepts definition", "description": "Understanding basic concepts and core principles"},
-                {"query": f"{topic} current status trends 2024 latest", "description": "Analyzing current status and latest trends"},
-                {"query": f"{topic} technical details implementation architecture", "description": "Deep dive into technical implementation and architecture"},
-                {"query": f"{topic} case studies practical applications examples", "description": "Collecting real-world cases and applications"},
-                {"query": f"{topic} expert opinions research reports papers", "description": "Gathering expert opinions and authoritative research"},
-                {"query": f"{topic} future development predictions challenges opportunities", "description": "Exploring future directions and challenges"}
-            ]
+            logger.error(f"Failed to generate AI research plan: {e}")
+            raise Exception(f"Unable to generate research plan for topic '{topic}': {e}")
     
     async def _execute_enhanced_research_step(self, step_number: int, step_plan: Dict[str, str],
                                             topic: str, language: str, 
@@ -505,9 +609,9 @@ class EnhancedResearchService:
                     if result.url and result.url not in all_sources:
                         all_sources.append(result.url)
 
-        # Generate executive summary
+        # Generate executive summary directly from research content
         summary_prompt = f"""
-基于以下研究发现，为主题"{topic}"生成执行摘要：
+基于以下研究内容，为主题"{topic}"生成一个全面的研究摘要：
 
 研究发现：
 {chr(10).join(all_findings)}
@@ -515,23 +619,23 @@ class EnhancedResearchService:
 综合分析：
 {content_analysis.get('comprehensive_analysis', '')}
 
-请生成一个简洁而全面的执行摘要，包括：
-1. 研究主题的核心要点
-2. 主要发现和结论
-3. 关键趋势和模式
-4. 研究的整体质量评估
+请生成一个包含以下内容的完整摘要：
+1. 主要发现和关键信息
+2. 重要洞察和趋势
+3. 实用建议和推荐
+4. 结论和要点
 
 要求：
-- 摘要要专业、准确
-- 突出最重要的信息
+- 摘要要全面、专业、准确
+- 突出最重要和最有价值的信息
+- 包含具体的发现
 - 语言使用{language}
-- 长度控制在300-500字
 """
 
         try:
             executive_summary_response = await self.ai_provider.text_completion(
                 prompt=summary_prompt,
-                max_tokens=min(ai_config.max_tokens, 800),
+                max_tokens=min(ai_config.max_tokens, 1200),
                 temperature=0.3
             )
             # Extract text content from AIResponse object
@@ -540,123 +644,19 @@ class EnhancedResearchService:
             logger.warning(f"Failed to generate executive summary: {e}")
             executive_summary = f"针对主题'{topic}'的综合研究报告，包含{len(steps)}个研究步骤的深入分析。"
 
-        # Extract key findings
-        key_findings = await self._extract_key_findings(topic, language, all_findings)
-
-        # Generate recommendations
-        recommendations = await self._generate_recommendations(topic, language, all_findings, content_analysis)
-
         return EnhancedResearchReport(
             topic=topic,
             language=language,
             steps=steps,
             executive_summary=executive_summary,
-            key_findings=key_findings,
-            recommendations=recommendations,
+            key_findings=[],  # 不再单独提取关键发现
+            recommendations=[],  # 不再单独生成建议
             sources=all_sources,
             content_analysis=content_analysis,
             created_at=datetime.now(),
             total_duration=duration,
             provider_stats=provider_stats
         )
-
-    async def _extract_key_findings(self, topic: str, language: str,
-                                  all_findings: List[str]) -> List[str]:
-        """Extract key findings from research"""
-
-        findings_text = "\n\n".join(all_findings)
-
-        prompt = f"""
-从以下研究发现中提取5-8个最重要的关键发现：
-
-主题：{topic}
-研究发现：
-{findings_text}
-
-请提取最重要、最有价值的关键发现，每个发现应该：
-1. 简洁明了（1-2句话）
-2. 具有实际价值
-3. 基于可靠证据
-4. 与主题高度相关
-
-请以列表形式返回，每行一个发现，使用{language}语言。
-"""
-
-        try:
-            response = await self.ai_provider.text_completion(
-                prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 600),
-                temperature=0.3
-            )
-            # Extract text content from AIResponse object
-            response_text = response.content if hasattr(response, 'content') else str(response)
-
-            # Parse findings from response
-            findings = []
-            for line in response_text.split('\n'):
-                line = line.strip()
-                if line and (line.startswith('-') or line.startswith('•') or line.startswith('*') or line[0].isdigit()):
-                    # Clean up the line
-                    clean_line = line.lstrip('-•*0123456789. ').strip()
-                    if clean_line:
-                        findings.append(clean_line)
-
-            return findings[:8] if findings else [f"关于{topic}的重要研究发现需要进一步分析。"]
-
-        except Exception as e:
-            logger.warning(f"Failed to extract key findings: {e}")
-            return [f"关于{topic}的重要研究发现需要进一步分析。"]
-
-    async def _generate_recommendations(self, topic: str, language: str,
-                                      all_findings: List[str],
-                                      content_analysis: Dict[str, Any]) -> List[str]:
-        """Generate actionable recommendations"""
-
-        findings_text = "\n\n".join(all_findings)
-        analysis_text = content_analysis.get('comprehensive_analysis', '')
-
-        prompt = f"""
-基于以下研究发现和分析，为主题"{topic}"生成5-7个可行的建议和推荐：
-
-研究发现：
-{findings_text}
-
-综合分析：
-{analysis_text}
-
-请生成实用的建议，每个建议应该：
-1. 具有可操作性
-2. 基于研究证据
-3. 针对实际需求
-4. 具有前瞻性
-
-请以列表形式返回，每行一个建议，使用{language}语言。
-"""
-
-        try:
-            response = await self.ai_provider.text_completion(
-                prompt=prompt,
-                max_tokens=min(ai_config.max_tokens, 600),
-                temperature=0.4
-            )
-            # Extract text content from AIResponse object
-            response_text = response.content if hasattr(response, 'content') else str(response)
-
-            # Parse recommendations from response
-            recommendations = []
-            for line in response_text.split('\n'):
-                line = line.strip()
-                if line and (line.startswith('-') or line.startswith('•') or line.startswith('*') or line[0].isdigit()):
-                    # Clean up the line
-                    clean_line = line.lstrip('-•*0123456789. ').strip()
-                    if clean_line:
-                        recommendations.append(clean_line)
-
-            return recommendations[:7] if recommendations else [f"基于{topic}的研究，建议进行更深入的分析。"]
-
-        except Exception as e:
-            logger.warning(f"Failed to generate recommendations: {e}")
-            return [f"基于{topic}的研究，建议进行更深入的分析。"]
 
     def get_status(self) -> Dict[str, Any]:
         """Get enhanced research service status"""

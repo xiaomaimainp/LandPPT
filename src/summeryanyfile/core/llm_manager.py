@@ -160,7 +160,7 @@ class LLMManager:
         openai_kwargs = {
             "model": model,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            # "max_tokens": max_tokens,
             "api_key": api_key,
         }
 
@@ -195,7 +195,7 @@ class LLMManager:
         return ChatAnthropic(
             model=model,
             temperature=temperature,
-            max_tokens=max_tokens,
+            # max_tokens=max_tokens,
             api_key=api_key,
             **{k: v for k, v in kwargs.items() if k != "api_key"}
         )
@@ -225,7 +225,7 @@ class LLMManager:
         return AzureChatOpenAI(
             deployment_name=model,
             temperature=temperature,
-            max_tokens=max_tokens,
+            # max_tokens=max_tokens,
             api_key=api_key,
             azure_endpoint=azure_endpoint,
             api_version=api_version,
@@ -252,7 +252,7 @@ class LLMManager:
         ollama_kwargs = {
             "model": model,
             "temperature": temperature,
-            "num_predict": max_tokens,  # Ollama使用num_predict而不是max_tokens
+            # "num_predict": max_tokens,  # Ollama使用num_predict而不是max_tokens
             "base_url": base_url,
         }
 
@@ -284,7 +284,7 @@ class LLMManager:
         gemini_kwargs = {
             "model": model,
             "temperature": temperature,
-            "max_output_tokens": max_tokens,  # Gemini使用max_output_tokens
+            # "max_output_tokens": max_tokens,  # Gemini使用max_output_tokens
             "google_api_key": api_key,
         }
 

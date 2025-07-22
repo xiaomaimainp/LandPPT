@@ -83,59 +83,81 @@ class DEEPResearchService:
         """Dynamically get AI provider to ensure latest config"""
         return get_ai_provider()
     
-    async def conduct_deep_research(self, topic: str, language: str = "zh") -> ResearchReport:
+    async def conduct_deep_research(self, topic: str, language: str = "zh", context: Optional[Dict[str, Any]] = None) -> ResearchReport:
         """
         Conduct comprehensive DEEP research on a given topic
-        
+
         Args:
             topic: Research topic
             language: Language for research and report (zh/en)
-            
+            context: Additional context information (scenario, audience, requirements, etc.)
+
         Returns:
             Complete research report
         """
         start_time = time.time()
         logger.info(f"Starting DEEP research for topic: {topic}")
-        
+
         try:
-            # Step 1: Define research objectives and generate research plan
-            research_plan = await self._define_research_objectives(topic, language)
-            
+            # Step 1: Define research objectives and generate research plan with context
+            research_plan = await self._define_research_objectives(topic, language, context)
+
             # Step 2: Execute research steps
             research_steps = []
             for i, step_plan in enumerate(research_plan, 1):
                 step = await self._execute_research_step(i, step_plan, topic, language)
                 research_steps.append(step)
-                
+
                 # Add delay between requests to respect rate limits
                 if i < len(research_plan):
                     await asyncio.sleep(1)
-            
+
             # Step 3: Synthesize findings and generate report
             report = await self._generate_comprehensive_report(
                 topic, language, research_steps, time.time() - start_time
             )
-            
+
             logger.info(f"DEEP research completed in {report.total_duration:.2f} seconds")
             return report
-            
+
         except Exception as e:
             logger.error(f"DEEP research failed: {e}")
             raise
     
-    async def _define_research_objectives(self, topic: str, language: str) -> List[Dict[str, str]]:
-        """Define research objectives and create research plan"""
-        
+    async def _define_research_objectives(self, topic: str, language: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
+        """Define research objectives and create research plan with context"""
+
+        # Extract context information
+        scenario = context.get('scenario', '通用') if context else '通用'
+        target_audience = context.get('target_audience', '普通大众') if context else '普通大众'
+        requirements = context.get('requirements', '') if context else ''
+        ppt_style = context.get('ppt_style', 'general') if context else 'general'
+        description = context.get('description', '') if context else ''
+
+        # Build context description
+        context_info = f"""
+项目背景信息：
+- 应用场景：{scenario}
+- 目标受众：{target_audience}
+- 具体要求：{requirements or '无特殊要求'}
+- 演示风格：{ppt_style}
+- 补充说明：{description or '无'}
+"""
+
         prompt = f"""
-作为专业研究员，请为以下主题制定详细的研究计划：
+作为专业研究员，请根据以下项目信息制定精准的研究计划：
 
-主题：{topic}
-语言：{language}
+研究主题：{topic}
+语言环境：{language}
 
-请生成5个不同角度的研究步骤，每个步骤应该：
-1. 有明确的研究目标
-2. 包含具体的搜索查询
-3. 覆盖不同的信息维度
+{context_info}
+
+请基于上述项目背景，生成5-6个针对性的研究步骤，每个步骤应该：
+
+1. **场景适配**：根据应用场景（{scenario}）调整研究重点和深度
+2. **受众导向**：考虑目标受众（{target_audience}）的知识背景和关注点
+3. **需求匹配**：紧密结合具体要求，确保研究内容的实用性
+4. **专业精准**：使用专业术语和关键词，获取高质量权威信息
 
 请严格按照以下JSON格式返回：
 
@@ -146,7 +168,7 @@ class DEEPResearchService:
         "description": "这个步骤的研究目标和预期收获"
     }},
     {{
-        "query": "另一个搜索查询词", 
+        "query": "另一个搜索查询词",
         "description": "另一个研究目标"
     }}
 ]
@@ -154,8 +176,10 @@ class DEEPResearchService:
 
 要求：
 - 查询词要具体、专业，能获取高质量信息
+- 根据应用场景和受众特点调整研究角度和深度
 - 覆盖基础概念、现状分析、趋势预测、案例研究、专家观点等维度
 - 适合{language}语言环境的搜索习惯
+- 确保研究内容与项目需求高度匹配
 """
 
         try:
@@ -186,20 +210,10 @@ class DEEPResearchService:
             raise ValueError("Failed to parse research plan JSON")
             
         except Exception as e:
-            logger.warning(f"Failed to generate AI research plan: {e}")
-            # Fallback to default research plan
-            return self._get_default_research_plan(topic, language)
-    
-    def _get_default_research_plan(self, topic: str, language: str) -> List[Dict[str, str]]:
-        """Fallback research plan when AI generation fails"""
-        if language == "zh":
-            return [
-                {"query": f"{topic} 基础概念 定义", "description": "了解主题的基本概念和定义"},
-                {"query": f"{topic} 现状 发展趋势 2024", "description": "分析当前发展现状和最新趋势"},
-                {"query": f"{topic} 案例研究 实践应用", "description": "收集实际案例和应用实践"},
-                {"query": f"{topic} 专家观点 研究报告", "description": "获取专家观点和权威研究"},
-                {"query": f"{topic} 未来发展 前景预测", "description": "探索未来发展方向和预测"}
-            ]
+            logger.error(f"Failed to generate AI research plan: {e}")
+            raise Exception(f"Unable to generate research plan for topic '{topic}': {e}")
+
+
         else:
             return [
                 {"query": f"{topic} definition concepts overview", "description": "Understanding basic concepts and definitions"},
