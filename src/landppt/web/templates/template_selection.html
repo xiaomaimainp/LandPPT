@@ -1586,7 +1586,7 @@ function updatePaginationInfo(pagination) {
         paginationContainer.style.display = 'block';
 
         // Update page info
-        pageInfo.textContent = `第 ${pagination.current_page} 页，共 ${pagination.total_pages} 页 (总计 ${pagination.total_items} 个模板)`;
+        pageInfo.textContent = `第 ${pagination.current_page} 页，共 ${pagination.total_pages} 页 (总计 ${pagination.total_count} 个模板)`;
 
         // Update navigation buttons
         prevBtn.disabled = pagination.current_page <= 1;

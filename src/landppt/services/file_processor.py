@@ -96,17 +96,18 @@ class FileProcessor:
         """Process DOCX file"""
         if not DOCX_AVAILABLE:
             raise ValueError("DOCX processing not available. Please install python-docx.")
-        
-        try:
+
+        def _process_docx_sync(file_path: str) -> str:
+            """同步处理DOCX文件（在线程池中运行）"""
             doc = Document(file_path)
             content_parts = []
-            
+
             # Extract paragraphs
             for paragraph in doc.paragraphs:
                 text = paragraph.text.strip()
                 if text:
                     content_parts.append(text)
-            
+
             # Extract tables
             for table in doc.tables:
                 for row in table.rows:
@@ -117,9 +118,15 @@ class FileProcessor:
                             row_text.append(cell_text)
                     if row_text:
                         content_parts.append(" | ".join(row_text))
-            
+
             return "\n\n".join(content_parts)
-            
+
+        try:
+            # 在线程池中执行文件处理以避免阻塞主服务
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _process_docx_sync, file_path)
+
         except Exception as e:
             logger.error(f"Error processing DOCX file: {e}")
             raise ValueError(f"DOCX 文件处理失败: {str(e)}")
@@ -128,65 +135,89 @@ class FileProcessor:
         """Process PDF file"""
         if not PDF_AVAILABLE:
             raise ValueError("PDF processing not available. Please install PyPDF2.")
-        
-        try:
+
+        def _process_pdf_sync(file_path: str) -> str:
+            """同步处理PDF文件（在线程池中运行）"""
             content_parts = []
-            
+
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
-                
+
                 for page_num in range(len(pdf_reader.pages)):
                     page = pdf_reader.pages[page_num]
                     text = page.extract_text()
-                    
+
                     if text.strip():
                         content_parts.append(text.strip())
-            
+
             return "\n\n".join(content_parts)
-            
+
+        try:
+            # 在线程池中执行文件处理以避免阻塞主服务
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _process_pdf_sync, file_path)
+
         except Exception as e:
             logger.error(f"Error processing PDF file: {e}")
             raise ValueError(f"PDF 文件处理失败: {str(e)}")
     
     async def _process_txt(self, file_path: str) -> str:
         """Process TXT file"""
+        def _process_txt_sync(file_path: str) -> str:
+            """同步处理TXT文件（在线程池中运行）"""
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+
+                # Try different encodings if UTF-8 fails
+                if not content.strip():
+                    encodings = ['gbk', 'gb2312', 'latin1']
+                    for encoding in encodings:
+                        try:
+                            with open(file_path, 'r', encoding=encoding) as file:
+                                content = file.read()
+                            if content.strip():
+                                break
+                        except:
+                            continue
+
+                return content.strip()
+            except Exception as e:
+                raise e
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            
-            # Try different encodings if UTF-8 fails
-            if not content.strip():
-                encodings = ['gbk', 'gb2312', 'latin1']
-                for encoding in encodings:
-                    try:
-                        with open(file_path, 'r', encoding=encoding) as file:
-                            content = file.read()
-                        if content.strip():
-                            break
-                    except:
-                        continue
-            
-            return content.strip()
-            
+            # 在线程池中执行文件处理以避免阻塞主服务
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _process_txt_sync, file_path)
+
         except Exception as e:
             logger.error(f"Error processing TXT file: {e}")
             raise ValueError(f"TXT 文件处理失败: {str(e)}")
     
     async def _process_markdown(self, file_path: str) -> str:
         """Process Markdown file"""
-        try:
+        def _process_markdown_sync(file_path: str) -> str:
+            """同步处理Markdown文件（在线程池中运行）"""
             with open(file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
-            
+
             # Remove markdown syntax for cleaner content
             content = re.sub(r'#{1,6}\s+', '', content)  # Remove headers
             content = re.sub(r'\*\*(.*?)\*\*', r'\1', content)  # Remove bold
             content = re.sub(r'\*(.*?)\*', r'\1', content)  # Remove italic
             content = re.sub(r'`(.*?)`', r'\1', content)  # Remove code
             content = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', content)  # Remove links
-            
+
             return content.strip()
-            
+
+        try:
+            # 在线程池中执行文件处理以避免阻塞主服务
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _process_markdown_sync, file_path)
+
         except Exception as e:
             logger.error(f"Error processing Markdown file: {e}")
             raise ValueError(f"Markdown 文件处理失败: {str(e)}")
@@ -195,18 +226,25 @@ class FileProcessor:
         """Process image file using OCR"""
         if not OCR_AVAILABLE:
             return "图片文件已上传，但 OCR 功能不可用。请安装 pytesseract 和 PIL 以启用文字识别。"
-        
-        try:
+
+        def _process_image_sync(file_path: str) -> str:
+            """同步处理图像文件（在线程池中运行）"""
             image = Image.open(file_path)
-            
+
             # Perform OCR
             text = pytesseract.image_to_string(image, lang='chi_sim+eng')
-            
+
             if not text.strip():
                 return "图片文件已处理，但未能识别出文字内容。"
-            
+
             return text.strip()
-            
+
+        try:
+            # 在线程池中执行图像处理以避免阻塞主服务
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _process_image_sync, file_path)
+
         except Exception as e:
             logger.error(f"Error processing image file: {e}")
             return f"图片处理失败: {str(e)}"

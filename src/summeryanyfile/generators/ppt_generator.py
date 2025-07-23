@@ -173,26 +173,33 @@ class PPTOutlineGenerator(LoggerMixin):
     ) -> PPTOutline:
         """
         从文件生成PPT大纲
-        
+
         Args:
             file_path: 文件路径
             encoding: 文件编码
             progress_callback: 进度回调函数
-            
+
         Returns:
             PPT大纲对象
         """
         self.logger.info(f"开始从文件生成PPT大纲: {file_path}")
-        
+
         try:
-            # 加载文档
+            # 加载文档（在线程池中执行以避免阻塞主服务）
             if progress_callback:
                 progress_callback("正在加载文档...", 2)
-            
-            document_info = self.document_processor.load_document(file_path, encoding)
-            
+
+            import asyncio
+            loop = asyncio.get_running_loop()
+            document_info = await loop.run_in_executor(
+                None,
+                self.document_processor.load_document,
+                file_path,
+                encoding
+            )
+
             self.logger.info(f"文档加载完成: {document_info.title}")
-            
+
             # 从文本生成
             return await self.generate_from_text(
                 document_info.content,
@@ -210,7 +217,7 @@ class PPTOutlineGenerator(LoggerMixin):
                 max_pages,
                 fixed_pages
             )
-            
+
         except Exception as e:
             self.logger.error(f"从文件生成PPT大纲失败: {e}")
             raise
