@@ -86,7 +86,63 @@
     </div>
 </div>
 
-<div style="max-width: 1400px; margin: 0 auto; padding: var(--spacing-lg);">`
+<div style="max-width: 1400px; margin: 0 auto; padding: var(--spacing-lg);">
+
+    <!-- Search and Filter Controls -->
+    <div class="search-filter-controls" style="background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--border-radius-lg); box-shadow: var(--glass-shadow); padding: var(--spacing-xl); margin-bottom: var(--spacing-xl);">
+        <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-lg); align-items: center; justify-content: space-between;">
+            <!-- Search Box -->
+            <div style="flex: 1; min-width: 300px;">
+                <div style="position: relative;">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="🔍 搜索模板名称或描述..."
+                        style="width: 100%; padding: var(--spacing-md) var(--spacing-lg) var(--spacing-md) 50px; border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: var(--text-primary); font-size: 1rem; transition: all 0.3s ease;"
+                        onkeypress="if(event.key==='Enter') performSearch()"
+                    >
+                    <div style="position: absolute; left: var(--spacing-md); top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.2rem;">🔍</div>
+                    <button
+                        id="clearSearchBtn"
+                        onclick="clearSearch()"
+                        style="position: absolute; right: var(--spacing-md); top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; display: none;"
+                        title="清除搜索"
+                    >✕</button>
+                </div>
+            </div>
+
+            <!-- Tag Filter -->
+            <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                <label style="color: var(--text-secondary); font-weight: 600; white-space: nowrap;">分类筛选:</label>
+                <select
+                    id="tagFilter"
+                    onchange="filterByTag()"
+                    style="padding: var(--spacing-md) var(--spacing-lg); border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: var(--text-primary); font-size: 0.9rem; min-width: 120px;"
+                >
+                    <option value="">全部分类</option>
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+
+            <!-- Search Button -->
+            <button
+                onclick="performSearch()"
+                class="btn btn-primary"
+                style="padding: var(--spacing-md) var(--spacing-xl); white-space: nowrap;"
+            >
+                🔍 搜索
+            </button>
+        </div>
+
+        <!-- Active Filters Display -->
+        <div id="activeFilters" style="margin-top: var(--spacing-md); display: none;">
+            <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); align-items: center;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">当前筛选:</span>
+                <div id="filterTags" style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm);"></div>
+                <button onclick="clearAllFilters()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; text-decoration: underline;">清除所有</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Template Selection Grid -->
     <div id="templatesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: var(--spacing-xl);">
@@ -98,6 +154,33 @@
         <div style="display: inline-block; width: 50px; height: 50px; border: 4px solid rgba(67, 233, 123, 0.2); border-top: 4px solid var(--success-gradient); border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <p style="margin-top: var(--spacing-lg); color: var(--text-secondary); font-weight: 600; font-size: 1.1rem;">🎨 正在加载精美模板...</p>
         <p style="margin-top: var(--spacing-sm); color: var(--text-muted); font-size: 0.9rem;">请稍候，为您准备最佳的模板选择</p>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div id="paginationContainer" style="display: none; margin-top: var(--spacing-xl); text-align: center;">
+        <div style="background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--border-radius-lg); box-shadow: var(--glass-shadow); padding: var(--spacing-lg); display: inline-block;">
+            <div style="display: flex; align-items: center; gap: var(--spacing-md); flex-wrap: wrap; justify-content: center;">
+                <!-- Previous Button -->
+                <button id="prevPageBtn" onclick="changePage(currentPage - 1)" class="btn btn-secondary btn-sm" disabled>
+                    ← 上一页
+                </button>
+
+                <!-- Page Numbers -->
+                <div id="pageNumbers" style="display: flex; gap: var(--spacing-xs); align-items: center; flex-wrap: wrap;">
+                    <!-- Page numbers will be generated here -->
+                </div>
+
+                <!-- Next Button -->
+                <button id="nextPageBtn" onclick="changePage(currentPage + 1)" class="btn btn-secondary btn-sm" disabled>
+                    下一页 →
+                </button>
+            </div>
+
+            <!-- Page Info -->
+            <div id="pageInfo" style="margin-top: var(--spacing-md); color: var(--text-secondary); font-size: 0.9rem;">
+                <!-- Page info will be displayed here -->
+            </div>
+        </div>
     </div>
 
     <!-- Action Buttons -->
@@ -533,6 +616,89 @@
     color: #333;
 }
 
+/* Search and Filter Styles */
+#searchInput:focus {
+    outline: none;
+    border-color: rgba(67, 233, 123, 0.5);
+    box-shadow: 0 0 0 3px rgba(67, 233, 123, 0.1);
+}
+
+#tagFilter:focus {
+    outline: none;
+    border-color: rgba(67, 233, 123, 0.5);
+    box-shadow: 0 0 0 3px rgba(67, 233, 123, 0.1);
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background: rgba(67, 233, 123, 0.1);
+    color: var(--success-gradient);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid rgba(67, 233, 123, 0.2);
+}
+
+.filter-tag button {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    margin-left: var(--spacing-xs);
+}
+
+.filter-tag button:hover {
+    opacity: 0.7;
+}
+
+/* Pagination Styles */
+.page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: rgba(67, 233, 123, 0.1);
+    border-color: rgba(67, 233, 123, 0.3);
+    transform: translateY(-1px);
+}
+
+.page-btn.active {
+    background: var(--success-gradient);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(67, 233, 123, 0.3);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.page-ellipsis {
+    color: var(--text-muted);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.9rem;
+}
+
 /* 响应式设计 */
 @media (max-width: 1200px) {
     #templatesGrid {
@@ -552,6 +718,27 @@
 
     .template-selection-hero p {
         font-size: 1.1rem;
+    }
+
+    /* Search and Filter Controls - Mobile */
+    .search-filter-controls > div:first-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-md) !important;
+    }
+
+    .search-filter-controls > div:first-child > div {
+        min-width: auto !important;
+    }
+
+    .search-filter-controls > div:first-child > div:nth-child(2) {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .search-filter-controls > div:first-child > div:nth-child(2) select {
+        min-width: auto !important;
     }
 
     #templatesGrid {
@@ -586,6 +773,26 @@
     .modal-body {
         padding: 20px;
     }
+
+    /* Pagination - Mobile */
+    #paginationContainer > div {
+        padding: var(--spacing-md) !important;
+    }
+
+    #paginationContainer > div > div:first-child {
+        flex-direction: column !important;
+        gap: var(--spacing-md) !important;
+    }
+
+    #pageNumbers {
+        order: 2;
+    }
+
+    #prevPageBtn, #nextPageBtn {
+        order: 1;
+        width: 100%;
+        justify-content: center !important;
+    }
 }
 </style>
 
@@ -593,6 +800,12 @@
 // Global variables
 let templates = [];
 let selectedTemplateId = null;
+let currentPage = 1;
+let totalPages = 1;
+let pageSize = 6;
+let currentSearch = '';
+let currentTag = '';
+let allTags = [];
 
 // Extract project ID from URL path: /projects/{project_id}/template-selection
 let pathParts = window.location.pathname.split('/');
@@ -621,8 +834,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    loadTemplates();
+    loadTemplates(1);
     setupEventListeners();
+    setupSearchListeners();
 });
 
 function setupEventListeners() {
@@ -671,10 +885,43 @@ function setupEventListeners() {
     console.log('Event listeners setup complete');
 }
 
-async function loadTemplates() {
+function setupSearchListeners() {
+    const searchInput = document.getElementById('searchInput');
+
+    // Add input event listener for real-time search button visibility
+    searchInput.addEventListener('input', function() {
+        updateClearSearchButton();
+    });
+
+    // Add keyup event listener for Enter key
+    searchInput.addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    console.log('Search listeners setup complete');
+}
+
+async function loadTemplates(page = 1) {
     showLoading(true);
     try {
-        const response = await fetch('/api/global-master-templates/?active_only=true&page_size=100');
+        // Build query parameters
+        const params = new URLSearchParams({
+            active_only: 'true',
+            page: page.toString(),
+            page_size: pageSize.toString()
+        });
+
+        if (currentSearch) {
+            params.append('search', currentSearch);
+        }
+
+        if (currentTag) {
+            params.append('tags', currentTag);
+        }
+
+        const response = await fetch(`/api/global-master-templates/?${params}`);
 
         if (!response.ok) {
             throw new Error('Failed to load templates');
@@ -683,12 +930,19 @@ async function loadTemplates() {
         const data = await response.json();
         console.log('API response:', data);
 
-        // 确保我们获取的是模板数组
-        if (data && Array.isArray(data.templates)) {
+        // 确保我们获取的是模板数组和分页信息
+        if (data && Array.isArray(data.templates) && data.pagination) {
             templates = data.templates;
+            currentPage = data.pagination.current_page;
+            totalPages = data.pagination.total_pages;
+
+            // Update pagination info
+            updatePaginationInfo(data.pagination);
         } else if (Array.isArray(data)) {
             // 如果直接返回数组（向后兼容）
             templates = data;
+            currentPage = 1;
+            totalPages = 1;
         } else {
             console.error('Unexpected API response format:', data);
             throw new Error('Invalid response format from templates API');
@@ -696,6 +950,12 @@ async function loadTemplates() {
 
         console.log('Loaded templates:', templates);
         renderTemplates(templates);
+
+        // Load all tags for filter dropdown
+        if (page === 1) {
+            await loadAllTags();
+        }
+
     } catch (error) {
         console.error('Error loading templates:', error);
         alert('加载模板失败: ' + error.message);
@@ -1188,6 +1448,227 @@ function adjustIframeContent(templateId) {
             previewContainer.classList.remove('loaded');
         }
         showPreviewFallback(templateId);
+    }
+}
+
+// Search and Filter Functions
+async function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const newSearch = searchInput.value.trim();
+
+    if (newSearch !== currentSearch) {
+        currentSearch = newSearch;
+        currentPage = 1; // Reset to first page
+        await loadTemplates(1);
+        updateActiveFilters();
+        updateClearSearchButton();
+    }
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = '';
+    if (currentSearch !== '') {
+        currentSearch = '';
+        currentPage = 1;
+        loadTemplates(1);
+        updateActiveFilters();
+        updateClearSearchButton();
+    }
+}
+
+async function filterByTag() {
+    const tagFilter = document.getElementById('tagFilter');
+    const newTag = tagFilter.value;
+
+    if (newTag !== currentTag) {
+        currentTag = newTag;
+        currentPage = 1; // Reset to first page
+        await loadTemplates(1);
+        updateActiveFilters();
+    }
+}
+
+function clearAllFilters() {
+    const searchInput = document.getElementById('searchInput');
+    const tagFilter = document.getElementById('tagFilter');
+
+    searchInput.value = '';
+    tagFilter.value = '';
+    currentSearch = '';
+    currentTag = '';
+    currentPage = 1;
+
+    loadTemplates(1);
+    updateActiveFilters();
+    updateClearSearchButton();
+}
+
+function updateActiveFilters() {
+    const activeFilters = document.getElementById('activeFilters');
+    const filterTags = document.getElementById('filterTags');
+
+    const filters = [];
+
+    if (currentSearch) {
+        filters.push({
+            type: 'search',
+            label: `搜索: "${currentSearch}"`,
+            value: currentSearch
+        });
+    }
+
+    if (currentTag) {
+        filters.push({
+            type: 'tag',
+            label: `分类: ${currentTag}`,
+            value: currentTag
+        });
+    }
+
+    if (filters.length > 0) {
+        filterTags.innerHTML = filters.map(filter => `
+            <span class="filter-tag">
+                ${filter.label}
+                <button onclick="removeFilter('${filter.type}')">✕</button>
+            </span>
+        `).join('');
+        activeFilters.style.display = 'block';
+    } else {
+        activeFilters.style.display = 'none';
+    }
+}
+
+function removeFilter(type) {
+    if (type === 'search') {
+        document.getElementById('searchInput').value = '';
+        currentSearch = '';
+        updateClearSearchButton();
+    } else if (type === 'tag') {
+        document.getElementById('tagFilter').value = '';
+        currentTag = '';
+    }
+
+    currentPage = 1;
+    loadTemplates(1);
+    updateActiveFilters();
+}
+
+function updateClearSearchButton() {
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const searchInput = document.getElementById('searchInput');
+
+    if (searchInput.value.trim()) {
+        clearBtn.style.display = 'block';
+    } else {
+        clearBtn.style.display = 'none';
+    }
+}
+
+// Pagination Functions
+async function changePage(page) {
+    if (page < 1 || page > totalPages || page === currentPage) {
+        return;
+    }
+
+    await loadTemplates(page);
+}
+
+function updatePaginationInfo(pagination) {
+    const paginationContainer = document.getElementById('paginationContainer');
+    const pageNumbers = document.getElementById('pageNumbers');
+    const pageInfo = document.getElementById('pageInfo');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+
+    // Show pagination if there are multiple pages
+    if (pagination.total_pages > 1) {
+        paginationContainer.style.display = 'block';
+
+        // Update page info
+        pageInfo.textContent = `第 ${pagination.current_page} 页，共 ${pagination.total_pages} 页 (总计 ${pagination.total_items} 个模板)`;
+
+        // Update navigation buttons
+        prevBtn.disabled = pagination.current_page <= 1;
+        nextBtn.disabled = pagination.current_page >= pagination.total_pages;
+
+        // Generate page numbers
+        generatePageNumbers(pagination.current_page, pagination.total_pages);
+    } else {
+        paginationContainer.style.display = 'none';
+    }
+}
+
+function generatePageNumbers(current, total) {
+    const pageNumbers = document.getElementById('pageNumbers');
+    const maxVisible = 7; // Maximum number of page buttons to show
+
+    let pages = [];
+
+    if (total <= maxVisible) {
+        // Show all pages if total is small
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        // Smart pagination with ellipsis
+        if (current <= 4) {
+            // Show first pages
+            pages = [1, 2, 3, 4, 5, '...', total];
+        } else if (current >= total - 3) {
+            // Show last pages
+            pages = [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+        } else {
+            // Show middle pages
+            pages = [1, '...', current - 1, current, current + 1, '...', total];
+        }
+    }
+
+    pageNumbers.innerHTML = pages.map(page => {
+        if (page === '...') {
+            return '<span class="page-ellipsis">...</span>';
+        } else {
+            const isActive = page === current;
+            return `
+                <button
+                    class="page-btn ${isActive ? 'active' : ''}"
+                    onclick="changePage(${page})"
+                    ${isActive ? 'disabled' : ''}
+                >
+                    ${page}
+                </button>
+            `;
+        }
+    }).join('');
+}
+
+// Load all available tags for filter dropdown
+async function loadAllTags() {
+    try {
+        // Get all templates to extract unique tags
+        const response = await fetch('/api/global-master-templates/?active_only=true&page_size=1000');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const templates = data.templates || data;
+
+        // Extract all unique tags
+        const tagSet = new Set();
+        templates.forEach(template => {
+            if (template.tags && Array.isArray(template.tags)) {
+                template.tags.forEach(tag => tagSet.add(tag));
+            }
+        });
+
+        allTags = Array.from(tagSet).sort();
+
+        // Populate tag filter dropdown
+        const tagFilter = document.getElementById('tagFilter');
+        tagFilter.innerHTML = '<option value="">全部分类</option>' +
+            allTags.map(tag => `<option value="${tag}">${tag}</option>`).join('');
+
+    } catch (error) {
+        console.error('Error loading tags:', error);
     }
 }
 
