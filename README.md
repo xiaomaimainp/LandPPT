@@ -37,6 +37,10 @@ LandPPT 是一个基于大语言模型（LLM）的智能演示文稿生成平台
 
 ![image](https://img.pub/p/02bac27fe8097c012d9e.png)
 
+![image](https://img.pub/p/9a38b57c6f5f470ad59b.png)
+
+![image](https://img.pub/p/47090624aec2d337f0df.png)
+
 ![image](https://img.pub/p/bebe9fe671d0125ceac6.png)
 
 ![image](https://img.pub/p/0d2ffc650792c4a133a4.png)
@@ -342,7 +346,9 @@ A: 需要配置 `APRYSE_LICENSE_KEY`，然后在导出选项中选择PPTX格式�
 - **项目主页**: https://github.com/sligter/LandPPT
 - **问题反馈**: https://github.com/sligter/LandPPT/issues
 - **讨论区**: https://github.com/sligter/LandPPT/discussions
+- **交流群**: https://t.me/+EaOfoceoNwdhNDVl
 
+![LandPPT](https://github.com/user-attachments/assets/e3aeeb9f-9d52-46a5-8768-387c7fa3a427)
 ---
 
 <div align="center">

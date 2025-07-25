@@ -9,9 +9,7 @@ docker-compose*
 .dockerignore
 
 # Documentation
-README*.md
 docs/
-*.md
 
 # IDE and Editor files
 .vscode/

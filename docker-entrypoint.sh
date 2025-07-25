@@ -162,21 +162,29 @@ fix_env_permissions() {
     log "Checking .env file permissions..."
 
     if [ -f "/app/.env" ]; then
-        # Check if we can write to .env file
-        if [ ! -w "/app/.env" ]; then
-            warn "⚠️ .env file is not writable by current user"
+        # Check if we can read the .env file
+        if [ ! -r "/app/.env" ]; then
+            warn "⚠️ .env file is not readable by current user"
             info "Attempting to fix .env file permissions..."
 
-            # Try to make it writable (this will work if the file is owned by root or if we have sudo)
-            if chmod 666 "/app/.env" 2>/dev/null; then
+            # Running as root, so we can fix permissions directly
+            if chmod 644 "/app/.env" 2>/dev/null; then
                 log "✅ .env file permissions fixed"
             else
                 warn "⚠️ Could not fix .env file permissions"
-                warn "   Configuration updates may fail"
-                warn "   Please ensure the mounted .env file is writable by UID 1000 (landppt user)"
+                warn "   Creating a copy with correct permissions..."
+
+                # Create a copy with correct permissions
+                if cp "/app/.env" "/app/.env.tmp" 2>/dev/null && mv "/app/.env.tmp" "/app/.env" 2>/dev/null; then
+                    chmod 644 "/app/.env" 2>/dev/null
+                    log "✅ .env file copied with correct permissions"
+                else
+                    warn "⚠️ Could not create .env copy"
+                    warn "   Please check the mounted .env file"
+                fi
             fi
         else
-            log "✅ .env file is writable"
+            log "✅ .env file is readable"
         fi
     else
         warn "⚠️ .env file not found, using default configuration"

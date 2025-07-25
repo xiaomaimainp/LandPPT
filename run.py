@@ -13,8 +13,15 @@ from dotenv import load_dotenv
 # Add src to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-# Load environment variables
-load_dotenv()
+# Load environment variables with error handling
+try:
+    load_dotenv()
+except PermissionError as e:
+    print(f"Warning: Could not load .env file due to permission error: {e}")
+    print("Continuing with system environment variables...")
+except Exception as e:
+    print(f"Warning: Could not load .env file: {e}")
+    print("Continuing with system environment variables...")
 
 def main():
     """Main entry point for running the application"""

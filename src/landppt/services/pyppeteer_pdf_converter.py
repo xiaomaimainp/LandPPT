@@ -144,7 +144,20 @@ class PlaywrightPDFConverter:
             if self.playwright is None:
                 self.playwright = await async_playwright().start()
 
-            # Method 1: Try system Chrome with enhanced error handling
+            # Method 1: Try Playwright's installed Chromium first (especially for Docker)
+            logger.info("🔄 Trying Playwright's installed Chromium...")
+            try:
+                browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=launch_args
+                )
+                logger.info("✅ Playwright Chromium launched successfully")
+                return browser
+
+            except Exception as playwright_error:
+                logger.warning(f"❌ Playwright Chromium launch failed: {playwright_error}")
+
+            # Method 2: Try system Chrome with enhanced error handling
             system_chrome_paths = [
                 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
                 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
@@ -202,7 +215,7 @@ class PlaywrightPDFConverter:
                                 await asyncio.sleep(2)
                             continue
 
-            # Method 2: Try portable Chrome
+            # Method 3: Try portable Chrome
             logger.info("🔄 System Chrome failed, trying portable solutions...")
 
             # Try to use any available Chrome-like browser
@@ -225,19 +238,6 @@ class PlaywrightPDFConverter:
                         return browser
                     except Exception as e:
                         logger.warning(f"❌ Portable browser failed: {e}")
-
-            # Method 3: Try default Playwright Chromium
-            logger.info("🔄 Trying default Playwright Chromium...")
-            try:
-                browser = await self.playwright.chromium.launch(
-                    headless=True,
-                    args=launch_args
-                )
-                logger.info("✅ Default Playwright Chromium launched successfully")
-                return browser
-
-            except Exception as default_error:
-                logger.warning(f"❌ Default Chromium launch failed: {default_error}")
 
             # Method 4: Final attempt with minimal config
             logger.info("🔄 Final attempt with minimal configuration...")
@@ -1710,7 +1710,7 @@ class PlaywrightPDFConverter:
 
             await page.goto(f"file://{absolute_html_path}",
                           wait_until='networkidle',  # 等待网络空闲，确保所有资源加载完成
-                          timeout=20000)  # 增加超时时间以确保完整加载
+                          timeout=60000)  # 增加超时时间以确保完整加载
 
             # 智能等待：根据页面复杂度动态调整等待时间
             page_complexity = await page.evaluate('''() => {
@@ -1860,19 +1860,19 @@ class PlaywrightPDFConverter:
             absolute_html_path = Path(html_file_path).resolve()
             await page.goto(f"file://{absolute_html_path}",
                           wait_until='networkidle',  # 等待网络空闲，确保所有资源加载完成
-                          timeout=15000)  # 适当的超时时间
+                          timeout=60000)  # 适当的超时时间
 
             # 批处理中也需要额外等待确保内容完全加载
             await asyncio.sleep(0.8)
 
             # 等待字体和外部资源加载完成（批处理版本，时间稍短）
-            await self._wait_for_fonts_and_resources(page, max_wait_time=5000)
+            await self._wait_for_fonts_and_resources(page, max_wait_time=50000)
 
             # Force chart initialization after page load
             await self._force_chart_initialization(page)
 
             # Enhanced waiting for Chart.js and dynamic content rendering
-            await self._wait_for_charts_and_dynamic_content(page, max_wait_time=12000)
+            await self._wait_for_charts_and_dynamic_content(page, max_wait_time=120000)
 
             # Enhanced CSS injection for batch processing
             await page.add_style_tag(content='''
@@ -2031,9 +2031,10 @@ class PlaywrightPDFConverter:
                 if len(pdf_files) == 1:
                     # For single PDF, just copy it to the merged path
                     logger.info("📄 Single PDF detected, copying to merged path...")
-                    import shutil
                     try:
-                        shutil.copy2(pdf_files[0], merged_pdf_path)
+                        from ..utils.thread_pool import run_blocking_io
+                        import shutil
+                        await run_blocking_io(shutil.copy2, pdf_files[0], merged_pdf_path)
                         logger.info(f"✅ Single PDF copied to: {merged_pdf_path}")
                     except Exception as e:
                         logger.error(f"❌ Failed to copy single PDF: {e}")
@@ -2055,8 +2056,8 @@ class PlaywrightPDFConverter:
                 await browser.close()
                 logger.debug("🔒 Shared browser closed.")
 
-    async def merge_pdfs(self, pdf_files: List[str], output_path: str) -> bool:
-        """Merge multiple PDF files into one (requires PyPDF2 or similar)"""
+    def _merge_pdfs_sync(self, pdf_files: List[str], output_path: str) -> bool:
+        """Synchronous PDF merging function to be run in thread pool"""
         try:
             # Try to use PyPDF2 first
             try:
@@ -2094,6 +2095,11 @@ class PlaywrightPDFConverter:
             logger.error(f"❌ Error merging PDFs: {error}")
             logger.info("💡 Tip: Install PyPDF2 for PDF merging: pip install PyPDF2")
             return False
+
+    async def merge_pdfs(self, pdf_files: List[str], output_path: str) -> bool:
+        """Merge multiple PDF files into one using thread pool to avoid blocking"""
+        from ..utils.thread_pool import run_blocking_io
+        return await run_blocking_io(self._merge_pdfs_sync, pdf_files, output_path)
 
     async def close(self):
         """Close the browser if it's still open"""

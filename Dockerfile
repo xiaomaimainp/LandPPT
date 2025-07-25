@@ -1,25 +1,16 @@
 # LandPPT Docker Image
-# Multi-stage build for optimized production image
+# Multi-stage build for minimal image size
 
 # Build stage
 FROM python:3.11-slim AS builder
 
-# Set environment variables
+# Set environment variables for build
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# --- MODIFICATION v2 START ---
-# The python:3.11-slim image (Debian Bookworm) uses a new source file format.
-# We must remove the default source file before adding our own to prevent conflicts.
-RUN rm /etc/apt/sources.list.d/debian.sources && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main" > /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main" >> /etc/apt/sources.list
-# --- MODIFICATION v2 END ---
-
-# Install system dependencies for building
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -28,20 +19,18 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster dependency management
-RUN pip install uv
+RUN pip install --no-cache-dir uv
 
-# Set work directory
+# Set work directory and copy dependency files
 WORKDIR /app
+COPY pyproject.toml uv.lock* README.md ./
 
-# Copy dependency files
-COPY pyproject.toml uv.lock* ./
-
-# Install dependencies using uv
-RUN uv pip install --system apryse-sdk>=11.5.0 --extra-index-url=https://pypi.apryse.com
-RUN uv pip install --system -r pyproject.toml
-
-# Install Playwright browsers
-RUN python -m playwright install chromium --with-deps
+# Install Python dependencies to a specific directory
+RUN uv pip install --target=/opt/venv apryse-sdk>=11.5.0 --extra-index-url=https://pypi.apryse.com && \
+    uv pip install --target=/opt/venv -r pyproject.toml && \
+    # Clean up build artifacts
+    find /opt/venv -name "*.pyc" -delete && \
+    find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Production stage
 FROM python:3.11-slim AS production
@@ -49,107 +38,70 @@ FROM python:3.11-slim AS production
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app/src \
-    PLAYWRIGHT_BROWSERS_PATH=/home/landppt/.cache/ms-playwright \
-    HOME=/home/landppt
+    PYTHONPATH=/app/src:/opt/venv \
+    PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
+    HOME=/root
 
-# --- MODIFICATION v2 START ---
-# Also remove the default source file in the production stage.
-RUN rm /etc/apt/sources.list.d/debian.sources && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main" > /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main" >> /etc/apt/sources.list
-# --- MODIFICATION v2 END ---
-
-# Install system dependencies for runtime
+# Install only essential runtime dependencies in one layer
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # For PDF processing
     wkhtmltopdf \
-    # For file processing
     poppler-utils \
-    # For image processing
     libmagic1 \
-    # For network requests
     ca-certificates \
     curl \
-    # For Playwright (Chromium dependencies)
     chromium \
-    chromium-driver \
-    # For onnxruntime
     libgomp1 \
-    # For general compatibility
     fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
-    # For netcat (health check)
-    netcat-openbsd \
-    # Chinese fonts support for PDF export
     fonts-noto-cjk \
-    fonts-noto-cjk-extra \
-    fonts-wqy-zenhei \
-    fonts-wqy-microhei \
     fontconfig \
-    # Cleanup
-    && rm -rf /var/lib/apt/lists/* \
-    # Update font cache to ensure Chinese fonts are recognized
-    && fc-cache -fv
+    netcat-openbsd \
+    && fc-cache -fv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
-# Create non-root user with proper home directory and permissions
+# Create non-root user (for compatibility, but run as root)
 RUN groupadd -r landppt && \
     useradd -r -g landppt -m -d /home/landppt landppt && \
-    # Create and set permissions for pyppeteer cache directory
-    mkdir -p /home/landppt/.local/share/pyppeteer && \
-    mkdir -p /home/landppt/.cache && \
-    chown -R landppt:landppt /home/landppt
+    mkdir -p /home/landppt/.cache/ms-playwright /root/.cache/ms-playwright
+
+# Copy Python packages from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Install Playwright with minimal footprint
+RUN pip install --no-cache-dir playwright==1.40.0 && \
+    playwright install chromium && \
+    chown -R landppt:landppt /home/landppt && \
+    rm -rf /tmp/* /var/tmp/*
 
 # Set work directory
 WORKDIR /app
 
-# Copy Python packages from builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy application code
-COPY .env.example ./.env
+# Copy application code (minimize layers)
 COPY run.py ./
 COPY src/ ./src/
 COPY template_examples/ ./template_examples/
 COPY docker-healthcheck.sh docker-entrypoint.sh ./
+COPY .env.example ./.env
 
-# Make scripts executable
-RUN chmod +x docker-healthcheck.sh docker-entrypoint.sh
+# Create directories and set permissions in one layer
+RUN chmod +x docker-healthcheck.sh docker-entrypoint.sh && \
+    mkdir -p temp/ai_responses_cache temp/style_genes_cache temp/summeryanyfile_cache temp/templates_cache \
+             research_reports lib/Linux lib/MacOS lib/Windows uploads data && \
+    chown -R landppt:landppt /app /home/landppt && \
+    chmod -R 755 /app /home/landppt && \
+    chmod 666 /app/.env
 
-# Create necessary directories and set ownership
-RUN mkdir -p temp/ai_responses_cache \
-    temp/style_genes_cache \
-    temp/summeryanyfile_cache \
-    temp/templates_cache \
-    research_reports \
-    lib/Linux \
-    lib/MacOS \
-    lib/Windows \
-    uploads \
-    data \
-    && chown -R landppt:landppt /app \
-    && chmod -R 755 /app \
-    && chmod -R 755 /home/landppt
+# Keep landppt user but run as root to handle file permissions
+# USER landppt
 
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
+# Minimal health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=2 \
     CMD ./docker-healthcheck.sh
 
-# Set entrypoint and default command
+# Set entrypoint and command
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["python", "run.py"]

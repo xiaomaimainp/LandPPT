@@ -23,8 +23,13 @@ class ConfigService:
         if not self.env_path.exists():
             self.env_path.touch()
         
-        # Load environment variables
-        load_dotenv(self.env_file)
+        # Load environment variables with error handling
+        try:
+            load_dotenv(self.env_file)
+        except (PermissionError, FileNotFoundError) as e:
+            logger.warning(f"Could not load .env file {self.env_file}: {e}")
+        except Exception as e:
+            logger.warning(f"Error loading .env file {self.env_file}: {e}")
         
         # Configuration schema
         self.config_schema = {
@@ -207,8 +212,13 @@ class ConfigService:
                     # Update current environment
                     os.environ[env_key] = value
 
-            # Reload environment variables
-            load_dotenv(self.env_file, override=True)
+            # Reload environment variables with error handling
+            try:
+                load_dotenv(self.env_file, override=True)
+            except (PermissionError, FileNotFoundError) as e:
+                logger.warning(f"Could not reload .env file {self.env_file}: {e}")
+            except Exception as e:
+                logger.warning(f"Error reloading .env file {self.env_file}: {e}")
 
             # Reload AI configuration if any AI-related config was updated
             ai_related_keys = [k for k in config.keys() if k in self.config_schema and

@@ -37,6 +37,10 @@ LandPPT is an intelligent presentation generation platform powered by Large Lang
 
 ![image](https://img.pub/p/02bac27fe8097c012d9e.png)
 
+![image](https://img.pub/p/9a38b57c6f5f470ad59b.png)
+
+![image](https://img.pub/p/47090624aec2d337f0df.png)
+
 ![image](https://img.pub/p/bebe9fe671d0125ceac6.png)
 
 ![image](https://img.pub/p/0d2ffc650792c4a133a4.png)
@@ -347,7 +351,9 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 - **Project Homepage**: https://github.com/sligter/LandPPT
 - **Issue Reporting**: https://github.com/sligter/LandPPT/issues
 - **Discussions**: https://github.com/sligter/LandPPT/discussions
+- **Community**: https://t.me/+EaOfoceoNwdhNDVl
 
+![LandPPT](https://github.com/sligter/LandPPT/assets/e3aeeb9f-9d52-46a5-8768-387c7fa3a427)
 ---
 
 <div align="center">

@@ -8,8 +8,17 @@ from pydantic import Field
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables with error handling
+try:
+    load_dotenv()
+except (PermissionError, FileNotFoundError) as e:
+    # Silently continue if .env file is not accessible
+    # This allows the application to work with system environment variables
+    pass
+except Exception as e:
+    # Log other errors but continue
+    import logging
+    logging.getLogger(__name__).warning(f"Could not load .env file: {e}")
 
 class AIConfig(BaseSettings):
     """AI configuration settings"""
@@ -177,11 +186,18 @@ ai_config = AIConfig()
 def reload_ai_config():
     """Reload AI configuration from environment variables"""
     global ai_config
-    # Force reload environment variables
+    # Force reload environment variables with error handling
     from dotenv import load_dotenv
     import os
     env_file = os.path.join(os.getcwd(), '.env')
-    load_dotenv(env_file, override=True)
+    try:
+        load_dotenv(env_file, override=True)
+    except (PermissionError, FileNotFoundError) as e:
+        # Silently continue if .env file is not accessible
+        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Could not reload .env file: {e}")
 
     # Force update the existing instance with new values from environment
     ai_config.openai_model = os.environ.get('OPENAI_MODEL', ai_config.openai_model)

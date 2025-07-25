@@ -3078,8 +3078,10 @@ async def export_project_pptx(project_id: str):
             temp_pptx_path = temp_pptx_file.name
 
         try:
-            # Perform PDF to PPTX conversion
-            conversion_success, result_path = converter.convert_pdf_to_pptx(temp_pdf_path, temp_pptx_path)
+            # Perform PDF to PPTX conversion in thread pool to avoid blocking
+            conversion_success, result_path = await run_blocking_io(
+                converter.convert_pdf_to_pptx, temp_pdf_path, temp_pptx_path
+            )
 
             if not conversion_success:
                 raise HTTPException(status_code=500, detail=f"PDF to PPTX conversion failed: {result_path}")
@@ -3867,13 +3869,17 @@ async def _generate_pdf_with_pyppeteer(project, output_path: str, individual: bo
                 )
 
                 html_file = temp_path / f"slide_{i+1}.html"
-                with open(html_file, 'w', encoding='utf-8') as f:
-                    f.write(slide_html)
+                # Write HTML file in thread pool to avoid blocking
+                def write_html_file(content, path):
+                    with open(path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+
+                await run_blocking_io(write_html_file, slide_html, str(html_file))
                 html_files.append(str(html_file))
 
             # Use Pyppeteer to convert multiple files and merge them
             pdf_dir = temp_path / "pdfs"
-            pdf_dir.mkdir()
+            await run_blocking_io(pdf_dir.mkdir)
 
             logging.info(f"Starting PDF generation for {len(html_files)} files")
 
