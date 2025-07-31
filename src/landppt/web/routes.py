@@ -2705,16 +2705,32 @@ async def get_selected_global_template(
 ):
     """获取项目选择的全局母版模板"""
     try:
-        template = await ppt_service.get_selected_global_template(project_id)
-        if template:
-            return {"status": "success", "template": template}
+        # 检查项目是否真正选择了模板
+        selected_template = await ppt_service.get_selected_global_template(project_id)
+        if selected_template:
+            logger.info(f"Project {project_id} has selected template: {selected_template.get('template_name', 'Unknown')}")
+            return {
+                "status": "success",
+                "template": selected_template,
+                "is_user_selected": True
+            }
         else:
             # 如果没有选择的模板，尝试获取默认模板
             default_template = await ppt_service.global_template_service.get_default_template()
             if default_template:
-                return {"status": "success", "template": default_template}
+                logger.info(f"Project {project_id} using default template: {default_template.get('template_name', 'Unknown')}")
+                return {
+                    "status": "success",
+                    "template": default_template,
+                    "is_user_selected": False
+                }
             else:
-                return {"status": "success", "template": None}
+                logger.warning(f"No template available for project {project_id}")
+                return {
+                    "status": "success",
+                    "template": None,
+                    "is_user_selected": False
+                }
     except Exception as e:
         logger.error(f"Error getting selected global template for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

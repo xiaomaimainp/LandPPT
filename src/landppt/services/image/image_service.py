@@ -607,13 +607,14 @@ class ImageService:
                             continue
 
                     # 构建图片信息
+                    from ..url_service import build_image_url
                     image_data = {
                         "id": image_info.image_id,  # 添加id字段
                         "image_id": image_info.image_id,
                         "title": image_info.title,
                         "description": image_info.description,
                         "filename": image_info.filename,
-                        "url": f"/api/image/view/{image_info.image_id}",  # 添加url字段
+                        "url": build_image_url(image_info.image_id),  # 使用URL服务生成绝对URL
                         "file_size": cache_info.file_size,
                         "width": image_info.metadata.width if image_info.metadata else 0,  # 添加宽度
                         "height": image_info.metadata.height if image_info.metadata else 0,  # 添加高度
@@ -673,13 +674,14 @@ class ImageService:
                                 continue
 
                             # 构建图片信息
+                            from ..url_service import build_image_url
                             image_data = {
                                 "id": image_info.image_id,  # 添加id字段
                                 "image_id": image_info.image_id,
                                 "title": image_info.title,
                                 "description": image_info.description,
                                 "filename": image_info.filename,
-                                "url": f"/api/image/view/{image_info.image_id}",  # 添加url字段
+                                "url": build_image_url(image_info.image_id),  # 使用URL服务生成绝对URL
                                 "file_size": cache_info.file_size,
                                 "width": image_info.metadata.width if image_info.metadata else 0,  # 添加宽度
                                 "height": image_info.metadata.height if image_info.metadata else 0,  # 添加高度

@@ -917,10 +917,54 @@
         let slidesData = [];
         let currentSlideIndex = 0;
 
-        function startGeneration() {
+        async function startGeneration() {
             // Prevent multiple simultaneous generations
             if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                 return;
+            }
+
+            // 检查全局模板设置
+            console.log('开始检查全局模板设置...');
+            try {
+                const templateUrl = `/api/projects/{{ todo_board.task_id }}/selected-global-template`;
+                console.log('请求模板API:', templateUrl);
+
+                const templateResponse = await fetch(templateUrl);
+                console.log('模板API响应状态:', templateResponse.status);
+
+                if (!templateResponse.ok) {
+                    throw new Error(`API请求失败: ${templateResponse.status} ${templateResponse.statusText}`);
+                }
+
+                const templateData = await templateResponse.json();
+                console.log('模板API响应数据:', templateData);
+
+                // 检查是否用户主动选择了模板，而不是使用默认模板
+                if (!templateData.template || !templateData.is_user_selected) {
+                    const templateName = templateData.template ? templateData.template.template_name : '无';
+                    console.log('未检测到用户选择的全局模板，当前使用:', templateName, '是否用户选择:', templateData.is_user_selected);
+
+                    // 未检测到用户选择的全局模板ID，跳转到模板选择页面
+                    if (confirm('检测到您还未选择全局模板，需要先选择模板才能开始生成PPT。是否跳转到模板选择页面？')) {
+                        console.log('用户确认跳转到模板选择页面');
+                        window.location.href = `/projects/{{ todo_board.task_id }}/template-selection`;
+                        return;
+                    } else {
+                        console.log('用户取消跳转，停止生成');
+                        return; // 用户取消，不继续生成
+                    }
+                } else {
+                    console.log('检测到用户已选择的全局模板:', templateData.template.template_name);
+                }
+            } catch (error) {
+                console.error('检查全局模板时出错:', error);
+                // 如果检查失败，询问用户是否继续
+                if (!confirm('无法检查全局模板设置，是否继续生成PPT？')) {
+                    console.log('用户选择不继续生成');
+                    return;
+                } else {
+                    console.log('用户选择继续生成，忽略模板检查错误');
+                }
             }
 
             const startBtn = document.getElementById('startBtn');

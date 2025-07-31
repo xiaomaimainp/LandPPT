@@ -331,12 +331,8 @@ async def generate_image(
         if result.success:
             # 返回通过本地图床服务可访问的图片URL（绝对地址）
             if result.image_info:
-                from ..services.config_service import config_service
-                app_config = config_service.get_config_by_category('app_config')
-                base_url = app_config.get('base_url', 'http://localhost:8000')
-                if base_url.endswith('/'):
-                    base_url = base_url[:-1]
-                image_url = f"{base_url}/api/image/view/{result.image_info.image_id}"
+                from ..services.url_service import build_image_url
+                image_url = build_image_url(result.image_info.image_id)
             else:
                 image_url = None
 
@@ -520,7 +516,8 @@ async def get_image_info(
             raise HTTPException(status_code=404, detail="Image not found")
 
         # 构建绝对URL
-        absolute_url = f"{request.url.scheme}://{request.url.netloc}/api/image/view/{image_id}"
+        from ..services.url_service import build_image_url
+        absolute_url = build_image_url(image_id)
 
         return {
             "success": True,

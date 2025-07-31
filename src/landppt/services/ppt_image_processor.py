@@ -33,29 +33,13 @@ class PPTImageProcessor:
 
     def _get_base_url(self) -> str:
         """获取基础URL，用于构建绝对图片链接"""
-        if self._base_url is None:
-            try:
-                from .config_service import config_service
-                app_config = config_service.get_config_by_category('app_config')
-                self._base_url = app_config.get('base_url', 'http://localhost:8000')
-
-                # 确保URL不以斜杠结尾
-                if self._base_url.endswith('/'):
-                    self._base_url = self._base_url[:-1]
-
-            except Exception as e:
-                logger.warning(f"无法获取基础URL配置，使用默认值: {e}")
-                self._base_url = 'http://localhost:8000'
-
-        return self._base_url
+        from .url_service import get_current_base_url
+        return get_current_base_url()
 
     def _build_absolute_image_url(self, relative_path: str) -> str:
         """构建绝对图片URL"""
-        base_url = self._get_base_url()
-        # 确保相对路径以斜杠开头
-        if not relative_path.startswith('/'):
-            relative_path = '/' + relative_path
-        return f"{base_url}{relative_path}"
+        from .url_service import build_absolute_url
+        return build_absolute_url(relative_path)
 
     def _get_enabled_image_sources(self, image_config: Dict[str, Any]) -> List[ImageSource]:
         """获取启用的图像来源"""
@@ -671,8 +655,8 @@ class PPTImageProcessor:
                 result = await self.image_service.generate_image(generation_request)
 
                 if result.success and result.image_info:
-                    relative_url = f"/api/image/view/{result.image_info.image_id}"
-                    absolute_url = self._build_absolute_image_url(relative_url)
+                    from .url_service import build_image_url
+                    absolute_url = build_image_url(result.image_info.image_id)
 
                     slide_image = SlideImageInfo(
                         image_id=result.image_info.image_id,
@@ -905,8 +889,8 @@ class PPTImageProcessor:
 
                         if result.success and result.image_info:
                             # 构建图床API的绝对URL
-                            relative_url = f"/api/image/view/{result.image_info.image_id}"
-                            absolute_url = self._build_absolute_image_url(relative_url)
+                            from .url_service import build_image_url
+                            absolute_url = build_image_url(result.image_info.image_id)
 
                             return {
                                 'image_id': result.image_info.image_id,

@@ -324,6 +324,19 @@ A: 在 `.env` 文件中配置相应的API密钥：
 - Unsplash: `UNSPLASH_ACCESS_KEY`
 - AI生成: `SILICONFLOW_API_KEY` 或 `POLLINATIONS_API_TOKEN`
 
+### Q:在使用反向代理（如Nginx、Apache等）时，如果没有正确配置`base_url`，会出现以下问题：
+- 图片链接仍然显示为`localhost:8000`
+- 前端无法正确加载图片
+- 图片预览、下载等功能异常
+
+A:  通过Web界面配置
+
+1. 访问系统配置页面：`https://your-domain.com/ai-config`
+2. 切换到"应用配置"标签页
+3. 在"基础URL (BASE_URL)"字段中输入您的代理域名
+4. 例如：`https://your-domain.com` 或 `http://your-domain.com:8080`
+5. 点击"保存应用配置"
+
 ### Q: 研究功能如何使用？
 A: 配置 `TAVILY_API_KEY` 或部署 SearXNG 实例，然后在创建PPT时启用研究功能即可自动获取相关信息。
 

@@ -329,6 +329,19 @@ A: Configure the corresponding API keys in the `.env` file:
 - Unsplash: `UNSPLASH_ACCESS_KEY`
 - AI Generation: `SILICONFLOW_API_KEY` or `POLLINATIONS_API_TOKEN`
 
+### Q: When using a reverse proxy (such as Nginx, Apache, etc.), if `base_url` is not configured correctly, the following issues may occur:
+- Image links still display as `localhost:8000`
+- Images cannot be loaded correctly on the front end
+- Image preview and download functions do not function properly
+
+A: Configure via the web interface
+
+1. Visit the system configuration page: `https://your-domain.com/ai-config`
+2. Switch to the "Application Configuration" tab
+3. Enter your proxy domain name in the "Base URL (BASE_URL)" field
+4. For example: `https://your-domain.com` or `http://your-domain.com:8080`
+5. Click "Save Application Configuration"
+
 ### Q: How to use the research functionality?
 A: Configure `TAVILY_API_KEY` or deploy a SearXNG instance, then enable research functionality when creating PPTs to automatically get relevant information.
 
