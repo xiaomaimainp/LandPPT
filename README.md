@@ -361,7 +361,7 @@ A: 需要配置 `APRYSE_LICENSE_KEY`，然后在导出选项中选择PPTX格式�
 - **讨论区**: https://github.com/sligter/LandPPT/discussions
 - **交流群**: https://t.me/+EaOfoceoNwdhNDVl
 
-![LandPPT](https://img.pub/p/41492510f5639eda85c6.png)
+![LandPPT](https://img.pub/p/1385e52128c9bafc62e7.png)
 ---
 
 <div align="center">
