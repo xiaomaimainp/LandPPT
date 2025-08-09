@@ -250,6 +250,165 @@ async def web_ai_config(
         "user": user.to_dict()
     })
 
+@router.post("/api/ai/providers/openai/models")
+async def get_openai_models(
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """Proxy endpoint to get OpenAI models list, avoiding CORS issues - uses frontend provided config"""
+    try:
+        import aiohttp
+        import json
+        
+        # Get configuration from frontend request
+        data = await request.json()
+        base_url = data.get('base_url', 'https://api.openai.com/v1')
+        api_key = data.get('api_key', '')
+        
+        logger.info(f"Frontend requested models from: {base_url}")
+        
+        if not api_key:
+            return {"success": False, "error": "API Key is required"}
+        
+        # Ensure base URL ends with /v1
+        if not base_url.endswith('/v1'):
+            base_url = base_url.rstrip('/') + '/v1'
+        
+        models_url = f"{base_url}/models"
+        logger.info(f"Fetching models from: {models_url}")
+        
+        # Make request to OpenAI API using frontend provided credentials
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            async with session.get(models_url, headers=headers, timeout=30) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    # Filter and sort models
+                    models = []
+                    if 'data' in data and isinstance(data['data'], list):
+                        for model in data['data']:
+                            if model.get('id'):
+                                models.append({
+                                    'id': model['id'],
+                                    'created': model.get('created', 0),
+                                    'owned_by': model.get('owned_by', 'unknown')
+                                })
+                        
+                        # Sort models with GPT-4 first, then GPT-3.5, then others
+                        def get_priority(model_id):
+                            if 'gpt-4' in model_id:
+                                return 0
+                            elif 'gpt-3.5' in model_id:
+                                return 1
+                            else:
+                                return 2
+                        
+                        models.sort(key=lambda x: (get_priority(x['id']), x['id']))
+                    logger.info(f"Successfully fetched {len(models)} models from {base_url}")
+                    return {"success": True, "models": models}
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to fetch models from {base_url}: {response.status} - {error_text}")
+                    return {"success": False, "error": f"API returned status {response.status}: {error_text}"}
+                    
+    except Exception as e:
+        logger.error(f"Error fetching OpenAI models from frontend config: {e}")
+        return {"success": False, "error": str(e)}
+
+@router.post("/api/ai/providers/openai/test")
+async def test_openai_provider_proxy(
+    request: Request,
+    user: User = Depends(get_current_user_required)
+):
+    """Proxy endpoint to test OpenAI provider, avoiding CORS issues - uses frontend provided config"""
+    try:
+        import aiohttp
+        
+        # Get configuration from frontend request
+        data = await request.json()
+        base_url = data.get('base_url', 'https://api.openai.com/v1')
+        api_key = data.get('api_key', '')
+        model = data.get('model', 'gpt-4o')
+        
+        logger.info(f"Frontend requested test with: base_url={base_url}, model={model}")
+        
+        if not api_key:
+            return {"success": False, "error": "API Key is required"}
+        
+        # Ensure base URL ends with /v1
+        if not base_url.endswith('/v1'):
+            base_url = base_url.rstrip('/') + '/v1'
+        
+        chat_url = f"{base_url}/chat/completions"
+        logger.info(f"Testing OpenAI provider at: {chat_url}")
+        
+        # Make test request to OpenAI API using frontend provided credentials
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Say 'Hello, I am working!' in exactly 5 words."
+                    }
+                ],
+                "max_tokens": 20,
+                "temperature": 0
+            }
+            
+            async with session.post(chat_url, headers=headers, json=payload, timeout=30) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    logger.info(f"Test successful for {base_url} with model {model}")
+                    
+                    # Return with consistent format that frontend expects
+                    return {
+                        "success": True,
+                        "status": "success",  # Add status field for compatibility
+                        "provider": "openai",
+                        "model": model,
+                        "response_preview": data['choices'][0]['message']['content'],
+                        "usage": data.get('usage', {
+                            "prompt_tokens": 0,
+                            "completion_tokens": 0,
+                            "total_tokens": 0
+                        })
+                    }
+                else:
+                    error_text = await response.text()
+                    try:
+                        error_data = json.loads(error_text)
+                        error_message = error_data.get('error', {}).get('message', f"API returned status {response.status}")
+                    except:
+                        error_message = f"API returned status {response.status}: {error_text}"
+                    
+                    logger.error(f"Test failed for {base_url}: {error_message}")
+                    
+                    return {
+                        "success": False,
+                        "status": "error",  # Add status field for compatibility
+                        "error": error_message
+                    }
+                    
+    except Exception as e:
+        logger.error(f"Error testing OpenAI provider with frontend config: {e}")
+        return {
+            "success": False,
+            "status": "error",  # Add status field for compatibility
+            "error": str(e)
+        }
+
 @router.get("/scenarios", response_class=HTMLResponse)
 async def web_scenarios(
     request: Request,

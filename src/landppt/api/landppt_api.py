@@ -128,15 +128,74 @@ async def get_ai_providers():
     }
 
 @router.post("/ai/providers/{provider_name}/test")
-async def test_ai_provider(provider_name: str):
-    """Test a specific AI provider"""
+async def test_ai_provider(provider_name: str, request: Request):
+    """Test a specific AI provider - uses frontend provided config if available"""
     try:
+        import aiohttp
+        import json
+        
+        # Try to get configuration from request body (if provided by frontend)
+        body = None
+        try:
+            body = await request.json()
+        except:
+            pass  # No JSON body, use backend config
+        
+        # Special handling for OpenAI provider with frontend config
+        if provider_name == "openai" and body:
+            base_url = body.get('base_url')
+            api_key = body.get('api_key')
+            model = body.get('model', 'gpt-4o')
+            
+            if base_url and api_key:
+                # Use frontend provided config for OpenAI
+                logger.info(f"Testing OpenAI with frontend config: {base_url}")
+                
+                # Ensure base URL ends with /v1
+                if not base_url.endswith('/v1'):
+                    base_url = base_url.rstrip('/') + '/v1'
+                
+                chat_url = f"{base_url}/chat/completions"
+                
+                async with aiohttp.ClientSession() as session:
+                    headers = {
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json'
+                    }
+                    
+                    payload = {
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": "Say 'Hello, I am working!' in exactly 5 words."
+                            }
+                        ],
+                        "max_tokens": 20,
+                        "temperature": 0
+                    }
+                    
+                    async with session.post(chat_url, headers=headers, json=payload, timeout=30) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            return {
+                                "provider": provider_name,
+                                "status": "success",
+                                "model": model,
+                                "response_preview": data['choices'][0]['message']['content'],
+                                "usage": data.get('usage', {})
+                            }
+                        else:
+                            error_text = await response.text()
+                            raise HTTPException(status_code=response.status, detail=f"API error: {error_text}")
+        
+        # Fallback to backend config for other providers or when no frontend config
         from ..ai import AIProviderFactory, AIMessage, MessageRole
 
         if not ai_config.is_provider_available(provider_name):
             raise HTTPException(status_code=400, detail=f"Provider {provider_name} is not available")
 
-        # Create provider instance
+        # Create provider instance with backend config
         provider = AIProviderFactory.create_provider(provider_name)
 
         # Test with a simple message
@@ -155,7 +214,10 @@ async def test_ai_provider(provider_name: str):
             "usage": response.usage
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Provider test failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Provider test failed: {str(e)}")
 
 @router.get("/scenarios", response_model=List[PPTScenario])
