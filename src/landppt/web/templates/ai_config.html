@@ -114,6 +114,7 @@
                         <div class="form-group">
                             <label>API Key:</label>
                             <input type="password" name="openai_api_key" placeholder="sk-..."
+                                   value="{{ current_config.get('openai_api_key', '') }}"
                                    style="font-family: monospace; font-size: 0.9em;">
                         </div>
                         <div class="form-group">
@@ -142,6 +143,7 @@
                         <div class="form-group">
                             <label>API Key:</label>
                             <input type="password" name="anthropic_api_key" placeholder="sk-ant-..."
+                                   value="{{ current_config.get('anthropic_api_key', '') }}"
                                    style="font-family: monospace; font-size: 0.9em;">
                         </div>
                         <div class="form-group">
@@ -155,6 +157,7 @@
                         <div class="form-group">
                             <label>API Key:</label>
                             <input type="password" name="google_api_key" placeholder="your-google-api-key"
+                                   value="{{ current_config.get('google_api_key', '') }}"
                                    style="font-family: monospace; font-size: 0.9em;">
                         </div>
                         <div class="form-group">
@@ -168,21 +171,25 @@
                         <div class="form-group">
                             <label>API Key:</label>
                             <input type="password" name="azure_openai_api_key" placeholder="your-azure-key"
+                                   value="{{ current_config.get('azure_openai_api_key', '') }}"
                                    style="font-family: monospace; font-size: 0.9em;">
                         </div>
                         <div class="form-group">
                             <label>Endpoint:</label>
                             <input type="text" name="azure_openai_endpoint"
+                                   value="{{ current_config.get('azure_openai_endpoint', '') }}"
                                    placeholder="https://your-resource.openai.azure.com/">
                         </div>
                         <div class="form-group">
                             <label>Deployment Name:</label>
                             <input type="text" name="azure_openai_deployment_name"
+                                   value="{{ current_config.get('azure_openai_deployment_name', '') }}"
                                    placeholder="your-deployment-name">
                         </div>
                         <div class="form-group">
                             <label>API Version:</label>
                             <input type="text" name="azure_openai_api_version"
+                                   value="{{ current_config.get('azure_openai_api_version', '') }}"
                                    placeholder="2024-02-15-preview">
                         </div>
                     {% elif provider == "ollama" %}
@@ -318,6 +325,7 @@
                             Tavily API Key
                         </label>
                         <input type="password" name="tavily_api_key" placeholder="tvly-..."
+                               value="{{ current_config.get('tavily_api_key', '') }}"
                                style="font-family: monospace; font-size: 0.9em; margin-bottom: 8px;">
                         <small style="color: #6c757d; font-size: 0.85em; line-height: 1.4;">
                             用于深度研究功能的API密钥，可在 <a href="https://tavily.com" target="_blank" style="color: #e74c3c;">Tavily官网</a> 获取
@@ -329,6 +337,7 @@
                             SearXNG 主机地址
                         </label>
                         <input type="url" name="searxng_host" placeholder="http://localhost:8888"
+                               value="{{ current_config.get('searxng_host', '') }}"
                                style="font-family: monospace; font-size: 0.9em; margin-bottom: 8px;">
                         <small style="color: #6c757d; font-size: 0.85em; line-height: 1.4;">
                             SearXNG 实例的完整URL地址，用于开源搜索引擎研究功能
@@ -387,6 +396,7 @@
                         Apryse License Key (PPT导出)
                     </label>
                     <input type="password" name="apryse_license_key" placeholder="your-apryse-license-key"
+                           value="{{ current_config.get('apryse_license_key', '') }}"
                            style="font-family: monospace; font-size: 0.9em; margin-bottom: 8px;">
                     <small style="color: #6c757d; font-size: 0.85em; line-height: 1.4;">
                         用于PPTX导出功能的Apryse SDK许可证密钥，可在 <a href="https://www.pdftron.com/" target="_blank" style="color: #9b59b6;">Apryse官网</a> 获取
@@ -589,13 +599,17 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">DALL-E API Key (OpenAI):</label>
-                            <input type="password" name="openai_api_key_image" placeholder="sk-..." style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="password" name="openai_api_key_image" placeholder="sk-..."
+                                   value="{{ current_config.get('openai_api_key_image', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">用于DALL-E 3图片生成，与文本生成共用OpenAI密钥</small>
                         </div>
 
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">SiliconFlow API Key:</label>
-                            <input type="password" name="siliconflow_api_key" placeholder="your-siliconflow-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="password" name="siliconflow_api_key" placeholder="your-siliconflow-api-key"
+                                   value="{{ current_config.get('siliconflow_api_key', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">用于SiliconFlow Kolors图片生成</small>
                         </div>
                     </div>
@@ -609,13 +623,17 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">API Token (可选):</label>
-                            <input type="password" name="pollinations_api_token" placeholder="your-pollinations-token" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="password" name="pollinations_api_token" placeholder="your-pollinations-token"
+                                   value="{{ current_config.get('pollinations_api_token', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">可选的API Token，用于移除logo和获得更高的使用限制</small>
                         </div>
 
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">Referrer (可选):</label>
-                            <input type="text" name="pollinations_referrer" placeholder="MyApp" style="margin-top: 5px;">
+                            <input type="text" name="pollinations_referrer" placeholder="MyApp"
+                                   value="{{ current_config.get('pollinations_referrer', '') }}"
+                                   style="margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">推荐人标识符，用于认证和统计（可选）</small>
                         </div>
                     </div>
@@ -635,19 +653,25 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">Unsplash Access Key:</label>
-                            <input type="password" name="unsplash_access_key" placeholder="your-unsplash-access-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="password" name="unsplash_access_key" placeholder="your-unsplash-access-key"
+                                   value="{{ current_config.get('unsplash_access_key', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索Unsplash高质量摄影图片，支持多语言搜索</small>
                         </div>
 
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">Pixabay API Key:</label>
-                            <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="password" name="pixabay_api_key" placeholder="your-pixabay-api-key"
+                                   value="{{ current_config.get('pixabay_api_key', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">用于搜索免费图片和插图</small>
                         </div>
 
                         <div class="form-group">
                             <label style="font-weight: 500; color: #495057;">SearXNG Host:</label>
-                            <input type="url" name="searxng_host" placeholder="http://localhost:8888" style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
+                            <input type="url" name="searxng_host_image" placeholder="http://localhost:8888"
+                                   value="{{ current_config.get('searxng_host_image', '') }}"
+                                   style="font-family: monospace; font-size: 0.9em; margin-top: 5px;">
                             <small style="color: #6c757d; margin-top: 5px; display: block;">SearXNG实例的主机地址，用于开源搜索引擎图片搜索</small>
                         </div>
                     </div>
@@ -1867,6 +1891,15 @@ function populateTabForm(tabName, config) {
         if (config[name] !== undefined) {
             if (input.type === 'checkbox') {
                 input.checked = config[name];
+            } else if (input.type === 'password') {
+                // 对于密码字段，如果有配置值且输入框为空，则显示配置值
+                if (!input.value && config[name]) {
+                    input.value = config[name];
+                }
+                // 如果有配置值，更新placeholder为掩码显示
+                if (config[name]) {
+                    input.placeholder = '••••••••';
+                }
             } else {
                 input.value = config[name];
             }
@@ -1940,9 +1973,20 @@ async function testOpenAIProvider(config) {
         let baseUrl = config.openai_base_url;
         let model = config.openai_model;
 
-        // 如果没有填写必要信息，提示用户
+        // 如果前端没有填写API Key，尝试从后端获取
         if (!apiKey) {
-            throw new Error('请在页面上填写 API Key');
+            const configResponse = await fetch('/api/config/ai_providers');
+            if (configResponse.ok) {
+                const configResult = await configResponse.json();
+                if (configResult.success && configResult.config.openai_api_key) {
+                    apiKey = configResult.config.openai_api_key;
+                }
+            }
+        }
+
+        // 如果仍然没有API Key，提示用户
+        if (!apiKey) {
+            throw new Error('请先配置 OpenAI API Key');
         }
 
         // 如果没有填写 Base URL，使用默认值
@@ -2357,9 +2401,13 @@ function populateProviderForms() {
                 if (input.type === 'checkbox') {
                     input.checked = currentConfig[configKey] === 'true';
                 } else if (input.type === 'password') {
-                    // 对于密码字段，只更新placeholder，不覆盖value
-                    if (!input.value) {
-                        input.placeholder = currentConfig[configKey] ? '••••••••' : input.placeholder;
+                    // 对于密码字段，如果有配置值且输入框为空，则显示配置值
+                    if (!input.value && currentConfig[configKey]) {
+                        input.value = currentConfig[configKey];
+                    }
+                    // 如果有配置值，更新placeholder为掩码显示
+                    if (currentConfig[configKey]) {
+                        input.placeholder = '••••••••';
                     }
                 } else {
                     // 只有当输入框为空时才设置值，避免覆盖模板中已设置的值
@@ -2383,9 +2431,13 @@ function populateGenerationParams() {
             if (input.type === 'checkbox') {
                 input.checked = currentConfig[configKey] === 'true';
             } else if (input.type === 'password') {
-                // 对于密码字段，只更新placeholder，不覆盖value
-                if (!input.value) {
-                    input.placeholder = currentConfig[configKey] ? '••••••••' : input.placeholder;
+                // 对于密码字段，如果有配置值且输入框为空，则显示配置值
+                if (!input.value && currentConfig[configKey]) {
+                    input.value = currentConfig[configKey];
+                }
+                // 如果有配置值，更新placeholder为掩码显示
+                if (currentConfig[configKey]) {
+                    input.placeholder = '••••••••';
                 }
             } else {
                 // 只有当输入框为空时才设置值，避免覆盖模板中已设置的值
@@ -2410,9 +2462,13 @@ function populateAppConfig() {
             if (input.type === 'checkbox') {
                 input.checked = currentConfig[configKey] === 'true';
             } else if (input.type === 'password') {
-                // 对于密码字段，只更新placeholder，不覆盖value
-                if (!input.value) {
-                    input.placeholder = currentConfig[configKey] ? '••••••••' : input.placeholder;
+                // 对于密码字段，如果有配置值且输入框为空，则显示配置值
+                if (!input.value && currentConfig[configKey]) {
+                    input.value = currentConfig[configKey];
+                }
+                // 如果有配置值，更新placeholder为掩码显示
+                if (currentConfig[configKey]) {
+                    input.placeholder = '••••••••';
                 }
             } else {
                 // 只有当输入框为空时才设置值，避免覆盖模板中已设置的值
@@ -2435,9 +2491,13 @@ function populateImageServiceConfig() {
             if (input.type === 'checkbox') {
                 input.checked = currentConfig[configKey] === 'true' || currentConfig[configKey] === true;
             } else if (input.type === 'password') {
-                // 对于密码字段，只更新placeholder，不覆盖value
-                if (!input.value) {
-                    input.placeholder = currentConfig[configKey] ? '••••••••' : input.placeholder;
+                // 对于密码字段，如果有配置值且输入框为空，则显示配置值
+                if (!input.value && currentConfig[configKey]) {
+                    input.value = currentConfig[configKey];
+                }
+                // 如果有配置值，更新placeholder为掩码显示
+                if (currentConfig[configKey]) {
+                    input.placeholder = '••••••••';
                 }
             } else {
                 // 只有当输入框为空时才设置值，避免覆盖模板中已设置的值
@@ -3123,12 +3183,27 @@ async function fetchAndShowModels() {
             }
         }
 
-        // 获取API Key - 只使用前端页面填写的信息
+        // 获取API Key - 优先使用前端页面填写的信息，如果没有则从后端获取
         const apiKeyInput = document.querySelector('input[name="openai_api_key"]');
         let apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
+        // 如果前端没有填写API Key，尝试从后端获取
         if (!apiKey) {
-            showNotification('请先在页面上填写 API Key', 'warning');
+            try {
+                const configResponse = await fetch('/api/config/ai_providers');
+                if (configResponse.ok) {
+                    const configResult = await configResponse.json();
+                    if (configResult.success && configResult.config.openai_api_key) {
+                        apiKey = configResult.config.openai_api_key;
+                    }
+                }
+            } catch (error) {
+                console.error('获取后端配置失败:', error);
+            }
+        }
+
+        if (!apiKey) {
+            showNotification('请先配置 OpenAI API Key', 'warning');
             return;
         }
 
