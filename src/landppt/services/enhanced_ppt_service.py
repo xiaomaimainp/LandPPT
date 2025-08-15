@@ -455,8 +455,13 @@ class EnhancedPPTService(PPTService):
 
         except Exception as e:
             logger.error(f"Error generating AI outline: {str(e)}")
-            # Fallback to original method
-            return await super().generate_outline(request)
+            # 不再使用fallback，直接抛出异常
+            if "timeout" in str(e).lower() or "request timed out" in str(e).lower():
+                raise Exception("AI服务响应超时，请检查网络连接后重新生成大纲。")
+            elif "api" in str(e).lower() and "error" in str(e).lower():
+                raise Exception("AI服务暂时不可用，请稍后重新生成大纲。")
+            else:
+                raise Exception(f"AI生成大纲失败：{str(e)}。请重新生成大纲。")
     
     async def generate_slide_content(self, slide_title: str, scenario: str, topic: str, language: str = "zh") -> str:
         """Generate slide content using AI"""
@@ -717,9 +722,9 @@ class EnhancedPPTService(PPTService):
 
                     page_number += 1
 
-            # If no slides were parsed, create default structure
+            # If no slides were parsed, throw error instead of creating default structure
             if not slides:
-                slides = self._create_default_slides_compatible(title, request)
+                raise Exception("AI生成的大纲内容为空或无法识别有效的幻灯片结构")
 
             return PPTOutline(
                 title=title,
@@ -735,8 +740,8 @@ class EnhancedPPTService(PPTService):
 
         except Exception as e:
             logger.error(f"Error parsing AI outline: {str(e)}")
-            # Fallback to default structure
-            return self._create_default_outline(request)
+            # 不再使用默认大纲，直接抛出异常
+            raise Exception(f"AI生成的大纲格式无效，无法解析：{str(e)}")
     
     def _create_default_slides(self, title: str, request: PPTGenerationRequest) -> List[Dict[str, Any]]:
         """Create default slide structure when AI parsing fails (legacy format)"""
@@ -1305,14 +1310,33 @@ class EnhancedPPTService(PPTService):
             )
 
             # Generate outline content directly without initial message
-            response = await self.ai_provider.text_completion(
-                prompt=prompt,
-                max_tokens=ai_config.max_tokens,
-                temperature=ai_config.temperature
-            )
+            try:
+                response = await self.ai_provider.text_completion(
+                    prompt=prompt,
+                    max_tokens=ai_config.max_tokens,
+                    temperature=ai_config.temperature
+                )
 
-            # Get the AI response content
-            content = response.content.strip()
+                # Get the AI response content
+                content = response.content.strip()
+
+                # 检查AI响应是否为空或无效
+                if not content or len(content.strip()) < 10:
+                    error_message = "AI生成的内容为空或过短，请重新生成大纲。"
+                    yield f"data: {json.dumps({'error': error_message})}\n\n"
+                    return
+
+            except Exception as ai_error:
+                logger.error(f"AI provider error during outline generation: {str(ai_error)}")
+                # 根据错误类型提供更具体的错误信息
+                if "timeout" in str(ai_error).lower() or "request timed out" in str(ai_error).lower():
+                    error_message = "AI服务响应超时，请检查网络连接后重新生成大纲。"
+                elif "api" in str(ai_error).lower() and "error" in str(ai_error).lower():
+                    error_message = "AI服务暂时不可用，请稍后重新生成大纲。"
+                else:
+                    error_message = f"AI生成大纲失败：{str(ai_error)}。请重新生成大纲。"
+                yield f"data: {json.dumps({'error': error_message})}\n\n"
+                return
 
             # Import re for regex operations
             import re
@@ -1391,95 +1415,21 @@ class EnhancedPPTService(PPTService):
                 await self._update_outline_generation_stage(project_id, structured_outline)
 
             except Exception as parse_error:
-                logger.warning(f"Failed to parse AI response as JSON: {parse_error}")
+                logger.error(f"Failed to parse AI response as JSON: {parse_error}")
+                logger.error(f"AI response content: {content[:500]}...")
 
-                # Fallback: parse text-based outline and convert to JSON
-                structured_outline = self._parse_outline_content(content, project)
-
-                # 验证和修复fallback生成的大纲
-                structured_outline = await self._validate_and_repair_outline_json(structured_outline, confirmed_requirements)
-
-                # 添加元数据
-                structured_outline['metadata'] = {
-                    'generated_with_summeryfile': False,
-                    'page_count_settings': page_count_settings,
-                    'actual_page_count': len(structured_outline.get('slides', [])),
-                    'generated_at': time.time()
-                }
-
-                formatted_json = json.dumps(structured_outline, ensure_ascii=False, indent=2)
-
-                # Stream the formatted JSON
-                for i, char in enumerate(formatted_json):
-                    yield f"data: {json.dumps({'content': char})}\n\n"
-
-                    if i % 10 == 0:
-                        await asyncio.sleep(0.05)
-
-                # Store the structured data
-                project.outline = structured_outline  # 直接保存结构化数据
-                project.updated_at = time.time()
-
-                # 立即保存到数据库
-                try:
-                    from .db_project_manager import DatabaseProjectManager
-                    db_manager = DatabaseProjectManager()
-                    save_success = await db_manager.save_project_outline(project_id, project.outline)
-
-                    if save_success:
-                        logger.info(f"✅ Successfully saved fallback outline to database during streaming for project {project_id}")
-                        # 同时更新内存中的项目管理器
-                        self.project_manager.projects[project_id] = project
-                    else:
-                        logger.error(f"❌ Failed to save fallback outline to database during streaming for project {project_id}")
-
-                except Exception as save_error:
-                    logger.error(f"❌ Exception while saving fallback outline during streaming: {str(save_error)}")
-                    import traceback
-                    traceback.print_exc()
-
-                # Update stage status - 确保structured_outline已定义
-                if structured_outline is not None:
-                    await self._update_outline_generation_stage(project_id, structured_outline)
-
-                    # 检查是否已选择全局母版，如果没有则使用默认母版
-                    logger.info(f"🎨 检查项目 {project_id} 的全局母版选择")
-                    selected_template = await self._ensure_global_master_template_selected(project_id)
-
-                    if selected_template:
-                        logger.info(f"✅ 项目 {project_id} 已选择全局母版: {selected_template['template_name']}")
-                    else:
-                        logger.warning(f"⚠️ 项目 {project_id} 未找到可用的全局母版，将使用备用模板")
-                    
-                else:
-                    # 如果structured_outline未定义，使用项目大纲数据
-                    if project.outline and project.outline.get('slides'):
-                        outline_data = {
-                            "title": project.outline.get("title", project.topic),
-                            "slides": project.outline.get("slides", [])
-                        }
-                        await self._update_outline_generation_stage(project_id, outline_data)
-
-                    else:
-                        # 创建默认的大纲数据
-                        default_outline = {
-                            "title": project.topic,
-                            "slides": [
-                                {
-                                    "page_number": 1,
-                                    "title": project.topic,
-                                    "content_points": ["项目介绍"],
-                                    "slide_type": "title"
-                                }
-                            ]
-                        }
-                        await self._update_outline_generation_stage(project_id, default_outline)
-                # Send completion signal without message
-                yield f"data: {json.dumps({'done': True})}\n\n"
+                # 不再使用fallback默认大纲，直接抛出错误
+                error_message = f"AI生成的大纲格式无效，无法解析。请重新生成大纲。"
+                yield f"data: {json.dumps({'error': error_message})}\n\n"
+                return
 
         except Exception as e:
             logger.error(f"Error in outline streaming generation: {str(e)}")
-            error_message = f'生成大纲时出现错误：{str(e)}'
+            # 检查是否是AI提供商的错误（如超时、API错误等）
+            if "timeout" in str(e).lower() or "api error" in str(e).lower() or "request timed out" in str(e).lower():
+                error_message = f'AI服务暂时不可用：{str(e)}。请稍后重试或检查网络连接。'
+            else:
+                error_message = f'生成大纲时出现错误：{str(e)}'
             yield f"data: {json.dumps({'error': error_message})}\n\n"
 
     async def _validate_and_repair_outline_json(self, outline_data: Dict[str, Any], confirmed_requirements: Dict[str, Any]) -> Dict[str, Any]:
