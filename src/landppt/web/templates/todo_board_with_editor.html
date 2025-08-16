@@ -595,6 +595,11 @@
             color: white;
         }
 
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
         .btn-outline-light {
             background: white;
             color: #475569;
@@ -819,6 +824,9 @@
                         <button class="btn btn-primary" id="startBtn">
                             <i class="fas fa-play"></i> 开始生成
                         </button>
+                        <button class="btn btn-danger" id="stopBtn" style="display: none;">
+                            <i class="fas fa-stop"></i> 停止生成
+                        </button>
                         <button class="btn btn-success" id="editorBtn" style="display: none;">
                             <i class="fas fa-edit"></i> 打开编辑器
                         </button>
@@ -834,6 +842,12 @@
                     <div id="statusMessage">准备开始生成...</div>
                     <div class="progress mt-3">
                         <div class="progress-bar progress-bar-striped progress-bar-animated" id="generationProgress" style="width: 0%"></div>
+                    </div>
+                    <!-- 连接状态指示器 -->
+                    <div class="connection-status-container mt-2">
+                        <div id="connectionStatus" class="connection-status disconnected">
+                            <i class="fas fa-circle"></i> 未连接
+                        </div>
                     </div>
                 </div>
 
@@ -896,6 +910,110 @@
                     0% { background-position: 200% 0; }
                     100% { background-position: -200% 0; }
                 }
+
+                /* 连接状态指示器样式 */
+                .connection-status-container {
+                    display: flex;
+                    justify-content: flex-end;
+                    margin-top: 10px;
+                }
+
+                .connection-status {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    transition: all 0.3s ease;
+                    border: 1px solid transparent;
+                }
+
+                .connection-status i {
+                    font-size: 8px;
+                    animation: pulse 2s infinite;
+                }
+
+                .connection-status.connecting {
+                    background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+                    color: #d63031;
+                    border-color: #fdcb6e;
+                }
+
+                .connection-status.connecting i {
+                    color: #fdcb6e;
+                    animation: pulse 1s infinite;
+                }
+
+                .connection-status.connected {
+                    background: linear-gradient(135deg, #d1f2eb, #a3e4d7);
+                    color: #00b894;
+                    border-color: #00b894;
+                }
+
+                .connection-status.connected i {
+                    color: #00b894;
+                    animation: none;
+                }
+
+                .connection-status.reconnecting {
+                    background: linear-gradient(135deg, #fab1a0, #e17055);
+                    color: #d63031;
+                    border-color: #e17055;
+                }
+
+                .connection-status.reconnecting i {
+                    color: #e17055;
+                    animation: spin 1s linear infinite;
+                }
+
+                .connection-status.error,
+                .connection-status.failed {
+                    background: linear-gradient(135deg, #fab1a0, #e17055);
+                    color: #d63031;
+                    border-color: #d63031;
+                }
+
+                .connection-status.error i,
+                .connection-status.failed i {
+                    color: #d63031;
+                    animation: none;
+                }
+
+                .connection-status.disconnected {
+                    background: linear-gradient(135deg, #ddd, #bbb);
+                    color: #636e72;
+                    border-color: #636e72;
+                }
+
+                .connection-status.disconnected i {
+                    color: #636e72;
+                    animation: none;
+                }
+
+                .connection-status.completed,
+                .connection-status.stopped {
+                    background: linear-gradient(135deg, #a8e6cf, #7fcdcd);
+                    color: #00b894;
+                    border-color: #00b894;
+                }
+
+                .connection-status.completed i,
+                .connection-status.stopped i {
+                    color: #00b894;
+                    animation: none;
+                }
+
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
                 </style>
             </div>
         </div>
@@ -917,11 +1035,24 @@
         let slidesData = [];
         let currentSlideIndex = 0;
 
+        // 连接管理相关变量
+        let reconnectAttempts = 0;
+        let maxReconnectAttempts = 5;
+        let reconnectDelay = 1000; // 初始重连延迟1秒
+        let maxReconnectDelay = 30000; // 最大重连延迟30秒
+        let connectionTimeout = null;
+        let heartbeatInterval = null;
+        let isManualStop = false; // 标记是否为手动停止
+
         async function startGeneration() {
             // Prevent multiple simultaneous generations
             if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                 return;
             }
+
+            // 重置连接状态
+            reconnectAttempts = 0;
+            isManualStop = false;
 
             // 检查全局模板设置
             console.log('开始检查全局模板设置...');
@@ -968,14 +1099,16 @@
             }
 
             const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
             const statusDiv = document.getElementById('generationStatus');
             const slidesContainer = document.getElementById('slidesContainer');
 
             // Mark as started
             generationStarted = true;
 
-            startBtn.disabled = true;
-            startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+            // 更新按钮状态
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
             statusDiv.style.display = 'block';
 
             // 断点续生：不清空已有数据，而是保留现有的幻灯片
@@ -1012,16 +1145,47 @@
                 eventSource.close();
             }
 
+            // Start streaming with connection management
+            startEventSourceConnection();
+        }
+
+        function startEventSourceConnection() {
+            // 显示连接状态
+            updateConnectionStatus('connecting', '正在连接服务器...');
+
+            // 设置连接超时
+            connectionTimeout = setTimeout(() => {
+                if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
+                    console.warn('Connection timeout, attempting to reconnect...');
+                    eventSource.close();
+                    attemptReconnect();
+                }
+            }, 15000); // 15秒连接超时
+
             // Start streaming
             eventSource = new EventSource('/api/projects/{{ todo_board.task_id }}/slides/stream');
+
+            eventSource.onopen = function(event) {
+                console.log('EventSource connection opened');
+                clearTimeout(connectionTimeout);
+                reconnectAttempts = 0; // 重置重连计数
+                updateConnectionStatus('connected', '已连接到服务器');
+
+                // 启动心跳检测
+                startHeartbeat();
+            };
 
             eventSource.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
                     handleStreamData(data);
+
+                    // 重置心跳
+                    resetHeartbeat();
                 } catch (e) {
                     console.error('Error parsing stream data:', e);
                     console.error('Raw event data:', event.data);
+                    updateConnectionStatus('error', '数据解析错误');
                 }
             };
 
@@ -1030,26 +1194,145 @@
                 console.error('EventSource readyState:', eventSource.readyState);
                 console.error('EventSource url:', eventSource.url);
 
+                clearTimeout(connectionTimeout);
+                stopHeartbeat();
+
                 // Check if this is a normal completion or an actual error
                 if (eventSource.readyState === EventSource.CLOSED) {
-                    console.log('Stream closed normally');
+                    if (!isManualStop) {
+                        console.log('Stream closed, attempting to reconnect...');
+                        updateConnectionStatus('disconnected', '连接已断开，尝试重连...');
+                        attemptReconnect();
+                    } else {
+                        console.log('Stream closed manually');
+                        updateConnectionStatus('stopped', '已停止连接');
+                    }
                     return;
                 }
 
+                // 连接错误，尝试重连
+                updateConnectionStatus('error', '连接错误，尝试重连...');
                 eventSource.close();
+                attemptReconnect();
+            };
+        }
 
-                // Reset generation state to allow retry
+        function attemptReconnect() {
+            if (isManualStop) {
+                console.log('Manual stop detected, not attempting reconnect');
+                return;
+            }
+
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                console.error('Max reconnection attempts reached');
+                updateConnectionStatus('failed', `连接失败，已尝试 ${maxReconnectAttempts} 次重连`);
+
+                // Reset generation state to allow manual retry
                 generationStarted = false;
                 sessionStorage.removeItem(generationKey);
 
                 const startBtn = document.getElementById('startBtn');
+                const stopBtn = document.getElementById('stopBtn');
+
                 if (startBtn) {
-                    startBtn.disabled = false;
-                    startBtn.innerHTML = '<i class="fas fa-play"></i> 重新开始';
+                    startBtn.style.display = 'inline-block';
+                    startBtn.innerHTML = '<i class="fas fa-redo"></i> 重新连接';
                 }
 
-                updateStatus('连接错误，请刷新页面重试', 'error');
-            };
+                if (stopBtn) {
+                    stopBtn.style.display = 'none';
+                }
+
+                updateStatus('连接失败，请点击重新连接按钮重试', 'error');
+                return;
+            }
+
+            reconnectAttempts++;
+            const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts - 1), maxReconnectDelay);
+
+            console.log(`Attempting reconnection ${reconnectAttempts}/${maxReconnectAttempts} in ${delay}ms`);
+            updateConnectionStatus('reconnecting', `第 ${reconnectAttempts} 次重连中... (${Math.ceil(delay/1000)}秒后)`);
+
+            setTimeout(() => {
+                if (!isManualStop) {
+                    startEventSourceConnection();
+                }
+            }, delay);
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat(); // 清除现有的心跳
+            heartbeatInterval = setInterval(() => {
+                // 检查连接状态
+                if (eventSource && eventSource.readyState !== EventSource.OPEN) {
+                    console.warn('Connection lost during heartbeat check');
+                    stopHeartbeat();
+                    updateConnectionStatus('disconnected', '连接丢失，尝试重连...');
+                    attemptReconnect();
+                }
+            }, 30000); // 每30秒检查一次
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+        }
+
+        function resetHeartbeat() {
+            // 重置心跳计时器
+            startHeartbeat();
+        }
+
+        function updateConnectionStatus(status, message) {
+            console.log(`Connection status: ${status} - ${message}`);
+
+            // 更新状态指示器
+            const statusIndicator = document.getElementById('connectionStatus');
+            if (statusIndicator) {
+                statusIndicator.className = `connection-status ${status}`;
+                statusIndicator.textContent = message;
+            }
+
+            // 根据状态更新UI
+            const statusMessage = document.getElementById('statusMessage');
+            if (statusMessage && (status === 'error' || status === 'failed')) {
+                statusMessage.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            }
+        }
+
+        function stopGeneration() {
+            isManualStop = true;
+
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            clearTimeout(connectionTimeout);
+            stopHeartbeat();
+
+            updateConnectionStatus('stopped', '已停止生成');
+
+            // Reset UI
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            if (startBtn) {
+                startBtn.style.display = 'inline-block';
+                startBtn.innerHTML = '<i class="fas fa-play"></i> 开始生成';
+            }
+
+            if (stopBtn) {
+                stopBtn.style.display = 'none';
+            }
+
+            // Reset generation state
+            generationStarted = false;
+            sessionStorage.removeItem(generationKey);
+
+            updateStatus('生成已停止', 'error');
         }
 
         function handleStreamData(data) {
@@ -1101,10 +1384,20 @@
                     updateStatus(data.message, 'complete');
                     progressBar.style.width = '100%';
 
+                    // 标记为手动停止，防止重连
+                    isManualStop = true;
+
                     // Close EventSource properly
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                         eventSource.close();
                     }
+
+                    // 停止心跳和清理定时器
+                    stopHeartbeat();
+                    clearTimeout(connectionTimeout);
+
+                    // 更新连接状态
+                    updateConnectionStatus('completed', '生成完成');
 
                     showEditorButton();
 
@@ -1123,19 +1416,35 @@
                 case 'error':
                     updateStatus(data.message, 'error');
 
+                    // 更新连接状态
+                    updateConnectionStatus('error', '生成过程出错');
+
+                    // 标记为手动停止，防止重连
+                    isManualStop = true;
+
                     // Close EventSource properly
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                         eventSource.close();
                     }
+
+                    // 停止心跳和清理定时器
+                    stopHeartbeat();
+                    clearTimeout(connectionTimeout);
 
                     // Reset generation state to allow retry
                     generationStarted = false;
                     sessionStorage.removeItem(generationKey);
 
                     const startBtn = document.getElementById('startBtn');
+                    const stopBtn = document.getElementById('stopBtn');
+
                     if (startBtn) {
-                        startBtn.disabled = false;
-                        startBtn.innerHTML = '<i class="fas fa-play"></i> 重新开始';
+                        startBtn.style.display = 'inline-block';
+                        startBtn.innerHTML = '<i class="fas fa-redo"></i> 重新开始';
+                    }
+
+                    if (stopBtn) {
+                        stopBtn.style.display = 'none';
                     }
 
                     // 隐藏生成状态指示器
@@ -1242,10 +1551,12 @@
 
         function showEditorButton() {
             const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
             const editorBtn = document.getElementById('editorBtn');
             const slideshowBtn = document.getElementById('slideshowBtn');
 
             startBtn.style.display = 'none';
+            stopBtn.style.display = 'none';
             editorBtn.style.display = 'inline-block';
             slideshowBtn.style.display = 'inline-block';
         }
@@ -1266,10 +1577,8 @@
 
                 if (!slidePreview || !slideCard) return;
 
-                // 移除加载状态
                 slidePreview.classList.remove('loading');
 
-                // 内容加载完成，更新卡片状态
                 setTimeout(() => {
                     if (slideCard.classList.contains('generating')) {
                         slideCard.classList.remove('generating');
@@ -1279,7 +1588,6 @@
 
             } catch (error) {
                 console.error('Error in adjustIframeHeight:', error);
-                // 出错时也要移除生成状态
                 const slidePreview = iframe.closest('.slide-preview');
                 const slideCard = iframe.closest('.slide-card');
 
@@ -1354,12 +1662,16 @@
 
             // 添加按钮事件监听器
             const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
             const editorBtn = document.getElementById('editorBtn');
             const slideshowBtn = document.getElementById('slideshowBtn');
             const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
 
             if (startBtn) {
                 startBtn.addEventListener('click', startGeneration);
+            }
+            if (stopBtn) {
+                stopBtn.addEventListener('click', stopGeneration);
             }
             if (editorBtn) {
                 editorBtn.addEventListener('click', openFullEditor);
