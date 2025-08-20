@@ -335,6 +335,7 @@ class GlobalMasterTemplateService:
    - 支持Font Awesome图标
    - 支持Chart.js、ECharts.js、D3.js等图表库
    - 确保所有内容在720px高度内完全显示
+   - 绝对不允许出现任何滚动条
 
 请详细说明你的设计思路，然后生成完整的HTML模板代码，使用```html代码块格式返回。
 """
@@ -559,6 +560,7 @@ class GlobalMasterTemplateService:
    - 支持Font Awesome图标
    - 支持Chart.js、ECharts.js、D3.js等图表库
    - 确保所有内容在720px高度内完全显示
+   - 绝对不允许出现任何滚动条
 
 请生成完整的HTML模板代码，使用```html代码块格式返回。
 """
