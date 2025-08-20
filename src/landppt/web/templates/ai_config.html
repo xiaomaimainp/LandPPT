@@ -161,6 +161,13 @@
                                    style="font-family: monospace; font-size: 0.9em;">
                         </div>
                         <div class="form-group">
+                            <label>Base URL:</label>
+                            <input type="text" name="google_base_url"
+                                   value="{{ current_config.get('google_base_url', '') }}"
+                                   placeholder="{{ current_config.get('google_base_url', 'https://generativelanguage.googleapis.com') }}">
+                            <small style="color: #7f8c8d;">Gemini API的基础URL，默认为官方地址</small>
+                        </div>
+                        <div class="form-group">
                             <label>默认模型:</label>
                             <input type="text" name="google_model"
                                    value="{{ current_config.get('google_model', '') }}"
@@ -2150,15 +2157,21 @@ async function testAnthropicProvider(config) {
 async function testGoogleProvider(config) {
     try {
         let apiKey = config.google_api_key;
+        let baseUrl = config.google_base_url || 'https://generativelanguage.googleapis.com';
         let model = config.google_model || 'gemini-1.5-flash';
 
-        // 如果前端没有输入API Key，尝试从后端获取
-        if (!apiKey) {
+        // 如果前端没有输入API Key或Base URL，尝试从后端获取
+        if (!apiKey || !config.google_base_url) {
             const configResponse = await fetch('/api/config/ai_providers');
             if (configResponse.ok) {
                 const configResult = await configResponse.json();
-                if (configResult.success && configResult.config.google_api_key) {
-                    apiKey = configResult.config.google_api_key;
+                if (configResult.success) {
+                    if (!apiKey && configResult.config.google_api_key) {
+                        apiKey = configResult.config.google_api_key;
+                    }
+                    if (!config.google_base_url && configResult.config.google_base_url) {
+                        baseUrl = configResult.config.google_base_url;
+                    }
                 }
             }
         }
@@ -2167,8 +2180,14 @@ async function testGoogleProvider(config) {
             throw new Error('请配置 Google API Key');
         }
 
+        // 确保base URL格式正确
+        if (!baseUrl.startsWith('http')) {
+            baseUrl = 'https://' + baseUrl;
+        }
+        baseUrl = baseUrl.replace(/\/$/, ''); // 移除末尾的斜杠
+
         // 调用 Google Gemini API 进行测试
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        const response = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2184,7 +2203,7 @@ async function testGoogleProvider(config) {
                     }
                 ],
                 generationConfig: {
-                    maxOutputTokens: 20,
+                    maxOutputTokens: 1000,
                     temperature: 0
                 }
             })
@@ -2196,12 +2215,37 @@ async function testGoogleProvider(config) {
         }
 
         const data = await response.json();
-        
+
+        // 检查响应数据结构
+        if (!data.candidates || !data.candidates[0]) {
+            throw new Error('API响应中没有candidates: ' + JSON.stringify(data));
+        }
+
+        const candidate = data.candidates[0];
+        let responseText = '';
+
+        // 检查不同的响应格式
+        if (candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
+            responseText = candidate.content.parts[0].text;
+        } else if (candidate.text) {
+            responseText = candidate.text;
+        } else {
+            // 如果没有文本内容，可能是因为被安全过滤或其他原因
+            const finishReason = candidate.finishReason || 'UNKNOWN';
+            if (finishReason === 'MAX_TOKENS') {
+                responseText = '[响应被截断 - 令牌数量达到上限]';
+            } else if (finishReason === 'SAFETY') {
+                responseText = '[响应被安全过滤器阻止]';
+            } else {
+                responseText = `[无文本响应 - 结束原因: ${finishReason}]`;
+            }
+        }
+
         return {
             success: true,
             provider: 'google',
             model: model,
-            response_preview: data.candidates[0].content.parts[0].text,
+            response_preview: responseText,
             usage: {
                 prompt_tokens: data.usageMetadata?.promptTokenCount || 0,
                 completion_tokens: data.usageMetadata?.candidatesTokenCount || 0,

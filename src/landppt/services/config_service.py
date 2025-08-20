@@ -42,6 +42,7 @@ class ConfigService:
             "anthropic_model": {"type": "select", "category": "ai_providers", "default": "claude-3-haiku-20240307"},
 
             "google_api_key": {"type": "password", "category": "ai_providers"},
+            "google_base_url": {"type": "url", "category": "ai_providers", "default": "https://generativelanguage.googleapis.com"},
             "google_model": {"type": "text", "category": "ai_providers", "default": "gemini-1.5-flash"},
             
             "azure_openai_api_key": {"type": "password", "category": "ai_providers"},

@@ -191,7 +191,13 @@ class GoogleProvider(AIProvider):
         super().__init__(config)
         try:
             import google.generativeai as genai
+
+            # Configure the API key
             genai.configure(api_key=config.get("api_key"))
+
+            # Store base_url for potential future use or proxy configurations
+            self.base_url = config.get("base_url", "https://generativelanguage.googleapis.com")
+
             self.client = genai
             self.model_instance = genai.GenerativeModel(config.get("model", "gemini-1.5-flash"))
         except ImportError:
