@@ -206,6 +206,72 @@ async def generate_template_with_ai_stream(request: GlobalMasterTemplateGenerate
     )
 
 
+@router.post("/save-generated", response_model=GlobalMasterTemplateResponse)
+async def save_generated_template(request: dict):
+    """Save a generated template after user confirmation"""
+    try:
+        # Extract template data from request
+        template_data = {
+            'template_name': request.get('template_name'),
+            'description': request.get('description', ''),
+            'html_template': request.get('html_template'),
+            'tags': request.get('tags', []),
+            'created_by': 'AI'
+        }
+
+        # Add timestamp to avoid name conflicts
+        import time
+        timestamp = int(time.time())
+        template_data['template_name'] = f"{template_data['template_name']}_{timestamp}"
+
+        result = await template_service.create_template(template_data)
+        return GlobalMasterTemplateResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to save generated template: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save template")
+
+
+@router.post("/adjust-template")
+async def adjust_template(request: dict):
+    """Adjust a generated template based on user feedback"""
+    from fastapi.responses import StreamingResponse
+    import json
+
+    async def adjust_stream():
+        try:
+            # Get the current template and adjustment request
+            current_html = request.get('html_template')
+            adjustment_request = request.get('adjustment_request')
+            template_name = request.get('template_name', '模板')
+
+            # Send initial status
+            yield f"data: {json.dumps({'type': 'status', 'message': '正在分析调整需求...'})}\n\n"
+
+            # Use the template service to adjust the template
+            async for chunk in template_service.adjust_template_with_ai_stream(
+                current_html=current_html,
+                adjustment_request=adjustment_request,
+                template_name=template_name
+            ):
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+        except Exception as e:
+            logger.error(f"Failed to adjust template: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        adjust_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream"
+        }
+    )
+
+
 @router.post("/select", response_model=TemplateSelectionResponse)
 async def select_template_for_project(request: TemplateSelectionRequest):
     """Select a template for PPT generation"""

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}全局母版管理{% endblock %}
+{% block title %}全局模板管理{% endblock %}
 
 {% block extra_css %}
 <style>
-/* 现代化全局母版管理页面 - 优化布局 */
+/* 现代化全局模板管理页面 - 优化布局 */
 .templates-hero {
     background: var(--glass-bg);
     backdrop-filter: blur(30px);
@@ -196,8 +196,8 @@ select {
 
 {% block content %}
 <div class="templates-hero">
-    <h1>🎨 全局母版管理</h1>
-    <p>管理和创建PPT全局母版模板</p>
+    <h1>🎨 全局模板管理</h1>
+    <p>管理和创建PPT全局模板模板</p>
 </div>
 
 <div style="max-width: 1400px; margin: 0 auto; padding: var(--spacing-md);">
@@ -208,18 +208,18 @@ select {
                 <h2 style="color: var(--text-primary); margin: 0; font-size: 1.3rem; font-weight: 600;">模板管理</h2>
                 <a href="https://landppt-template.52yyds.top" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.3s ease;">模板市场</a>
             </div>
-            <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.95rem;">创建、编辑和管理您的PPT母版模板</p>
+            <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.95rem;">创建、编辑和管理您的PPT模板模板</p>
         </div>
         <div class="templates-actions">
             <button id="createTemplateBtn" class="btn btn-primary">
-                ➕ 新建母版
+                ➕ 新建模板
             </button>
             <button id="generateWithAIBtn" class="btn btn-success">
-                🤖 AI生成母版
+                🤖 AI生成模板
             </button>
             <input type="file" id="importTemplateInput" accept=".html,.json" style="display: none;">
             <button id="importTemplateBtn" class="btn btn-secondary" onclick="document.getElementById('importTemplateInput').click()">
-                📥 导入母版
+                📥 导入模板
             </button>
         </div>
     </div>
@@ -227,7 +227,7 @@ select {
     <!-- Filter and Search -->
     <div class="search-filter-container">
         <div class="search-input-wrapper">
-            <input type="text" id="searchInput" placeholder="搜索母版名称..." class="glass-input search-input">
+            <input type="text" id="searchInput" placeholder="搜索模板名称..." class="glass-input search-input">
         </div>
         <div class="filter-wrapper">
             <select id="tagFilter" class="glass-input filter-select">
@@ -282,7 +282,7 @@ select {
 <div id="templateModal" class="modal" style="display: none;">
     <div class="modal-content" style="max-width: 850px; width: 90%;">
         <div class="modal-header">
-            <h2 id="modalTitle">新建母版</h2>
+            <h2 id="modalTitle">新建模板</h2>
             <button class="close" id="closeModal" type="button">&times;</button>
         </div>
         <div class="modal-body">
@@ -328,7 +328,7 @@ select {
 <div id="aiGenerationModal" class="modal" style="display: none;">
     <div class="modal-content" style="max-width: 850px; width: 90%;">
         <div class="modal-header">
-            <h2>AI生成母版</h2>
+            <h2>AI生成模板</h2>
             <button class="close" id="closeAIModal" type="button">&times;</button>
         </div>
         <div class="modal-body">
@@ -336,8 +336,8 @@ select {
             <div id="aiFormContainer">
                 <form id="aiGenerationForm">
                     <div class="form-group">
-                        <label for="aiPrompt">描述您想要的母版风格 *</label>
-                        <textarea id="aiPrompt" name="prompt" required rows="4" placeholder="例如: 创建一个现代简约风格的商务PPT母版，使用蓝色主色调，包含卡片式布局..."></textarea>
+                        <label for="aiPrompt">描述您想要的模板风格 *</label>
+                        <textarea id="aiPrompt" name="prompt" required rows="4" placeholder="例如: 创建一个现代简约风格的商务PPT模板，使用蓝色主色调，包含卡片式布局..."></textarea>
                     </div>
 
                     <div class="form-group">
@@ -394,8 +394,35 @@ select {
                     <h3 style="margin: 0; color: #28a745; font-size: 1.2rem;">✅ 模板生成完成！</h3>
                 </div>
 
+                <!-- 模板预览区域 -->
+                <div class="template-preview-section" style="margin: 20px 0;">
+                    <div class="preview-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: #333;">模板预览</h4>
+                        <button type="button" id="fullPreviewBtn" class="btn btn-sm btn-outline-primary">🔍 全屏预览</button>
+                    </div>
+                    <div id="generatedTemplatePreview" style="border: 1px solid #ddd; border-radius: 8px; height: 300px; overflow: hidden; background: #f8f9fa;">
+                        <iframe id="generatedTemplateIframe" style="width: 100%; height: 100%; border: none; transform: scale(0.5); transform-origin: 0 0; width: 200%; height: 200%;"></iframe>
+                    </div>
+                </div>
+
+                <!-- 继续对话调整区域 -->
+                <div class="template-adjustment-section" style="margin: 20px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #333;">继续调整模板</h4>
+                    <div class="adjustment-input-group" style="display: flex; gap: 10px;">
+                        <input type="text" id="adjustmentInput" class="form-control" placeholder="请描述您希望如何调整模板，例如：改变颜色、调整布局、修改字体等..." style="flex: 1;">
+                        <button type="button" id="adjustTemplateBtn" class="btn btn-primary">🔄 调整</button>
+                    </div>
+                    <div id="adjustmentProgress" style="display: none; margin-top: 10px;">
+                        <div class="progress" style="height: 4px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%;"></div>
+                        </div>
+                        <small class="text-muted">正在调整模板...</small>
+                    </div>
+                </div>
+
                 <div class="completion-actions" style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
-                    <button type="button" id="viewGeneratedTemplateBtn" class="btn btn-primary">👁️ 查看模板</button>
+                    <button type="button" id="saveGeneratedTemplateBtn" class="btn btn-success">💾 保存模板</button>
+                    <button type="button" id="regenerateTemplateBtn" class="btn btn-warning">🔄 重新生成</button>
                     <button type="button" id="closeCompletionBtn" class="btn btn-secondary">关闭</button>
                 </div>
             </div>
@@ -1157,6 +1184,35 @@ function setupEventListeners() {
         loadTemplates(1); // 刷新模板列表，回到第一页
     });
 
+    // 新的模板预览和保存相关按钮
+    document.getElementById('saveGeneratedTemplateBtn').addEventListener('click', saveGeneratedTemplate);
+    document.getElementById('adjustTemplateBtn').addEventListener('click', adjustTemplate);
+    document.getElementById('regenerateTemplateBtn').addEventListener('click', () => {
+        // 重新生成模板 - 返回到表单
+        document.getElementById('aiGenerationComplete').style.display = 'none';
+        document.getElementById('aiFormContainer').style.display = 'block';
+
+        // 清理临时数据
+        if (window.generatedTemplateData) {
+            delete window.generatedTemplateData;
+        }
+    });
+
+    document.getElementById('fullPreviewBtn').addEventListener('click', () => {
+        if (window.generatedTemplateData && window.generatedTemplateData.html_template) {
+            showPreview(window.generatedTemplateData.html_template);
+        } else {
+            alert('没有可预览的模板');
+        }
+    });
+
+    // 调整输入框的回车键支持
+    document.getElementById('adjustmentInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            adjustTemplate();
+        }
+    });
+
     // Form submissions
     document.getElementById('templateForm').addEventListener('submit', handleTemplateSubmit);
     document.getElementById('aiGenerationForm').addEventListener('submit', handleAIGeneration);
@@ -1237,14 +1293,14 @@ function renderTemplates(templatesToRender) {
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">
                 <h3>暂无模板</h3>
-                <p>点击"新建母版"或"AI生成母版"来创建第一个模板</p>
+                <p>点击"新建模板"或"AI生成模板"来创建第一个模板</p>
             </div>
         `;
         return;
     }
     
     grid.innerHTML = templatesToRender.map((template, index) => `
-        <div class="template-card">
+        <div class="template-card" data-template-id="${template.id}">
             <div class="template-preview" id="preview-${template.id}">
                 <iframe
                     class="template-preview-iframe"

@@ -343,15 +343,41 @@ class GlobalMasterTemplateService:
             # 检查AI提供商是否支持流式响应
             if hasattr(self.ai_provider, 'stream_text_completion'):
                 # 使用流式API
+                full_response = ""
                 async for chunk in self.ai_provider.stream_text_completion(
                     prompt=ai_prompt,
                     max_tokens=ai_config.max_tokens,
                     temperature=0.7
                 ):
+                    full_response += chunk
                     yield {
                         'type': 'thinking',
                         'content': chunk
                     }
+
+                # 流式完成后，处理完整响应
+                yield {'type': 'thinking', 'content': '\n\n✨ 优化样式和交互效果...\n'}
+                await asyncio.sleep(0.5)
+
+                # 处理AI响应
+                html_template = self._extract_html_from_response(full_response)
+
+                if not self._validate_html_template(html_template):
+                    raise ValueError("Generated HTML template is invalid")
+
+                yield {'type': 'thinking', 'content': '✅ 模板生成完成，准备预览...\n'}
+                await asyncio.sleep(0.3)
+
+                # 返回生成完成的信息，包含HTML模板用于预览
+                yield {
+                    'type': 'complete',
+                    'message': '模板生成完成！',
+                    'html_template': html_template,
+                    'template_name': template_name,
+                    'description': description or f"AI生成的模板：{prompt[:100]}",
+                    'tags': tags or ['AI生成']
+                }
+
             else:
                 # 模拟流式响应
                 yield {'type': 'thinking', 'content': '🤔 正在分析您的需求...\n\n'}
@@ -388,28 +414,122 @@ class GlobalMasterTemplateService:
                 if not self._validate_html_template(html_template):
                     raise ValueError("Generated HTML template is invalid")
 
-                yield {'type': 'thinking', 'content': '💾 保存模板到数据库...\n'}
+                yield {'type': 'thinking', 'content': '✅ 模板生成完成，准备预览...\n'}
                 await asyncio.sleep(0.3)
 
-                # 创建模板
-                template_data = {
-                    'template_name': template_name,
-                    'description': description or f"AI生成的模板：{prompt[:100]}",
-                    'html_template': html_template,
-                    'tags': tags or ['AI生成'],
-                    'created_by': 'AI'
-                }
-
-                result = await self.create_template(template_data)
-
+                # 返回生成完成的信息，包含HTML模板用于预览
                 yield {
                     'type': 'complete',
                     'message': '模板生成完成！',
-                    'template_id': result['id']
+                    'html_template': html_template,
+                    'template_name': template_name,
+                    'description': description or f"AI生成的模板：{prompt[:100]}",
+                    'tags': tags or ['AI生成']
                 }
 
         except Exception as e:
-            logger.error(f"Failed to generate template with AI stream: {e}")
+            logger.error(f"Failed to generate template with AI stream: {e}", exc_info=True)
+            yield {
+                'type': 'error',
+                'message': str(e)
+            }
+
+    async def adjust_template_with_ai_stream(self, current_html: str, adjustment_request: str, template_name: str = "模板"):
+        """Adjust an existing template based on user feedback with streaming response"""
+        import asyncio
+
+        # 构建调整提示词
+        ai_prompt = f"""
+作为专业的PPT模板设计师，请根据用户的调整需求修改现有的HTML模板。
+
+当前模板：
+```html
+{current_html}
+```
+
+用户调整需求：{adjustment_request}
+
+请按照以下要求进行调整：
+1. **保持原有结构**：尽量保持原有的基本布局和结构
+2. **精确调整**：只修改用户明确要求调整的部分
+3. **保持占位符**：确保保留所有占位符（如 {{{{ page_title }}}}、{{{{ page_content }}}} 等）
+4. **完整HTML**：返回完整的HTML代码，包含所有必要的样式和结构
+5. **16:9比例**：确保页面尺寸保持1280x720像素的16:9比例
+
+请详细说明你的调整思路，然后生成完整的调整后HTML模板代码，使用```html代码块格式返回。
+"""
+
+        try:
+            # 检查AI提供商是否支持流式响应
+            if hasattr(self.ai_provider, 'stream_text_completion'):
+                # 使用流式API
+                full_response = ""
+                async for chunk in self.ai_provider.stream_text_completion(
+                    prompt=ai_prompt,
+                    max_tokens=ai_config.max_tokens,
+                    temperature=0.7
+                ):
+                    full_response += chunk
+                    yield {
+                        'type': 'thinking',
+                        'content': chunk
+                    }
+
+                # 流式完成后，处理完整响应
+                yield {'type': 'thinking', 'content': '\n\n✨ 完成模板调整...\n'}
+                await asyncio.sleep(0.5)
+
+                # 处理AI响应
+                html_template = self._extract_html_from_response(full_response)
+
+                if not self._validate_html_template(html_template):
+                    raise ValueError("Adjusted HTML template is invalid")
+
+                # 返回调整完成的信息
+                yield {
+                    'type': 'complete',
+                    'message': '模板调整完成！',
+                    'html_template': html_template,
+                    'template_name': template_name
+                }
+
+            else:
+                # 模拟流式响应
+                yield {'type': 'thinking', 'content': '🔄 正在分析调整需求...\n\n'}
+                await asyncio.sleep(1)
+
+                yield {'type': 'thinking', 'content': f'调整需求：{adjustment_request}\n\n'}
+                await asyncio.sleep(0.5)
+
+                yield {'type': 'thinking', 'content': '🎨 开始调整模板...\n'}
+                await asyncio.sleep(1)
+
+                # 调用标准AI生成
+                response = await self.ai_provider.text_completion(
+                    prompt=ai_prompt,
+                    max_tokens=ai_config.max_tokens,
+                    temperature=0.7
+                )
+
+                yield {'type': 'thinking', 'content': '✨ 完成模板调整...\n'}
+                await asyncio.sleep(0.5)
+
+                # 处理AI响应
+                html_template = self._extract_html_from_response(response.content)
+
+                if not self._validate_html_template(html_template):
+                    raise ValueError("Adjusted HTML template is invalid")
+
+                # 返回调整完成的信息
+                yield {
+                    'type': 'complete',
+                    'message': '模板调整完成！',
+                    'html_template': html_template,
+                    'template_name': template_name
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to adjust template with AI stream: {e}", exc_info=True)
             yield {
                 'type': 'error',
                 'message': str(e)

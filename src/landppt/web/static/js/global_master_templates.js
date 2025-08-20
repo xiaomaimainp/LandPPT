@@ -191,15 +191,21 @@ function showAIGenerationComplete() {
 }
 
 function showAIGenerationError(errorMessage) {
+    console.error('AI generation error:', errorMessage);
+
     // 显示错误并返回表单
     document.getElementById('aiGenerationProgress').style.display = 'none';
+    document.getElementById('aiGenerationComplete').style.display = 'none';
     document.getElementById('aiFormContainer').style.display = 'block';
+
+    // 重置状态
+    document.getElementById('statusText').textContent = '正在分析需求...';
+    document.getElementById('aiResponseStream').innerHTML = '';
+
     alert('AI生成模板失败: ' + errorMessage);
 }
 
 async function startStreamingGeneration(requestData) {
-    let generatedTemplateId = null;
-
     try {
         // 更新状态
         updateGenerationStatus('正在连接AI服务...');
@@ -241,10 +247,6 @@ async function startStreamingGeneration(requestData) {
                     if (line.startsWith('data: ')) {
                         const data = JSON.parse(line.slice(6));
                         await handleStreamData(data);
-
-                        if (data.type === 'complete' && data.template_id) {
-                            generatedTemplateId = data.template_id;
-                        }
                     }
                 } catch (e) {
                     console.warn('Failed to parse stream data:', line, e);
@@ -256,24 +258,167 @@ async function startStreamingGeneration(requestData) {
         updateGenerationStatus('模板生成完成！');
         showAIGenerationComplete();
 
-        // 设置查看按钮的模板ID
-        if (generatedTemplateId) {
-            document.getElementById('viewGeneratedTemplateBtn').onclick = () => {
-                closeAIGenerationModal();
-                loadTemplates(1); // 回到第一页查看新生成的模板
-                // 可以添加滚动到新模板的逻辑
-            };
-        }
-
     } catch (error) {
         console.error('Streaming generation error:', error);
         throw error;
     }
 }
 
-async function handleStreamData(data) {
-    const responseStream = document.getElementById('aiResponseStream');
 
+
+function showTemplatePreview(htmlTemplate) {
+    const iframe = document.getElementById('generatedTemplateIframe');
+    if (iframe) {
+        // 创建一个blob URL来显示HTML内容
+        const blob = new Blob([htmlTemplate], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        iframe.src = url;
+
+        // 清理之前的URL
+        iframe.onload = () => {
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 1000);
+        };
+    }
+}
+
+async function saveGeneratedTemplate() {
+    if (!window.generatedTemplateData) {
+        alert('没有可保存的模板数据');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/global-master-templates/save-generated', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(window.generatedTemplateData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to save template');
+        }
+
+        const result = await response.json();
+        console.log('Template saved successfully:', result);
+
+        // 关闭模态框并刷新列表
+        closeAIGenerationModal();
+        loadTemplates(1);
+
+        alert('模板保存成功！');
+
+        // 清理临时数据
+        delete window.generatedTemplateData;
+
+    } catch (error) {
+        console.error('Error saving template:', error);
+        alert('保存模板失败: ' + error.message);
+    }
+}
+
+async function adjustTemplate() {
+    const adjustmentInput = document.getElementById('adjustmentInput');
+    const adjustmentRequest = adjustmentInput.value.trim();
+
+    if (!adjustmentRequest) {
+        alert('请输入调整需求');
+        return;
+    }
+
+    if (!window.generatedTemplateData) {
+        alert('没有可调整的模板数据');
+        return;
+    }
+
+    try {
+        // 显示调整进度
+        document.getElementById('adjustmentProgress').style.display = 'block';
+        document.getElementById('adjustTemplateBtn').disabled = true;
+
+        const requestData = {
+            html_template: window.generatedTemplateData.html_template,
+            adjustment_request: adjustmentRequest,
+            template_name: window.generatedTemplateData.template_name
+        };
+
+        const response = await fetch('/api/global-master-templates/adjust-template', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to adjust template');
+        }
+
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+
+                try {
+                    if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.type === 'complete' && data.html_template) {
+                            // 更新模板数据
+                            window.generatedTemplateData.html_template = data.html_template;
+
+                            // 更新预览
+                            showTemplatePreview(data.html_template);
+
+                            // 清空输入框
+                            adjustmentInput.value = '';
+
+                            alert('模板调整完成！');
+                        } else if (data.type === 'error') {
+                            // 检查是否是网络错误（502 Bad Gateway等）
+                            let errorMessage = data.message;
+                            if (errorMessage.includes('502') || errorMessage.includes('Bad gateway')) {
+                                errorMessage = 'AI服务暂时不可用，请稍后重试';
+                            } else if (errorMessage.includes('504') || errorMessage.includes('Gateway Timeout')) {
+                                errorMessage = 'AI服务响应超时，请稍后重试';
+                            } else if (errorMessage.includes('<!DOCTYPE html>')) {
+                                errorMessage = 'AI服务连接失败，请检查网络连接或稍后重试';
+                            }
+                            throw new Error(errorMessage);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse adjustment stream data:', line, e);
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('Error adjusting template:', error);
+        alert('调整模板失败: ' + error.message);
+    } finally {
+        // 隐藏调整进度
+        document.getElementById('adjustmentProgress').style.display = 'none';
+        document.getElementById('adjustTemplateBtn').disabled = false;
+    }
+}
+
+async function handleStreamData(data) {
     switch (data.type) {
         case 'status':
             updateGenerationStatus(data.message);
@@ -293,11 +438,33 @@ async function handleStreamData(data) {
 
         case 'complete':
             updateGenerationStatus('模板生成完成！');
-            appendToStream('\n\n✅ 模板已成功生成并保存！');
+            appendToStream('\n\n✅ 模板已成功生成！');
+
+            // 存储生成的模板数据
+            if (data.html_template) {
+                window.generatedTemplateData = {
+                    html_template: data.html_template,
+                    template_name: data.template_name,
+                    description: data.description,
+                    tags: data.tags
+                };
+
+                // 显示预览
+                showTemplatePreview(data.html_template);
+            }
             break;
 
         case 'error':
-            throw new Error(data.message);
+            // 检查是否是网络错误
+            let errorMessage = data.message;
+            if (errorMessage.includes('502') || errorMessage.includes('Bad gateway')) {
+                errorMessage = 'AI服务暂时不可用，请稍后重试';
+            } else if (errorMessage.includes('504') || errorMessage.includes('Gateway Timeout')) {
+                errorMessage = 'AI服务响应超时，请稍后重试';
+            } else if (errorMessage.includes('<!DOCTYPE html>')) {
+                errorMessage = 'AI服务连接失败，请检查网络连接或稍后重试';
+            }
+            throw new Error(errorMessage);
     }
 }
 
