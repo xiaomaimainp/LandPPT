@@ -38,27 +38,41 @@ FROM python:3.11-slim AS production
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app/src:/opt/venv \
+    PYTHONPATH=/app/src:/opt/venv:/opt/venv/lib/python3.11/site-packages \
+    PATH=/opt/venv/bin:$PATH \
     PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
     HOME=/root
 
-# Install only essential runtime dependencies in one layer
+# Install essential runtime dependencies and wkhtmltopdf
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    wkhtmltopdf \
     poppler-utils \
     libmagic1 \
     ca-certificates \
     curl \
+    wget \
     chromium \
     libgomp1 \
     fonts-liberation \
     fonts-noto-cjk \
     fontconfig \
     netcat-openbsd \
-    && fc-cache -fv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
+    xfonts-75dpi \
+    xfonts-base \
+    libjpeg62-turbo \
+    libxrender1 \
+    libfontconfig1 \
+    libx11-6 \
+    libxext6 \
+    && \
+    # Download and install wkhtmltopdf from official releases
+    WKHTMLTOPDF_VERSION="0.12.6.1-3" && \
+    wget -q "https://github.com/wkhtmltopdf/packaging/releases/download/${WKHTMLTOPDF_VERSION}/wkhtmltox_${WKHTMLTOPDF_VERSION}.bookworm_amd64.deb" -O /tmp/wkhtmltox.deb && \
+    dpkg -i /tmp/wkhtmltox.deb || apt-get install -f -y && \
+    rm /tmp/wkhtmltox.deb && \
+    fc-cache -fv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
 # Create non-root user (for compatibility, but run as root)
 RUN groupadd -r landppt && \
@@ -69,8 +83,8 @@ RUN groupadd -r landppt && \
 COPY --from=builder /opt/venv /opt/venv
 
 # Install Playwright with minimal footprint
-RUN pip install --no-cache-dir playwright==1.40.0 && \
-    playwright install chromium && \
+RUN python -m pip install --no-cache-dir playwright==1.40.0 && \
+    python -m playwright install chromium && \
     chown -R landppt:landppt /home/landppt && \
     rm -rf /tmp/* /var/tmp/*
 
