@@ -254,12 +254,22 @@ class GlobalMasterTemplateDetailResponse(GlobalMasterTemplateResponse):
     style_config: Optional[Dict[str, Any]] = None
 
 
+class ReferenceImageData(BaseModel):
+    """Reference image data for AI generation"""
+    filename: str = Field(..., description="Image filename")
+    data: str = Field(..., description="Base64 encoded image data")
+    size: int = Field(..., description="File size in bytes")
+    type: str = Field(..., description="MIME type")
+
+
 class GlobalMasterTemplateGenerateRequest(BaseModel):
     """Request model for AI-generated global master template"""
     prompt: str = Field(..., description="AI generation prompt")
     template_name: str = Field(..., description="Template name (must be unique)")
     description: Optional[str] = Field("", description="Template description")
     tags: Optional[List[str]] = Field([], description="Template tags")
+    generation_mode: str = Field("text_only", description="Generation mode: text_only, reference_style, exact_replica")
+    reference_image: Optional[ReferenceImageData] = Field(None, description="Reference image for multimodal generation")
 
 
 class TemplateSelectionRequest(BaseModel):

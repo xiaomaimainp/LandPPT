@@ -157,15 +157,26 @@ async function handleAIGeneration(event) {
         prompt: formData.get('prompt'),
         template_name: formData.get('template_name'),
         description: formData.get('description'),
-        tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag)
+        tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag),
+        generation_mode: formData.get('generation_mode') || 'text_only'
     };
+
+    // 如果有上传的图片，添加图片数据
+    if (uploadedImageData && requestData.generation_mode !== 'text_only') {
+        requestData.reference_image = {
+            filename: uploadedImageData.filename,
+            data: uploadedImageData.data,
+            size: uploadedImageData.size,
+            type: uploadedImageData.type
+        };
+    }
 
     try {
         // 切换到进度显示界面
         showAIGenerationProgress();
 
-        // 开始流式生成
-        await startStreamingGeneration(requestData);
+        // 开始生成
+        await startGeneration(requestData);
 
     } catch (error) {
         console.error('Error generating template:', error);
@@ -181,7 +192,6 @@ function showAIGenerationProgress() {
 
     // 重置进度状态
     document.getElementById('statusText').textContent = '正在分析需求...';
-    document.getElementById('aiResponseStream').innerHTML = '';
 }
 
 function showAIGenerationComplete() {
@@ -200,17 +210,16 @@ function showAIGenerationError(errorMessage) {
 
     // 重置状态
     document.getElementById('statusText').textContent = '正在分析需求...';
-    document.getElementById('aiResponseStream').innerHTML = '';
 
     alert('AI生成模板失败: ' + errorMessage);
 }
 
-async function startStreamingGeneration(requestData) {
+async function startGeneration(requestData) {
     try {
         // 更新状态
         updateGenerationStatus('正在连接AI服务...');
 
-        const response = await fetch('/api/global-master-templates/generate-stream', {
+        const response = await fetch('/api/global-master-templates/generate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -224,34 +233,35 @@ async function startStreamingGeneration(requestData) {
         }
 
         // 更新状态
-        updateGenerationStatus('AI正在思考设计方案...');
+        updateGenerationStatus('AI正在分析需求并生成模板...');
 
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        // 处理响应
+        const result = await response.json();
+        console.log('Generation result:', result); // 调试信息
 
-        while (true) {
-            const { done, value } = await reader.read();
+        // 检查响应格式：可能是包装格式 {success: true, data: {...}} 或直接的模板对象
+        let templateData = null;
 
-            if (done) break;
+        if (result.success && result.data) {
+            // 包装格式
+            templateData = result.data;
+        } else if (result.id && result.template_name) {
+            // 直接的模板对象格式（已保存的模板）
+            templateData = result;
+        } else if (result.html_template) {
+            // 生成的模板数据格式
+            templateData = result;
+        }
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // 保留不完整的行
+        if (templateData) {
+            // 更新状态
+            updateGenerationStatus('正在处理生成结果...');
 
-            for (const line of lines) {
-                if (line.trim() === '') continue;
-
-                try {
-                    if (line.startsWith('data: ')) {
-                        const data = JSON.parse(line.slice(6));
-                        await handleStreamData(data);
-                    }
-                } catch (e) {
-                    console.warn('Failed to parse stream data:', line, e);
-                }
-            }
+            // 处理生成完成的数据
+            await handleGenerationComplete(templateData);
+        } else {
+            console.error('Generation failed - unrecognized response format:', result); // 调试信息
+            throw new Error(result.message || result.detail || 'Generation failed');
         }
 
         // 生成完成
@@ -259,7 +269,7 @@ async function startStreamingGeneration(requestData) {
         showAIGenerationComplete();
 
     } catch (error) {
-        console.error('Streaming generation error:', error);
+        console.error('Generation error:', error);
         throw error;
     }
 }
@@ -418,6 +428,72 @@ async function adjustTemplate() {
     }
 }
 
+async function handleGenerationComplete(data) {
+    console.log('Handling generation complete with data:', data);
+
+    // 处理不同格式的响应数据
+    if (data.html_template) {
+        // 生成的模板数据格式
+        window.generatedTemplateData = {
+            html_template: data.html_template,
+            template_name: data.template_name,
+            description: data.description,
+            tags: data.tags,
+            llm_response: data.llm_response  // 保存LLM完整响应
+        };
+
+        // 显示预览
+        showTemplatePreview(data.html_template);
+
+        // 如果有LLM响应，显示LLM响应数据
+        if (data.llm_response) {
+            displayLLMResponse(data.llm_response);
+        }
+    } else if (data.id && data.template_name) {
+        // 已保存的模板对象格式
+        console.log('Template already saved with ID:', data.id);
+
+        // 尝试获取模板的HTML内容来显示预览
+        try {
+            const response = await fetch(`/api/global-master-templates/${data.id}`);
+            if (response.ok) {
+                const templateData = await response.json();
+                console.log('Fetched template data:', templateData);
+
+                // 检查不同可能的HTML内容字段名
+                const htmlContent = templateData.html_content || templateData.content || templateData.html_template;
+
+                if (htmlContent) {
+                    window.generatedTemplateData = {
+                        html_template: htmlContent,
+                        template_name: templateData.name || templateData.template_name,
+                        description: templateData.description,
+                        tags: templateData.tags,
+                        id: templateData.id
+                    };
+
+                    // 显示预览
+                    showTemplatePreview(htmlContent);
+                } else {
+                    console.warn('No HTML content found in template data');
+                    // 显示占位符预览
+                    showTemplatePreview('<div style="padding: 50px; text-align: center; color: #666;">模板预览不可用</div>');
+                }
+
+                // 显示成功消息
+                console.log('Template generated and saved successfully!');
+            } else {
+                console.warn('Failed to fetch template details for preview');
+            }
+        } catch (error) {
+            console.error('Error fetching template details:', error);
+        }
+    } else {
+        console.warn('Unrecognized data format:', data);
+    }
+}
+
+// 保留原有的流式处理函数以备后用
 async function handleStreamData(data) {
     switch (data.type) {
         case 'status':
@@ -446,11 +522,17 @@ async function handleStreamData(data) {
                     html_template: data.html_template,
                     template_name: data.template_name,
                     description: data.description,
-                    tags: data.tags
+                    tags: data.tags,
+                    llm_response: data.llm_response  // 保存LLM完整响应
                 };
 
                 // 显示预览
                 showTemplatePreview(data.html_template);
+
+                // 如果有LLM响应，显示LLM响应数据
+                if (data.llm_response) {
+                    displayLLMResponse(data.llm_response);
+                }
             }
             break;
 
@@ -474,6 +556,11 @@ function updateGenerationStatus(message) {
 
 function appendToStream(content) {
     const responseStream = document.getElementById('aiResponseStream');
+
+    // 如果元素不存在，直接返回（非流式模式下不需要显示）
+    if (!responseStream) {
+        return;
+    }
 
     // 移除之前的光标
     const existingCursor = responseStream.querySelector('.typing-cursor');
@@ -591,3 +678,225 @@ function readFileContent(file) {
 }
 
 // 导出模板功能已移至HTML文件中，以便onclick事件可以访问
+
+// ==================== 图片上传功能 ====================
+
+let uploadedImageData = null; // 存储上传的图片数据
+
+// 初始化图片上传功能
+function initImageUpload() {
+    // 延迟初始化，确保DOM元素存在
+    setTimeout(() => {
+        const generationModeRadios = document.querySelectorAll('input[name="generation_mode"]');
+        const imageUploadArea = document.getElementById('imageUploadArea');
+        const uploadDropzone = document.getElementById('uploadDropzone');
+        const selectImageBtn = document.getElementById('selectImageBtn');
+        const imageFileInput = document.getElementById('imageFileInput');
+        const removeImageBtn = document.getElementById('removeImageBtn');
+
+        if (generationModeRadios.length === 0 || !imageUploadArea) {
+            return;
+        }
+
+        // 监听生成模式变化
+        generationModeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'text_only') {
+                    imageUploadArea.style.display = 'none';
+                    clearUploadedImage();
+                } else {
+                    imageUploadArea.style.display = 'block';
+                }
+            });
+        });
+
+        // 只有在元素存在时才添加事件监听器
+        if (uploadDropzone && selectImageBtn && imageFileInput && removeImageBtn) {
+            // 拖拽上传
+            uploadDropzone.addEventListener('dragover', handleDragOver);
+            uploadDropzone.addEventListener('dragleave', handleDragLeave);
+            uploadDropzone.addEventListener('drop', handleDrop);
+
+            // 点击上传
+            selectImageBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                imageFileInput.click();
+            });
+            uploadDropzone.addEventListener('click', (e) => {
+                // 只有点击空白区域时才触发，避免与按钮冲突
+                if (e.target === uploadDropzone || e.target.closest('.upload-content')) {
+                    if (e.target !== selectImageBtn && !selectImageBtn.contains(e.target)) {
+                        imageFileInput.click();
+                    }
+                }
+            });
+            imageFileInput.addEventListener('change', handleFileSelect);
+
+            // 移除图片
+            removeImageBtn.addEventListener('click', clearUploadedImage);
+        }
+    }, 100);
+}
+
+// 处理拖拽悬停
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('dragover');
+}
+
+// 处理拖拽离开
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragover');
+}
+
+// 处理拖拽放下
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragover');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleImageFile(files[0]);
+    }
+}
+
+// 处理文件选择
+function handleFileSelect(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        handleImageFile(files[0]);
+    }
+}
+
+// 处理图片文件
+function handleImageFile(file) {
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        alert('请选择支持的图片格式：JPG、PNG、WebP');
+        return;
+    }
+
+    // 验证文件大小 (10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        alert('图片文件大小不能超过 10MB');
+        return;
+    }
+
+    // 读取并预览图片
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64Data = e.target.result;
+        uploadedImageData = {
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            data: base64Data
+        };
+        showImagePreview(uploadedImageData);
+    };
+    reader.readAsDataURL(file);
+}
+
+// 显示图片预览
+function showImagePreview(imageData) {
+    const uploadDropzone = document.getElementById('uploadDropzone');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const imagePreview = document.getElementById('imagePreview');
+    const imageFilename = document.getElementById('imageFilename');
+    const imageSize = document.getElementById('imageSize');
+
+    // 隐藏上传区域，显示预览
+    uploadDropzone.style.display = 'none';
+    previewContainer.style.display = 'block';
+
+    // 设置预览内容
+    imagePreview.src = imageData.data;
+    imageFilename.textContent = imageData.filename;
+    imageSize.textContent = formatFileSize(imageData.size);
+}
+
+// 清除上传的图片
+function clearUploadedImage() {
+    uploadedImageData = null;
+
+    const uploadDropzone = document.getElementById('uploadDropzone');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const imageFileInput = document.getElementById('imageFileInput');
+
+    // 显示上传区域，隐藏预览
+    uploadDropzone.style.display = 'block';
+    previewContainer.style.display = 'none';
+
+    // 清空文件输入
+    imageFileInput.value = '';
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// LLM响应处理函数
+function displayLLMResponse(rawResponse) {
+    // 存储原始响应
+    const rawResponseCode = document.getElementById('rawResponseCode');
+    if (rawResponseCode && rawResponse) {
+        rawResponseCode.textContent = rawResponse;
+    } else if (rawResponseCode) {
+        rawResponseCode.textContent = '暂无AI响应数据（模板已保存）';
+    }
+}
+
+function formatLLMResponse(rawResponse) {
+    // 基本的Markdown格式化
+    let formatted = rawResponse;
+
+    // 处理代码块
+    formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+        return `<pre><code class="language-${lang || 'text'}">${escapeHtml(code.trim())}</code></pre>`;
+    });
+
+    // 处理行内代码
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // 处理标题
+    formatted = formatted.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+    formatted = formatted.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+    formatted = formatted.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+    // 处理粗体
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // 处理列表
+    formatted = formatted.replace(/^\* (.*$)/gm, '<li>$1</li>');
+    formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+    // 处理数字列表
+    formatted = formatted.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+
+    // 处理段落
+    formatted = formatted.replace(/\n\n/g, '</p><p>');
+    formatted = '<div class="formatted-response-content"><p>' + formatted + '</p></div>';
+
+    // 清理空段落
+    formatted = formatted.replace(/<p><\/p>/g, '');
+    formatted = formatted.replace(/<p>\s*<\/p>/g, '');
+
+    return formatted;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

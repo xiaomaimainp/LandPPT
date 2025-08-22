@@ -355,6 +355,57 @@ select {
                         <input type="text" id="aiTemplateTags" name="tags" placeholder="AI生成, 现代, 商务">
                     </div>
 
+                    <!-- 图片上传区域 -->
+                    <div class="form-group">
+                        <label>参考图片 (可选)</label>
+                        <div class="image-upload-section">
+                            <!-- 生成模式选择 -->
+                            <div class="generation-mode-selector">
+                                <div class="mode-option">
+                                    <input type="radio" id="mode_text_only" name="generation_mode" value="text_only" checked>
+                                    <label for="mode_text_only">📝 纯文本生成</label>
+                                </div>
+                                <div class="mode-option">
+                                    <input type="radio" id="mode_reference_style" name="generation_mode" value="reference_style">
+                                    <label for="mode_reference_style">🎨 参考风格 (借鉴图片设计元素)</label>
+                                </div>
+                                <div class="mode-option">
+                                    <input type="radio" id="mode_exact_replica" name="generation_mode" value="exact_replica">
+                                    <label for="mode_exact_replica">🔄 1:1还原 (尽可能准确复制图片设计)</label>
+                                </div>
+                            </div>
+
+                            <!-- 图片上传区域 -->
+                            <div id="imageUploadArea" class="image-upload-area" style="display: none;">
+                                <div class="upload-dropzone" id="uploadDropzone">
+                                    <div class="upload-content">
+                                        <div class="upload-icon">📷</div>
+                                        <div class="upload-text">
+                                            <p><strong>拖拽图片到此处</strong> 或 <button type="button" class="upload-btn" id="selectImageBtn">选择文件</button></p>
+                                            <p class="upload-hint">支持 JPG、PNG、WebP 格式，最大 10MB</p>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="imageFileInput" accept="image/jpeg,image/jpg,image/png,image/webp" style="display: none;">
+                                </div>
+
+                                <!-- 图片预览区域 -->
+                                <div id="imagePreviewContainer" class="image-preview-container" style="display: none;">
+                                    <div class="image-preview-header">
+                                        <h4>📷 上传的参考图片</h4>
+                                        <button type="button" class="remove-image-btn" id="removeImageBtn" title="移除图片">✕</button>
+                                    </div>
+                                    <div class="image-preview-content">
+                                        <img id="imagePreview" class="image-preview" alt="参考图片预览">
+                                        <div class="image-info">
+                                            <div class="image-filename" id="imageFilename"></div>
+                                            <div class="image-size" id="imageSize"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                         <button type="button" id="cancelAIBtn" class="btn btn-secondary">取消</button>
                         <button type="submit" class="btn btn-success">🤖 生成</button>
@@ -374,13 +425,8 @@ select {
                     </div>
                 </div>
 
-                <div class="ai-response-container">
-                    <div class="response-header">
-                        <h4>💭 AI思考过程</h4>
-                    </div>
-                    <div id="aiResponseStream" class="ai-response-stream">
-                        <!-- 流式AI回应将在这里显示 -->
-                    </div>
+                <div style="margin: 20px 0; text-align: center; color: #6c757d; font-size: 0.9rem;">
+                    <span>⏳ 预计需要 30-60 秒，请耐心等待...</span>
                 </div>
 
                 <div class="generation-actions" style="margin-top: 20px; text-align: center;">
@@ -402,6 +448,29 @@ select {
                     </div>
                     <div id="generatedTemplatePreview" style="border: 1px solid #ddd; border-radius: 8px; height: 300px; overflow: hidden; background: #f8f9fa;">
                         <iframe id="generatedTemplateIframe" style="width: 100%; height: 100%; border: none; transform: scale(0.5); transform-origin: 0 0; width: 200%; height: 200%;"></iframe>
+                    </div>
+                </div>
+
+                <!-- LLM响应查看区域 -->
+                <div class="llm-response-section" style="margin: 20px 0;">
+                    <div class="response-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: #333;">AI思考过程</h4>
+                        <button type="button" id="toggleLLMResponseBtn" class="btn btn-sm btn-outline-info">📋 查看完整响应</button>
+                    </div>
+                    <div id="llmResponseContainer" style="display: none;">
+                        <div class="response-content" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; max-height: 400px; overflow-y: auto;">
+                            <div class="response-tabs" style="margin-bottom: 15px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="color: #495057; font-weight: 600;">原始响应</span>
+                                </div>
+                                <div>
+                                    <button type="button" id="copyResponseBtn" class="btn btn-sm btn-outline-secondary" title="复制响应内容">📋 复制</button>
+                                </div>
+                            </div>
+                            <div id="rawResponse" class="response-tab-content">
+                                <pre style="background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 6px; font-size: 13px; line-height: 1.4; margin: 0; white-space: pre-wrap; word-wrap: break-word; position: relative;"><code id="rawResponseCode"></code></pre>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -950,6 +1019,313 @@ select {
     box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
 }
 
+/* 图片上传样式 */
+.image-upload-section {
+    margin-top: 10px;
+}
+
+.generation-mode-selector {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: var(--border-radius-md);
+    border: 1px solid #e9ecef;
+    margin-bottom: 15px;
+}
+
+.mode-option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-sm);
+    transition: background-color 0.2s ease;
+}
+
+.mode-option:last-child {
+    margin-bottom: 0;
+}
+
+.mode-option:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+.mode-option input[type="radio"] {
+    margin: 0 10px 0 0;
+    width: 16px;
+    height: 16px;
+}
+
+.mode-option label {
+    cursor: pointer;
+    font-size: 0.95rem;
+    margin: 0;
+    flex: 1;
+}
+
+.mode-option input[type="radio"]:checked + label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.image-upload-area {
+    margin-top: 15px;
+}
+
+.upload-dropzone {
+    border: 2px dashed #d1d5db;
+    border-radius: var(--border-radius-md);
+    padding: 40px 20px;
+    text-align: center;
+    background: #fafbfc;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: #9ca3af;
+}
+
+.upload-text p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.upload-text p:first-child {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.upload-btn {
+    background: none;
+    border: none;
+    color: #667eea;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: inherit;
+    padding: 0;
+}
+
+.upload-btn:hover {
+    color: #5a67d8;
+}
+
+.upload-hint {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.image-preview-container {
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+    background: white;
+}
+
+.image-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.image-preview-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.remove-image-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.remove-image-btn:hover {
+    background: #dc2626;
+}
+
+.image-preview-content {
+    padding: 16px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.image-preview {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid #e5e7eb;
+    object-fit: cover;
+}
+
+.image-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.image-filename {
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.image-size {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* LLM响应展示样式 */
+.llm-response-section {
+    border: 1px solid #e9ecef;
+    border-radius: var(--border-radius-md);
+    background: white;
+    overflow: hidden;
+}
+
+.response-header {
+    background: #f8f9fa;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.response-header h4 {
+    color: #495057;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.response-tabs {
+    display: flex;
+    background: #f8f9fa;
+    margin: -15px -15px 15px -15px;
+    padding: 0 15px;
+}
+
+.response-tab {
+    background: none;
+    border: none;
+    padding: 12px 16px;
+    margin-right: 10px;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.response-tab:hover {
+    color: #495057;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.response-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.response-tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.formatted-response-content {
+    line-height: 1.6;
+    color: #333;
+}
+
+.formatted-response-content h1,
+.formatted-response-content h2,
+.formatted-response-content h3,
+.formatted-response-content h4 {
+    color: #2c3e50;
+    margin: 20px 0 10px 0;
+    font-weight: 600;
+}
+
+.formatted-response-content h1 { font-size: 1.4rem; }
+.formatted-response-content h2 { font-size: 1.2rem; }
+.formatted-response-content h3 { font-size: 1.1rem; }
+.formatted-response-content h4 { font-size: 1rem; }
+
+.formatted-response-content p {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.formatted-response-content ul,
+.formatted-response-content ol {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.formatted-response-content li {
+    margin: 5px 0;
+}
+
+.formatted-response-content code {
+    background: #f1f3f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #d73a49;
+}
+
+.formatted-response-content pre {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 15px 0;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.formatted-response-content blockquote {
+    border-left: 4px solid #007bff;
+    margin: 15px 0;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    color: #495057;
+    font-style: italic;
+}
+
 /* 响应式设计 - 优化移动端体验 */
 @media (max-width: 1200px) {
     #templatesGrid {
@@ -1213,6 +1589,14 @@ function setupEventListeners() {
         }
     });
 
+    // LLM响应查看功能
+    document.getElementById('toggleLLMResponseBtn').addEventListener('click', toggleLLMResponse);
+
+    // 响应标签切换功能已移除，只保留原始响应
+
+    // 复制响应内容
+    document.getElementById('copyResponseBtn').addEventListener('click', copyLLMResponse);
+
     // Form submissions
     document.getElementById('templateForm').addEventListener('submit', handleTemplateSubmit);
     document.getElementById('aiGenerationForm').addEventListener('submit', handleAIGeneration);
@@ -1239,6 +1623,9 @@ function setupEventListeners() {
             event.target.style.display = 'none';
         }
     });
+
+    // 初始化图片上传功能
+    initImageUpload();
 }
 
 async function loadTemplates(page = 1) {
@@ -1497,6 +1884,98 @@ function editTemplate(templateId) {
     openTemplateModal(templateId);
 }
 
+// AI生成模态框相关函数
+function openAIGenerationModal() {
+    const modal = document.getElementById('aiGenerationModal');
+    modal.style.display = 'block';
+
+    // 重置表单
+    document.getElementById('aiGenerationForm').reset();
+    document.getElementById('aiFormContainer').style.display = 'block';
+    document.getElementById('aiGenerationProgress').style.display = 'none';
+    document.getElementById('aiGenerationComplete').style.display = 'none';
+
+    // 清除上传的图片
+    if (typeof clearUploadedImage === 'function') {
+        clearUploadedImage();
+    }
+
+    // 重新初始化图片上传功能
+    setTimeout(() => {
+        if (typeof initImageUpload === 'function') {
+            initImageUpload();
+        }
+
+        // 确保初始状态正确
+        const imageUploadArea = document.getElementById('imageUploadArea');
+        const textOnlyRadio = document.querySelector('input[name="generation_mode"][value="text_only"]');
+        if (imageUploadArea && textOnlyRadio && textOnlyRadio.checked) {
+            imageUploadArea.style.display = 'none';
+        }
+    }, 200);
+}
+
+function closeAIGenerationModal() {
+    const modal = document.getElementById('aiGenerationModal');
+    modal.style.display = 'none';
+
+    // 清理数据
+    clearUploadedImage();
+    if (window.generatedTemplateData) {
+        delete window.generatedTemplateData;
+    }
+}
+
+// LLM响应查看功能
+function toggleLLMResponse() {
+    const container = document.getElementById('llmResponseContainer');
+    const btn = document.getElementById('toggleLLMResponseBtn');
+
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+        btn.textContent = '📋 隐藏响应';
+        btn.classList.remove('btn-outline-info');
+        btn.classList.add('btn-info');
+    } else {
+        container.style.display = 'none';
+        btn.textContent = '📋 查看完整响应';
+        btn.classList.remove('btn-info');
+        btn.classList.add('btn-outline-info');
+    }
+}
+
+// 标签切换功能已移除，只保留原始响应显示
+
+function copyLLMResponse() {
+    // 复制原始响应
+    const rawCode = document.getElementById('rawResponseCode');
+    const textToCopy = rawCode ? rawCode.textContent : '';
+
+    if (textToCopy && textToCopy !== '暂无AI响应数据（模板已保存）') {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            // 临时改变按钮文本以显示成功
+            const btn = document.getElementById('copyResponseBtn');
+            const originalText = btn.textContent;
+            btn.textContent = '✅ 已复制';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-success');
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        }).catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动选择文本复制');
+        });
+    } else {
+        alert('暂无可复制的响应内容');
+    }
+}
+
+// LLM响应处理函数已移至global_master_templates.js文件中
+
 async function duplicateTemplate(templateId) {
     const newName = prompt('请输入新模板的名称:');
     if (!newName || !newName.trim()) {
@@ -1708,6 +2187,64 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+// 简单的代码高亮函数
+function highlightCode() {
+    const codeBlocks = document.querySelectorAll('pre code');
+    codeBlocks.forEach(block => {
+        const language = block.className.replace('language-', '');
+        if (language === 'html' || language === 'xml') {
+            highlightHTML(block);
+        } else if (language === 'css') {
+            highlightCSS(block);
+        } else if (language === 'javascript' || language === 'js') {
+            highlightJS(block);
+        }
+    });
+}
+
+function highlightHTML(block) {
+    let html = block.textContent;
+    // HTML标签
+    html = html.replace(/(&lt;\/?)([a-zA-Z][a-zA-Z0-9]*)(.*?)(&gt;)/g,
+        '$1<span style="color: #e06c75;">$2</span>$3$4');
+    // 属性名
+    html = html.replace(/(\s)([a-zA-Z-]+)(=)/g,
+        '$1<span style="color: #d19a66;">$2</span>$3');
+    // 属性值
+    html = html.replace(/(=)(".*?")/g,
+        '$1<span style="color: #98c379;">$2</span>');
+    block.innerHTML = html;
+}
+
+function highlightCSS(block) {
+    let css = block.textContent;
+    // 选择器
+    css = css.replace(/^([^{]+)(\{)/gm,
+        '<span style="color: #e06c75;">$1</span>$2');
+    // 属性名
+    css = css.replace(/(\s+)([a-zA-Z-]+)(:)/g,
+        '$1<span style="color: #d19a66;">$2</span>$3');
+    // 属性值
+    css = css.replace(/(:)([^;]+)(;)/g,
+        '$1<span style="color: #98c379;">$2</span>$3');
+    block.innerHTML = css;
+}
+
+function highlightJS(block) {
+    let js = block.textContent;
+    // 关键字
+    const keywords = ['function', 'var', 'let', 'const', 'if', 'else', 'for', 'while', 'return', 'class', 'extends'];
+    keywords.forEach(keyword => {
+        const regex = new RegExp(`\\b(${keyword})\\b`, 'g');
+        js = js.replace(regex, '<span style="color: #c678dd;">$1</span>');
+    });
+    // 字符串
+    js = js.replace(/('.*?'|".*?")/g, '<span style="color: #98c379;">$1</span>');
+    // 注释
+    js = js.replace(/(\/\/.*$)/gm, '<span style="color: #5c6370;">$1</span>');
+    block.innerHTML = js;
 }
 </script>
 

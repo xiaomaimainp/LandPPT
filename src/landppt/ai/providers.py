@@ -279,41 +279,101 @@ class GoogleProvider(AIProvider):
             self.client = None
             self.model_instance = None
 
-    def _convert_messages_to_gemini(self, messages: List[AIMessage]) -> str:
+    def _convert_messages_to_gemini(self, messages: List[AIMessage]):
         """Convert AIMessage list to Gemini format, supporting multimodal content"""
         import google.generativeai as genai
+        import base64
 
-        # Gemini uses a different approach - we build a single prompt with parts
-        parts = []
+        # Try to import genai types for proper image handling
+        try:
+            from google.genai import types
+            GENAI_TYPES_AVAILABLE = True
+        except ImportError:
+            try:
+                # Fallback to older API structure
+                from google.generativeai import types
+                GENAI_TYPES_AVAILABLE = True
+            except ImportError:
+                logger.warning("Google GenAI types not available for proper image processing")
+                GENAI_TYPES_AVAILABLE = False
 
-        for msg in messages:
-            # Add role prefix
-            role_prefix = f"[{msg.role.value.upper()}]: "
+        # Check if we have any images
+        has_images = any(
+            isinstance(msg.content, list) and
+            any(isinstance(part, ImageContent) for part in msg.content)
+            for msg in messages
+        )
 
-            if isinstance(msg.content, str):
-                # Simple text message
-                parts.append(role_prefix + msg.content)
-            elif isinstance(msg.content, list):
-                # Multimodal message
-                message_parts = [role_prefix]
-                for part in msg.content:
-                    if isinstance(part, TextContent):
-                        message_parts.append(part.text)
-                    elif isinstance(part, ImageContent):
-                        # For Gemini, we need to handle images differently
-                        # This is a simplified approach - in practice, you'd want to
-                        # use the proper Gemini multimodal API
-                        image_url = part.image_url.get("url", "")
-                        if image_url.startswith("data:image/"):
-                            message_parts.append(f"[Image data provided]")
-                        else:
-                            message_parts.append(f"[Image: {image_url}]")
-                parts.append(" ".join(message_parts))
-            else:
-                # Fallback to string representation
-                parts.append(role_prefix + str(msg.content))
+        if not has_images:
+            # Text-only mode - return string
+            parts = []
+            for msg in messages:
+                role_prefix = f"[{msg.role.value.upper()}]: "
+                if isinstance(msg.content, str):
+                    parts.append(role_prefix + msg.content)
+                elif isinstance(msg.content, list):
+                    message_parts = [role_prefix]
+                    for part in msg.content:
+                        if isinstance(part, TextContent):
+                            message_parts.append(part.text)
+                    parts.append(" ".join(message_parts))
+                else:
+                    parts.append(role_prefix + str(msg.content))
+            return "\n\n".join(parts)
+        else:
+            # Multimodal mode - return list of parts for Gemini
+            content_parts = []
 
-        return "\n\n".join(parts)
+            for msg in messages:
+                role_prefix = f"[{msg.role.value.upper()}]: "
+
+                if isinstance(msg.content, str):
+                    content_parts.append(role_prefix + msg.content)
+                elif isinstance(msg.content, list):
+                    text_parts = [role_prefix]
+
+                    for part in msg.content:
+                        if isinstance(part, TextContent):
+                            text_parts.append(part.text)
+                        elif isinstance(part, ImageContent):
+                            # Add accumulated text first
+                            if len(text_parts) > 1 or text_parts[0]:
+                                content_parts.append(" ".join(text_parts))
+                                text_parts = []
+
+                            # Process image for Gemini
+                            image_url = part.image_url.get("url", "")
+                            if image_url.startswith("data:image/") and GENAI_TYPES_AVAILABLE:
+                                try:
+                                    # Extract base64 data and mime type
+                                    header, base64_data = image_url.split(",", 1)
+                                    mime_type = header.split(":")[1].split(";")[0]  # Extract mime type like 'image/jpeg'
+                                    image_data = base64.b64decode(base64_data)
+
+                                    # Create Gemini Part from bytes
+                                    image_part = types.Part.from_bytes(
+                                        data=image_data,
+                                        mime_type=mime_type
+                                    )
+                                    content_parts.append(image_part)
+                                    logger.info(f"Successfully processed image for Gemini: {mime_type}, {len(image_data)} bytes")
+                                except Exception as e:
+                                    logger.error(f"Failed to process image for Gemini: {e}")
+                                    content_parts.append("请参考上传的图片进行设计。图片包含了重要的设计参考信息，请根据图片的风格、色彩、布局等元素来生成模板。")
+                            else:
+                                # Fallback when genai types not available or not base64 image
+                                if image_url.startswith("data:image/"):
+                                    content_parts.append("请参考上传的图片进行设计。图片包含了重要的设计参考信息，请根据图片的风格、色彩、布局等元素来生成模板。")
+                                else:
+                                    content_parts.append(f"请参考图片 {image_url} 进行设计")
+
+                    # Add remaining text
+                    if len(text_parts) > 1 or (len(text_parts) == 1 and text_parts[0]):
+                        content_parts.append(" ".join(text_parts))
+                else:
+                    content_parts.append(role_prefix + str(msg.content))
+
+            return content_parts
 
     async def chat_completion(self, messages: List[AIMessage], **kwargs) -> AIResponse:
         """Generate chat completion using Google Gemini"""
@@ -419,8 +479,8 @@ class GoogleProvider(AIProvider):
             logger.error(f"Google Gemini API error: {e}")
             raise
 
-    async def _generate_async(self, prompt: str, generation_config: Dict[str, Any], safety_settings=None):
-        """Async wrapper for Gemini generation"""
+    async def _generate_async(self, prompt, generation_config: Dict[str, Any], safety_settings=None):
+        """Async wrapper for Gemini generation - supports both text and multimodal content"""
         import asyncio
         loop = asyncio.get_event_loop()
 
@@ -432,7 +492,7 @@ class GoogleProvider(AIProvider):
                 kwargs["safety_settings"] = safety_settings
 
             return self.model_instance.generate_content(
-                prompt,
+                prompt,  # Can be string or list of parts
                 **kwargs
             )
 
@@ -462,11 +522,32 @@ class OllamaProvider(AIProvider):
         
         config = self._merge_config(**kwargs)
         
-        # Convert messages to Ollama format
-        ollama_messages = [
-            {"role": msg.role.value, "content": msg.content}
-            for msg in messages
-        ]
+        # Convert messages to Ollama format with multimodal support
+        ollama_messages = []
+        for msg in messages:
+            if isinstance(msg.content, str):
+                # Simple text message
+                ollama_messages.append({"role": msg.role.value, "content": msg.content})
+            elif isinstance(msg.content, list):
+                # Multimodal message - convert to text description for Ollama
+                content_parts = []
+                for part in msg.content:
+                    if isinstance(part, TextContent):
+                        content_parts.append(part.text)
+                    elif isinstance(part, ImageContent):
+                        # Ollama doesn't support images directly, add text description
+                        image_url = part.image_url.get("url", "")
+                        if image_url.startswith("data:image/"):
+                            content_parts.append("[Image provided - base64 data]")
+                        else:
+                            content_parts.append(f"[Image: {image_url}]")
+                ollama_messages.append({
+                    "role": msg.role.value,
+                    "content": " ".join(content_parts)
+                })
+            else:
+                # Fallback to string representation
+                ollama_messages.append({"role": msg.role.value, "content": str(msg.content)})
         
         try:
             response = await self.client.chat(

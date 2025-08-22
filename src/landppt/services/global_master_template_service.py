@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Optional
 from io import BytesIO
 
 from ..ai import get_ai_provider, AIMessage, MessageRole
+from ..ai.base import TextContent, ImageContent, MessageContentType
 from ..core.config import ai_config
 from ..database.service import DatabaseService
 from ..database.database import AsyncSessionLocal
@@ -300,13 +301,16 @@ class GlobalMasterTemplateService:
             logger.error(f"Failed to get default template: {e}")
             raise
 
-    async def generate_template_with_ai_stream(self, prompt: str, template_name: str, description: str = "", tags: List[str] = None):
-        """Generate a new template using AI with streaming response"""
-        import asyncio
+    async def generate_template_with_ai(self, prompt: str, template_name: str, description: str = "",
+                                      tags: List[str] = None, generation_mode: str = "text_only",
+                                      reference_image: dict = None):
+        """Generate a new template using AI (non-streaming) - does not save to database"""
         import json
 
         # 构建AI提示词
-        ai_prompt = f"""
+        if generation_mode == "text_only" or not reference_image:
+            # 纯文本生成模式
+            ai_prompt = f"""
 作为专业的PPT模板设计师，请根据以下要求生成一个HTML母版模板。
 
 请按照以下步骤思考并生成：
@@ -339,22 +343,361 @@ class GlobalMasterTemplateService:
 
 请详细说明你的设计思路，然后生成完整的HTML模板代码，使用```html代码块格式返回。
 """
+            messages = [{"role": "user", "content": ai_prompt}]
+        else:
+            # 多模态生成模式
+            if generation_mode == "reference_style":
+                mode_instruction = """
+请参考上传的图片风格，借鉴其设计元素、色彩搭配、布局结构等，但不需要完全复制。
+重点关注：
+- 色彩方案和配色理念
+- 设计风格和视觉元素
+- 布局结构和空间安排
+- 字体选择和排版风格
+"""
+            else:  # one_to_one
+                mode_instruction = """
+请尽可能准确地复制上传图片的设计，包括：
+- 精确的布局结构
+- 相同的色彩搭配
+- 类似的视觉元素
+- 相近的字体和排版
+- 整体的设计风格
+"""
+
+            ai_prompt = f"""
+作为专业的PPT模板设计师，请根据参考图片和以下要求生成一个HTML母版模板。
+
+{mode_instruction}
+
+用户需求：{prompt}
+
+设计要求：
+1. **严格尺寸控制**：页面尺寸必须为1280x720像素（16:9比例）
+2. **完整HTML结构**：包含<!DOCTYPE html>、head、body等完整结构
+3. **内联样式**：所有CSS样式必须内联，确保自包含性
+4. **响应式设计**：适配不同屏幕尺寸但保持16:9比例
+5. **占位符支持**：在适当位置使用占位符，如：
+   - {{{{ page_title }}}} - 页面标题，默认居左
+   - {{{{ page_content }}}} - 页面内容
+   - {{{{ current_page_number }}}} - 当前页码
+   - {{{{ total_page_count }}}} - 总页数
+6. **技术要求**：
+   - 使用Tailwind CSS或内联CSS
+   - 支持Font Awesome图标
+   - 支持Chart.js、ECharts.js、D3.js等图表库
+   - 确保所有内容在720px高度内完全显示
+   - 绝对不允许出现任何滚动条
+
+请详细说明你的设计思路，然后生成完整的HTML模板代码，使用```html代码块格式返回。
+"""
+
+            # 构建多模态消息
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": ai_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{reference_image['type']};base64,{reference_image['data']}"
+                            }
+                        }
+                    ]
+                }
+            ]
 
         try:
-            # 检查AI提供商是否支持流式响应
-            if hasattr(self.ai_provider, 'stream_text_completion'):
-                # 使用流式API
-                full_response = ""
-                async for chunk in self.ai_provider.stream_text_completion(
-                    prompt=ai_prompt,
-                    max_tokens=ai_config.max_tokens,
-                    temperature=0.7
-                ):
-                    full_response += chunk
-                    yield {
-                        'type': 'thinking',
-                        'content': chunk
-                    }
+            # 调用AI服务
+            ai_provider = get_ai_provider()
+            if not ai_provider:
+                raise ValueError("AI服务未配置或不可用")
+
+            # 转换消息格式
+            ai_messages = []
+            for msg in messages:
+                if isinstance(msg["content"], str):
+                    # 纯文本消息
+                    ai_messages.append(AIMessage(
+                        role=MessageRole.USER,
+                        content=[TextContent(text=msg["content"])]
+                    ))
+                else:
+                    # 多模态消息
+                    content_parts = []
+                    for part in msg["content"]:
+                        if part["type"] == "text":
+                            content_parts.append(TextContent(text=part["text"]))
+                        elif part["type"] == "image_url":
+                            # 提取base64数据
+                            image_url = part["image_url"]["url"]
+                            if image_url.startswith("data:"):
+                                content_parts.append(ImageContent(
+                                    image_url={"url": image_url},
+                                    content_type=MessageContentType.IMAGE_URL
+                                ))
+                    ai_messages.append(AIMessage(
+                        role=MessageRole.USER,
+                        content=content_parts
+                    ))
+
+            # 重试逻辑：最多尝试5次
+            max_retries = 5
+            full_response = None
+            html_template = None
+
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"AI generation attempt {attempt + 1}/{max_retries}")
+                    ai_response = await ai_provider.chat_completion(ai_messages)
+                    full_response = ai_response.content
+
+                    logger.info(f"AI response length: {len(full_response)}")
+
+                    # 检查响应是否为空或过短
+                    if not full_response or not full_response.strip():
+                        logger.warning(f"Attempt {attempt + 1}: Empty response")
+                        if attempt < max_retries - 1:
+                            logger.info(f"Retrying due to empty response... ({attempt + 2}/{max_retries})")
+                            continue
+                        else:
+                            logger.error("All retries exhausted, received empty response")
+                            raise ValueError("AI服务返回空响应")
+
+                    if len(full_response) < 2000:
+                        logger.warning(f"Attempt {attempt + 1}: Response too short ({len(full_response)} chars)")
+                        if attempt < max_retries - 1:  # 不是最后一次尝试
+                            logger.info(f"Retrying due to short response... ({attempt + 2}/{max_retries})")
+                            continue
+                        else:
+                            logger.warning("All retries exhausted, proceeding with short response")
+
+                    # 提取HTML模板
+                    html_template = self._extract_html_from_response(full_response)
+
+                    if not html_template or not html_template.strip():
+                        logger.warning(f"Attempt {attempt + 1}: Failed to extract HTML template")
+                        if attempt < max_retries - 1:
+                            logger.info(f"Retrying due to extraction failure... ({attempt + 2}/{max_retries})")
+                            continue
+                        else:
+                            logger.error("All retries exhausted, failed to extract HTML template")
+                            raise ValueError("AI响应中未找到有效的HTML模板")
+
+                    logger.info(f"Extracted HTML template length: {len(html_template)}")
+
+                    # 验证HTML模板
+                    if not self._validate_html_template(html_template):
+                        logger.warning(f"Attempt {attempt + 1}: HTML template validation failed")
+                        if attempt < max_retries - 1:
+                            logger.info(f"Retrying due to validation failure... ({attempt + 2}/{max_retries})")
+                            continue
+                        else:
+                            logger.error("All retries exhausted, HTML template validation failed")
+                            raise ValueError("生成的HTML模板验证失败")
+
+                    # 成功生成有效模板
+                    logger.info(f"Successfully generated valid HTML template on attempt {attempt + 1}")
+                    break
+
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                        logger.info(f"Retrying... ({attempt + 2}/{max_retries})")
+                        continue
+                    else:
+                        logger.error(f"All {max_retries} attempts failed")
+                        raise
+
+            if not html_template:
+                raise ValueError("Failed to generate valid HTML template after all retries")
+
+            # 返回结果（不保存到数据库）
+            return {
+                'html_template': html_template,
+                'template_name': template_name,
+                'description': description or f"AI生成的模板：{prompt[:100]}",
+                'tags': tags or ['AI生成'],
+                'llm_response': full_response  # 包含完整的LLM响应
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to generate template with AI: {e}", exc_info=True)
+            raise
+
+    async def generate_template_with_ai_stream(self, prompt: str, template_name: str, description: str = "",
+                                             tags: List[str] = None, generation_mode: str = "text_only",
+                                             reference_image: dict = None):
+        """Generate a new template using AI with streaming response"""
+        import asyncio
+        import json
+
+        # 构建AI提示词
+        if generation_mode == "text_only" or not reference_image:
+            # 纯文本生成模式
+            ai_prompt = f"""
+作为专业的PPT模板设计师，请根据以下要求生成一个HTML母版模板。
+
+请按照以下步骤思考并生成：
+
+1. 首先分析用户需求
+2. 设计模板的整体风格和布局
+3. 确定色彩方案和字体选择
+4. 编写HTML结构
+5. 添加CSS样式
+6. 优化和完善
+
+用户需求：{prompt}
+
+设计要求：
+1. **严格尺寸控制**：页面尺寸必须为1280x720像素（16:9比例）
+2. **完整HTML结构**：包含<!DOCTYPE html>、head、body等完整结构
+3. **内联样式**：所有CSS样式必须内联，确保自包含性
+4. **响应式设计**：适配不同屏幕尺寸但保持16:9比例
+5. **占位符支持**：在适当位置使用占位符，如：
+   - {{{{ page_title }}}} - 页面标题，默认居左
+   - {{{{ page_content }}}} - 页面内容
+   - {{{{ current_page_number }}}} - 当前页码
+   - {{{{ total_page_count }}}} - 总页数
+6. **技术要求**：
+   - 使用Tailwind CSS或内联CSS
+   - 支持Font Awesome图标
+   - 支持Chart.js、ECharts.js、D3.js等图表库
+   - 确保所有内容在720px高度内完全显示
+   - 绝对不允许出现任何滚动条
+
+请详细说明你的设计思路，然后生成完整的HTML模板代码，使用```html代码块格式返回。
+"""
+        else:
+            # 多模态生成模式
+            if generation_mode == "reference_style":
+                mode_instruction = """
+**生成模式：参考风格**
+请分析参考图片的设计风格、色彩搭配、布局结构等视觉元素，并将这些设计理念融入到PPT模板中。
+不需要完全复制图片内容，而是借鉴其设计精髓来创建符合用户需求的模板。
+"""
+            else:  # exact_replica
+                mode_instruction = """
+**生成模式：1:1还原**
+请尽可能准确地分析和复制参考图片的设计，包括：
+- 布局结构和元素位置
+- 色彩方案和渐变效果
+- 字体样式和排版
+- 装饰元素和图形
+- 整体视觉风格
+在保持PPT模板功能性的前提下，最大程度还原图片的设计。
+"""
+
+            ai_prompt = f"""
+作为专业的PPT模板设计师，请根据参考图片和用户要求生成一个HTML母版模板。
+
+{mode_instruction}
+
+用户需求：{prompt}
+
+请按照以下步骤分析和生成：
+
+1. **图片分析**：详细分析参考图片的设计元素
+   - 整体布局和结构
+   - 色彩方案和配色
+   - 字体和排版风格
+   - 装饰元素和图形
+   - 视觉层次和重点
+
+2. **设计适配**：将图片设计适配为PPT模板
+   - 保持设计风格的一致性
+   - 适配16:9的PPT比例
+   - 确保内容区域的可用性
+   - 添加必要的占位符
+
+3. **技术实现**：编写HTML和CSS代码
+
+设计要求：
+1. **严格尺寸控制**：页面尺寸必须为1280x720像素（16:9比例）
+2. **完整HTML结构**：包含<!DOCTYPE html>、head、body等完整结构
+3. **内联样式**：所有CSS样式必须内联，确保自包含性
+4. **响应式设计**：适配不同屏幕尺寸但保持16:9比例
+5. **占位符支持**：在适当位置使用占位符，如：
+   - {{{{ page_title }}}} - 页面标题，默认居左
+   - {{{{ page_content }}}} - 页面内容
+   - {{{{ current_page_number }}}} - 当前页码
+   - {{{{ total_page_count }}}} - 总页数
+6. **技术要求**：
+   - 使用Tailwind CSS或内联CSS
+   - 支持Font Awesome图标
+   - 支持Chart.js、ECharts.js、D3.js等图表库
+   - 确保所有内容在720px高度内完全显示
+   - 绝对不允许出现任何滚动条
+
+请详细说明你的分析过程和设计思路，然后生成完整的HTML模板代码，使用```html代码块格式返回。
+"""
+
+        try:
+            # 构建AI消息
+            if generation_mode != "text_only" and reference_image:
+                # 多模态消息
+                content_parts = [
+                    TextContent(text=ai_prompt),
+                    ImageContent(image_url={"url": reference_image["data"]})
+                ]
+                messages = [AIMessage(role=MessageRole.USER, content=content_parts)]
+
+                # 检查AI提供商是否支持流式聊天
+                if hasattr(self.ai_provider, 'stream_chat_completion'):
+                    # 使用流式聊天API
+                    full_response = ""
+                    async for chunk in self.ai_provider.stream_chat_completion(
+                        messages=messages,
+                        max_tokens=ai_config.max_tokens,
+                        temperature=0.7
+                    ):
+                        full_response += chunk
+                        yield {
+                            'type': 'thinking',
+                            'content': chunk
+                        }
+                else:
+                    # 使用标准聊天API
+                    response = await self.ai_provider.chat_completion(
+                        messages=messages,
+                        max_tokens=ai_config.max_tokens,
+                        temperature=0.7
+                    )
+                    full_response = response.content
+
+                    # 模拟流式输出
+                    yield {'type': 'thinking', 'content': '🖼️ 正在分析参考图片...\n\n'}
+                    await asyncio.sleep(1)
+                    yield {'type': 'thinking', 'content': full_response}
+            else:
+                # 纯文本消息
+                if hasattr(self.ai_provider, 'stream_text_completion'):
+                    # 使用流式API
+                    full_response = ""
+                    async for chunk in self.ai_provider.stream_text_completion(
+                        prompt=ai_prompt,
+                        max_tokens=ai_config.max_tokens,
+                        temperature=0.7
+                    ):
+                        full_response += chunk
+                        yield {
+                            'type': 'thinking',
+                            'content': chunk
+                        }
+                else:
+                    # 使用标准文本完成API
+                    response = await self.ai_provider.text_completion(
+                        prompt=ai_prompt,
+                        max_tokens=ai_config.max_tokens,
+                        temperature=0.7
+                    )
+                    full_response = response.content
+
+                    # 模拟流式输出
+                    yield {'type': 'thinking', 'content': '🤔 正在分析您的需求...\n\n'}
+                    await asyncio.sleep(1)
+                    yield {'type': 'thinking', 'content': full_response}
 
                 # 流式完成后，处理完整响应
                 yield {'type': 'thinking', 'content': '\n\n✨ 优化样式和交互效果...\n'}
@@ -376,56 +719,8 @@ class GlobalMasterTemplateService:
                     'html_template': html_template,
                     'template_name': template_name,
                     'description': description or f"AI生成的模板：{prompt[:100]}",
-                    'tags': tags or ['AI生成']
-                }
-
-            else:
-                # 模拟流式响应
-                yield {'type': 'thinking', 'content': '🤔 正在分析您的需求...\n\n'}
-                await asyncio.sleep(1)
-
-                yield {'type': 'thinking', 'content': f'需求分析：{prompt}\n\n'}
-                await asyncio.sleep(0.5)
-
-                yield {'type': 'thinking', 'content': '🎨 开始设计模板风格...\n'}
-                await asyncio.sleep(1)
-
-                yield {'type': 'thinking', 'content': '📐 确定布局结构...\n'}
-                await asyncio.sleep(0.8)
-
-                yield {'type': 'thinking', 'content': '🎯 选择配色方案...\n'}
-                await asyncio.sleep(0.7)
-
-                yield {'type': 'thinking', 'content': '💻 开始编写HTML代码...\n'}
-                await asyncio.sleep(1)
-
-                # 调用标准AI生成
-                response = await self.ai_provider.text_completion(
-                    prompt=ai_prompt,
-                    max_tokens=ai_config.max_tokens,
-                    temperature=0.7
-                )
-
-                yield {'type': 'thinking', 'content': '✨ 优化样式和交互效果...\n'}
-                await asyncio.sleep(0.5)
-
-                # 处理AI响应
-                html_template = self._extract_html_from_response(response.content)
-
-                if not self._validate_html_template(html_template):
-                    raise ValueError("Generated HTML template is invalid")
-
-                yield {'type': 'thinking', 'content': '✅ 模板生成完成，准备预览...\n'}
-                await asyncio.sleep(0.3)
-
-                # 返回生成完成的信息，包含HTML模板用于预览
-                yield {
-                    'type': 'complete',
-                    'message': '模板生成完成！',
-                    'html_template': html_template,
-                    'template_name': template_name,
-                    'description': description or f"AI生成的模板：{prompt[:100]}",
-                    'tags': tags or ['AI生成']
+                    'tags': tags or ['AI生成'],
+                    'llm_response': full_response  # 添加完整的LLM响应
                 }
 
         except Exception as e:
@@ -536,71 +831,7 @@ class GlobalMasterTemplateService:
                 'message': str(e)
             }
 
-    async def generate_template_with_ai(self, prompt: str, template_name: str, description: str = "", tags: List[str] = None) -> Dict[str, Any]:
-        """Generate a new template using AI"""
-        try:
-            # Construct AI prompt for template generation
-            ai_prompt = f"""
-作为专业的PPT模板设计师，请根据以下要求生成一个HTML母版模板：
 
-用户需求：{prompt}
-
-设计要求：
-1. **严格尺寸控制**：页面尺寸必须为1280x720像素（16:9比例）
-2. **完整HTML结构**：包含<!DOCTYPE html>、head、body等完整结构
-3. **内联样式**：所有CSS样式必须内联，确保自包含性
-4. **响应式设计**：适配不同屏幕尺寸但保持16:9比例
-5. **占位符支持**：在适当位置使用占位符，如：
-   - {{{{ page_title }}}} - 页面标题，默认居左
-   - {{{{ page_content }}}} - 页面内容
-   - {{{{ current_page_number }}}} - 当前页码
-   - {{{{ total_page_count }}}} - 总页数
-6. **技术要求**：
-   - 使用Tailwind CSS或内联CSS
-   - 支持Font Awesome图标
-   - 支持Chart.js、ECharts.js、D3.js等图表库
-   - 确保所有内容在720px高度内完全显示
-   - 绝对不允许出现任何滚动条
-
-请生成完整的HTML模板代码，使用```html代码块格式返回。
-"""
-
-            # Call AI to generate template
-            response = await self.ai_provider.text_completion(
-                prompt=ai_prompt,
-                max_tokens=ai_config.max_tokens,
-                temperature=0.7
-            )
-
-            # Extract HTML from response
-            html_template = self._extract_html_from_response(response.content)
-
-            logger.info(f"Extracted HTML template. Length: {len(html_template)}")
-            logger.debug(f"HTML template preview: {html_template[:500]}...")
-
-            # Validate generated HTML
-            if not self._validate_html_template(html_template):
-                logger.error(f"Generated HTML template validation failed.")
-                logger.error(f"Template length: {len(html_template)}")
-                logger.error(f"Template preview (first 2000 chars): {html_template[:2000]}")
-                logger.error(f"Template ending (last 500 chars): {html_template[-500:]}")
-                raise ValueError("Generated HTML template is invalid")
-
-            # Create template data
-            template_data = {
-                'template_name': template_name,
-                'description': description or f"AI生成的模板：{prompt[:100]}",
-                'html_template': html_template,
-                'tags': tags or ['AI生成'],
-                'created_by': 'AI'
-            }
-
-            # Create the template
-            return await self.create_template(template_data)
-
-        except Exception as e:
-            logger.error(f"Failed to generate template with AI: {e}")
-            raise
 
     def _extract_html_from_response(self, response_content: str) -> str:
         """Extract HTML code from AI response with improved extraction"""

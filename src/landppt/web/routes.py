@@ -106,6 +106,17 @@ class AIAutoImageGenerateRequest(BaseModel):
     project_topic: str
     project_scenario: str
 
+# 演讲稿生成请求数据模型
+class SpeechScriptGenerationRequest(BaseModel):
+    generation_type: str  # "single", "multi", "full"
+    slide_indices: Optional[List[int]] = None  # For single and multi generation
+    customization: Dict[str, Any] = {}  # Customization options
+
+class SpeechScriptExportRequest(BaseModel):
+    export_format: str  # "docx", "markdown"
+    scripts_data: List[Dict[str, Any]]
+    include_metadata: bool = True
+
 # Helper function to extract slides from HTML content
 async def _extract_slides_from_html(slides_html: str, existing_slides_data: list) -> list:
     """
@@ -2880,6 +2891,580 @@ async def ai_enhance_all_bullet_points(
             "error": str(e),
             "message": "抱歉，AI要点增强服务暂时不可用。请稍后重试。"
         }
+
+@router.post("/api/projects/{project_id}/speech-script/generate")
+async def generate_speech_script(
+    project_id: str,
+    request: SpeechScriptGenerationRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """Generate speech scripts for presentation slides"""
+    try:
+        import uuid
+        import asyncio
+
+        # Generate task ID for progress tracking
+        task_id = str(uuid.uuid4())
+
+        # Get project
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        # Check if slides data exists
+        if not project.slides_data or len(project.slides_data) == 0:
+            return {
+                "success": False,
+                "error": "No slides data available"
+            }
+
+        # Import speech script service
+        from ..services.speech_script_service import SpeechScriptService, SpeechScriptCustomization
+        from ..services.speech_script_service import SpeechTone, TargetAudience, LanguageComplexity
+
+        # Initialize service
+        speech_service = SpeechScriptService()
+
+        # Parse customization options
+        customization_data = request.customization
+        customization = SpeechScriptCustomization(
+            tone=SpeechTone(customization_data.get('tone', 'conversational')),
+            target_audience=TargetAudience(customization_data.get('target_audience', 'general_public')),
+            language_complexity=LanguageComplexity(customization_data.get('language_complexity', 'moderate')),
+            custom_style_prompt=customization_data.get('custom_style_prompt'),
+            include_transitions=customization_data.get('include_transitions', True),
+            include_timing_notes=customization_data.get('include_timing_notes', False),
+            speaking_pace=customization_data.get('speaking_pace', 'normal')
+        )
+
+        # Validate request parameters
+        if request.generation_type == "single":
+            if not request.slide_indices or len(request.slide_indices) != 1:
+                return {
+                    "success": False,
+                    "error": "Single generation requires exactly one slide index"
+                }
+        elif request.generation_type == "multi":
+            if not request.slide_indices:
+                return {
+                    "success": False,
+                    "error": "Multi generation requires slide indices"
+                }
+        elif request.generation_type != "full":
+            return {
+                "success": False,
+                "error": "Invalid generation type"
+            }
+
+        # Start async generation task
+        async def generate_async():
+            try:
+                logger.info(f"Starting async generation for task {task_id}")
+
+                # Generate scripts based on type
+                if request.generation_type == "single":
+                    # Use multi_slide_scripts_with_retry for single slide to get progress tracking
+                    result = await speech_service.generate_multi_slide_scripts_with_retry(
+                        project, request.slide_indices, customization, task_id=task_id
+                    )
+                elif request.generation_type == "multi":
+                    result = await speech_service.generate_multi_slide_scripts_with_retry(
+                        project, request.slide_indices, customization, task_id=task_id
+                    )
+                elif request.generation_type == "full":
+                    result = await speech_service.generate_full_presentation_scripts(
+                        project, customization, progress_callback=None, task_id=task_id
+                    )
+
+                # Save scripts to database if successful
+                if result.success:
+                    logger.info(f"Generation successful for task {task_id}, saving to database")
+                    from ..services.speech_script_repository import SpeechScriptRepository
+                    repo = SpeechScriptRepository()
+
+                    generation_params = {
+                        'generation_type': request.generation_type,
+                        'tone': customization.tone.value,
+                        'target_audience': customization.target_audience.value,
+                        'language_complexity': customization.language_complexity.value,
+                        'custom_audience': request.customization.get('custom_audience'),
+                        'custom_style_prompt': customization.custom_style_prompt,
+                        'include_transitions': customization.include_transitions,
+                        'include_timing_notes': customization.include_timing_notes,
+                        'speaking_pace': customization.speaking_pace
+                    }
+
+                    for script in result.scripts:
+                        await repo.save_speech_script(
+                            project_id=project_id,
+                            slide_index=script.slide_index,
+                            slide_title=script.slide_title,
+                            script_content=script.script_content,
+                            generation_params=generation_params,
+                            estimated_duration=script.estimated_duration
+                        )
+
+                    repo.close()
+                    logger.info(f"Task {task_id} completed successfully")
+                else:
+                    logger.error(f"Generation failed for task {task_id}: {result.error_message}")
+
+            except Exception as e:
+                logger.error(f"Async speech script generation failed for task {task_id}: {e}")
+                from ..services.progress_tracker import progress_tracker
+                progress_tracker.fail_task(task_id, str(e))
+
+        # Start the async task
+        asyncio.create_task(generate_async())
+
+        # Return immediately with task_id
+        return {
+            "success": True,
+            "task_id": task_id,
+            "message": "演讲稿生成已开始，请查看进度"
+        }
+
+    except Exception as e:
+        logger.error(f"Speech script generation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.post("/api/projects/{project_id}/speech-script/export")
+async def export_speech_script(
+    project_id: str,
+    request: SpeechScriptExportRequest,
+    user: User = Depends(get_current_user_required)
+):
+    """Export speech scripts to document format"""
+    try:
+        # Get project for title
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        # Import exporter
+        from ..services.speech_script_exporter import get_speech_script_exporter
+        from ..services.speech_script_service import SlideScriptData
+
+        exporter = get_speech_script_exporter()
+
+        # Convert scripts data to SlideScriptData objects
+        scripts = []
+        for script_data in request.scripts_data:
+            script = SlideScriptData(
+                slide_index=script_data.get('slide_index', 0),
+                slide_title=script_data.get('slide_title', ''),
+                script_content=script_data.get('script_content', ''),
+                estimated_duration=script_data.get('estimated_duration'),
+                speaker_notes=script_data.get('speaker_notes')
+            )
+            scripts.append(script)
+
+        # Prepare metadata
+        metadata = {}
+        if request.include_metadata:
+            metadata = {
+                'generation_time': time.time(),
+                'total_estimated_duration': request.scripts_data[0].get('total_estimated_duration') if request.scripts_data else None,
+                'customization': {}
+            }
+
+        # Export based on format
+        if request.export_format == "docx":
+            if not exporter.is_docx_available():
+                return {
+                    "success": False,
+                    "error": "DOCX export not available. Please install python-docx."
+                }
+
+            docx_content = await exporter.export_to_docx(
+                scripts, project.topic, metadata
+            )
+
+            # Return file response
+            import urllib.parse
+            filename = f"{project.topic}_演讲稿.docx"
+            safe_filename = urllib.parse.quote(filename, safe='')
+
+            from fastapi.responses import Response
+            return Response(
+                content=docx_content,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
+                }
+            )
+
+        elif request.export_format == "markdown":
+            markdown_content = await exporter.export_to_markdown(
+                scripts, project.topic, metadata
+            )
+
+            # Return file response
+            import urllib.parse
+            filename = f"{project.topic}_演讲稿.md"
+            safe_filename = urllib.parse.quote(filename, safe='')
+
+            from fastapi.responses import Response
+            return Response(
+                content=markdown_content.encode('utf-8'),
+                media_type="text/markdown",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
+                }
+            )
+
+        else:
+            return {
+                "success": False,
+                "error": "Unsupported export format"
+            }
+
+    except Exception as e:
+        logger.error(f"Speech script export failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.get("/api/projects/{project_id}/speech-scripts")
+async def get_current_speech_scripts(
+    project_id: str,
+    user: User = Depends(get_current_user_required)
+):
+    """获取项目的当前演讲稿"""
+    try:
+        from ..services.speech_script_repository import SpeechScriptRepository
+
+        # 检查项目是否存在
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        repo = SpeechScriptRepository()
+
+        # 获取项目的当前演讲稿
+        scripts = await repo.get_current_speech_scripts_by_project(project_id)
+
+        # 转换为JSON格式
+        scripts_data = []
+        for script in scripts:
+            scripts_data.append({
+                "id": script.id,
+                "slide_index": script.slide_index,
+                "slide_title": script.slide_title,
+                "script_content": script.script_content,
+                "estimated_duration": script.estimated_duration,
+                "speaker_notes": script.speaker_notes,
+                "generation_type": script.generation_type,
+                "tone": script.tone,
+                "target_audience": script.target_audience,
+                "custom_audience": script.custom_audience,
+                "language_complexity": script.language_complexity,
+                "speaking_pace": script.speaking_pace,
+                "custom_style_prompt": script.custom_style_prompt,
+                "include_transitions": script.include_transitions,
+                "include_timing_notes": script.include_timing_notes,
+                "created_at": script.created_at,
+                "updated_at": script.updated_at
+            })
+
+        return {
+            "success": True,
+            "scripts": scripts_data
+        }
+
+    except Exception as e:
+        logger.error(f"Get current speech scripts failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+
+@router.delete("/api/projects/{project_id}/speech-scripts/slide/{slide_index}")
+async def delete_speech_script_by_slide(
+    project_id: str,
+    slide_index: int,
+    user: User = Depends(get_current_user_required)
+):
+    """删除指定幻灯片的演讲稿"""
+    try:
+        from ..services.speech_script_repository import SpeechScriptRepository
+
+        # 检查项目是否存在
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        repo = SpeechScriptRepository()
+
+        # 获取并删除指定幻灯片的演讲稿
+        script = await repo.get_speech_script_by_slide(project_id, slide_index)
+        if not script:
+            return {
+                "success": False,
+                "error": "Speech script not found"
+            }
+
+        success = await repo.delete_speech_script(script.id)
+
+        return {
+            "success": success,
+            "message": f"第{slide_index + 1}页演讲稿已删除" if success else "删除演讲稿失败"
+        }
+
+    except Exception as e:
+        logger.error(f"Delete speech script failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.get("/api/projects/{project_id}/speech-scripts/result/{task_id}")
+async def get_speech_script_result(
+    project_id: str,
+    task_id: str,
+    user: User = Depends(get_current_user_required)
+):
+    """获取演讲稿生成结果"""
+    try:
+        from ..services.progress_tracker import progress_tracker
+        from ..services.speech_script_repository import SpeechScriptRepository
+
+        # 检查项目是否存在
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        # 获取进度信息
+        progress_info = progress_tracker.get_progress(task_id)
+
+        if not progress_info:
+            return {
+                "success": False,
+                "error": "Task not found"
+            }
+
+        # 验证任务是否属于该项目
+        if progress_info.project_id != project_id:
+            return {
+                "success": False,
+                "error": "Access denied"
+            }
+
+        # 如果任务还未完成，返回进度信息
+        if progress_info.status != "completed":
+            return {
+                "success": False,
+                "error": "Task not completed yet",
+                "status": progress_info.status,
+                "progress": progress_info.to_dict()
+            }
+
+        # 获取生成的演讲稿
+        repo = SpeechScriptRepository()
+        scripts = await repo.get_current_speech_scripts_by_project(project_id)
+
+        # 转换为API格式
+        scripts_data = []
+        total_duration_seconds = 0
+
+        for script in scripts:
+            script_data = {
+                "slide_index": script.slide_index,
+                "slide_title": script.slide_title,
+                "script_content": script.script_content,
+                "estimated_duration": script.estimated_duration,
+                "speaker_notes": getattr(script, 'speaker_notes', None)
+            }
+            scripts_data.append(script_data)
+
+            # 计算总时长
+            if script.estimated_duration:
+                try:
+                    if '分钟' in script.estimated_duration:
+                        minutes = float(script.estimated_duration.replace('分钟', ''))
+                        total_duration_seconds += minutes * 60
+                    elif '秒' in script.estimated_duration:
+                        seconds = float(script.estimated_duration.replace('秒', ''))
+                        total_duration_seconds += seconds
+                except:
+                    pass
+
+        # 格式化总时长
+        if total_duration_seconds < 60:
+            total_duration = f"{int(total_duration_seconds)}秒"
+        else:
+            minutes = total_duration_seconds / 60
+            total_duration = f"{minutes:.1f}分钟"
+
+        repo.close()
+
+        return {
+            "success": True,
+            "scripts": scripts_data,
+            "total_estimated_duration": total_duration,
+            "generation_metadata": {
+                "task_id": task_id,
+                "completed_at": progress_info.last_update,
+                "total_slides": progress_info.total_slides,
+                "completed_slides": progress_info.completed_slides,
+                "failed_slides": progress_info.failed_slides,
+                "skipped_slides": progress_info.skipped_slides
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Get speech script result failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.get("/api/projects/{project_id}/speech-scripts/progress/{task_id}")
+async def get_speech_script_progress(
+    project_id: str,
+    task_id: str,
+    user: User = Depends(get_current_user_required)
+):
+    """获取演讲稿生成进度"""
+    try:
+        from ..services.progress_tracker import progress_tracker
+
+        # 检查项目是否存在
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        # 获取进度信息
+        progress_info = progress_tracker.get_progress(task_id)
+
+        if not progress_info:
+            return {
+                "success": False,
+                "error": "Task not found"
+            }
+
+        # 验证任务是否属于该项目
+        if progress_info.project_id != project_id:
+            return {
+                "success": False,
+                "error": "Access denied"
+            }
+
+        return {
+            "success": True,
+            "progress": progress_info.to_dict()
+        }
+
+    except Exception as e:
+        logger.error(f"Get speech script progress failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.put("/api/projects/{project_id}/speech-scripts/slide/{slide_index}")
+async def update_speech_script_content(
+    project_id: str,
+    slide_index: int,
+    request: dict,
+    user: User = Depends(get_current_user_required)
+):
+    """更新演讲稿内容"""
+    try:
+        from ..services.speech_script_repository import SpeechScriptRepository
+
+        # 检查项目是否存在
+        project = await ppt_service.project_manager.get_project(project_id)
+        if not project:
+            return {
+                "success": False,
+                "error": "Project not found"
+            }
+
+        # 获取请求数据
+        script_content = request.get('script_content', '').strip()
+        slide_title = request.get('slide_title', f'第{slide_index + 1}页')
+        estimated_duration = request.get('estimated_duration')
+        speaker_notes = request.get('speaker_notes')
+
+        if not script_content:
+            return {
+                "success": False,
+                "error": "演讲稿内容不能为空"
+            }
+
+        repo = SpeechScriptRepository()
+
+        # 获取现有演讲稿
+        existing_script = await repo.get_speech_script_by_slide(project_id, slide_index)
+        if not existing_script:
+            return {
+                "success": False,
+                "error": "演讲稿不存在"
+            }
+
+        # 更新内容
+        existing_script.script_content = script_content
+        existing_script.slide_title = slide_title
+        if estimated_duration:
+            existing_script.estimated_duration = estimated_duration
+        if speaker_notes is not None:
+            existing_script.speaker_notes = speaker_notes
+        existing_script.updated_at = time.time()
+
+        repo.db.commit()
+        repo.db.refresh(existing_script)
+        repo.close()
+
+        return {
+            "success": True,
+            "message": "演讲稿已更新",
+            "script": {
+                "id": existing_script.id,
+                "slide_index": existing_script.slide_index,
+                "slide_title": existing_script.slide_title,
+                "script_content": existing_script.script_content,
+                "estimated_duration": existing_script.estimated_duration,
+                "speaker_notes": existing_script.speaker_notes,
+                "updated_at": existing_script.updated_at
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Update speech script content failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 
 @router.get("/api/projects/{project_id}/selected-global-template")
 async def get_selected_global_template(

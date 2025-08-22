@@ -153,57 +153,39 @@ async def get_default_template():
         raise HTTPException(status_code=500, detail="Failed to get default template")
 
 
-@router.post("/generate", response_model=GlobalMasterTemplateResponse)
+@router.post("/generate")
 async def generate_template_with_ai(request: GlobalMasterTemplateGenerateRequest):
-    """Generate a new template using AI"""
+    """Generate a new template using AI (does not save to database)"""
     try:
+        # 准备参考图片数据
+        reference_image_data = None
+        if request.reference_image:
+            reference_image_data = {
+                "filename": request.reference_image.filename,
+                "data": request.reference_image.data,
+                "size": request.reference_image.size,
+                "type": request.reference_image.type
+            }
+
+        # 使用AI生成服务（不保存到数据库）
         result = await template_service.generate_template_with_ai(
             prompt=request.prompt,
             template_name=request.template_name,
             description=request.description,
-            tags=request.tags
+            tags=request.tags,
+            generation_mode=request.generation_mode,
+            reference_image=reference_image_data
         )
-        return GlobalMasterTemplateResponse(**result)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+        return {
+            "success": True,
+            "message": "模板生成完成！",
+            "data": result
+        }
+
     except Exception as e:
         logger.error(f"Failed to generate template with AI: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate template")
-
-
-@router.post("/generate-stream")
-async def generate_template_with_ai_stream(request: GlobalMasterTemplateGenerateRequest):
-    """Generate a new template using AI with streaming response"""
-    from fastapi.responses import StreamingResponse
-    import json
-
-    async def generate_stream():
-        try:
-            # 发送初始状态
-            yield f"data: {json.dumps({'type': 'status', 'message': '正在连接AI服务...'})}\n\n"
-
-            # 使用流式生成服务
-            async for chunk in template_service.generate_template_with_ai_stream(
-                prompt=request.prompt,
-                template_name=request.template_name,
-                description=request.description,
-                tags=request.tags
-            ):
-                yield f"data: {json.dumps(chunk)}\n\n"
-
-        except Exception as e:
-            logger.error(f"Failed to generate template with AI stream: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    return StreamingResponse(
-        generate_stream(),
-        media_type="text/plain",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Content-Type": "text/event-stream"
-        }
-    )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/save-generated", response_model=GlobalMasterTemplateResponse)

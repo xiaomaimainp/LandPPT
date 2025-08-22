@@ -94,6 +94,7 @@ class Project(Base):
     todo_board: Mapped[Optional["TodoBoard"]] = relationship("TodoBoard", back_populates="project", uselist=False)
     versions: Mapped[List["ProjectVersion"]] = relationship("ProjectVersion", back_populates="project")
     slides: Mapped[List["SlideData"]] = relationship("SlideData", back_populates="project")
+    speech_scripts: Mapped[List["SpeechScript"]] = relationship("SpeechScript", back_populates="project")
 
 
 class TodoBoard(Base):
@@ -209,3 +210,37 @@ class GlobalMasterTemplate(Base):
     created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # 创建者
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
     updated_at: Mapped[float] = mapped_column(Float, default=time.time, onupdate=time.time)
+
+
+class SpeechScript(Base):
+    """演讲稿存储表"""
+    __tablename__ = "speech_scripts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), nullable=False, index=True)
+    slide_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    slide_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    script_content: Mapped[str] = mapped_column(Text, nullable=False)
+    estimated_duration: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    speaker_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 生成参数
+    generation_type: Mapped[str] = mapped_column(String(20), nullable=False)  # single, multi, full
+    tone: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_audience: Mapped[str] = mapped_column(String(100), nullable=False)
+    custom_audience: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 自定义受众描述
+    language_complexity: Mapped[str] = mapped_column(String(20), nullable=False)
+    speaking_pace: Mapped[str] = mapped_column(String(20), nullable=False)
+    custom_style_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    include_transitions: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    include_timing_notes: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # 时间戳
+    created_at: Mapped[float] = mapped_column(Float, default=time.time, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time, onupdate=time.time, nullable=False)
+
+    # 关联关系
+    project: Mapped["Project"] = relationship("Project", back_populates="speech_scripts")
+
+    def __repr__(self):
+        return f"<SpeechScript(id={self.id}, project_id='{self.project_id}', slide_index={self.slide_index})>"
