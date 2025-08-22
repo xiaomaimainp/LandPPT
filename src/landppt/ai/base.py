@@ -3,7 +3,7 @@ Base classes for AI providers
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from typing import List, Dict, Any, Optional, AsyncGenerator, Union
 from pydantic import BaseModel
 from enum import Enum
 
@@ -13,10 +13,25 @@ class MessageRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
 
+class MessageContentType(str, Enum):
+    """Message content types for multimodal support"""
+    TEXT = "text"
+    IMAGE_URL = "image_url"
+
+class ImageContent(BaseModel):
+    """Image content for multimodal messages"""
+    type: MessageContentType = MessageContentType.IMAGE_URL
+    image_url: Dict[str, str]  # {"url": "data:image/jpeg;base64,..." or "http://..."}
+
+class TextContent(BaseModel):
+    """Text content for multimodal messages"""
+    type: MessageContentType = MessageContentType.TEXT
+    text: str
+
 class AIMessage(BaseModel):
-    """AI message model"""
+    """AI message model with multimodal support"""
     role: MessageRole
-    content: str
+    content: Union[str, List[Union[TextContent, ImageContent]]]  # Support both simple string and multimodal content
     name: Optional[str] = None
 
 class AIResponse(BaseModel):

@@ -1781,6 +1781,85 @@
             box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
         }
 
+        /* AI视觉模式切换按钮样式 */
+        .ai-vision-toggle-btn {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            padding: var(--spacing-sm);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            min-width: 40px;
+            height: 40px;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(31, 38, 135, 0.1);
+        }
+
+        .ai-vision-toggle-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s;
+        }
+
+        .ai-vision-toggle-btn:hover {
+            background: rgba(240, 147, 251, 0.1);
+            border-color: rgba(240, 147, 251, 0.3);
+            color: rgba(240, 147, 251, 0.8);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.2);
+        }
+
+        .ai-vision-toggle-btn:hover::before {
+            left: 100%;
+        }
+
+        .ai-vision-toggle-btn.active {
+            background: rgba(67, 233, 123, 0.1);
+            border-color: rgba(67, 233, 123, 0.3);
+            color: rgba(67, 233, 123, 0.8);
+            box-shadow: 0 0 20px rgba(67, 233, 123, 0.3);
+        }
+
+        .ai-vision-toggle-btn.active::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            background: #43e97b;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(67, 233, 123, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(67, 233, 123, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(67, 233, 123, 0);
+            }
+        }
+
         /* AI重新生成按钮样式 */
         .ai-regenerate-btn {
             background: var(--glass-bg);
@@ -3630,6 +3709,9 @@
                         <button class="ai-image-upload-btn" id="aiImageUploadBtn" onclick="triggerImageUpload()" title="上传图片">
                             <i class="fas fa-image"></i>
                         </button>
+                        <button class="ai-vision-toggle-btn" id="aiVisionToggleBtn" onclick="toggleVisionMode()" title="启用视觉模式 - AI将能看到当前幻灯片">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button class="ai-regenerate-btn" onclick="quickRegenerateSlide()" title="重新生成当前幻灯片">
                             <i class="fas fa-sync"></i>
                         </button>
@@ -3680,6 +3762,9 @@
         let currentPreviewImage = null; // 当前预览的图片信息
         let selectedLibraryImages = []; // 从图床选择的图片
         let libraryImages = []; // 图床中的所有图片
+
+        // 视觉模式相关变量
+        let visionModeEnabled = false;
         let filteredLibraryImages = []; // 搜索过滤后的图片
         let currentSearchTerm = ''; // 当前搜索关键词
         let currentPage = 1; // 当前页码
@@ -6599,6 +6684,15 @@
                     }));
                 }
 
+                // 捕获幻灯片截图（如果启用了视觉模式）
+                let slideScreenshot = null;
+                if (visionModeEnabled) {
+                    slideScreenshot = await captureSlideScreenshot();
+                    if (slideScreenshot) {
+                        console.log('已捕获幻灯片截图用于视觉分析');
+                    }
+                }
+
                 // 获取所有已上传的图片信息
                 const referencedImages = getAllUploadedImages();
 
@@ -6610,6 +6704,8 @@
                     slideOutline: slideOutline, // 添加当前幻灯片的大纲信息
                     chatHistory: chatHistory, // 添加对话历史
                     images: referencedImages, // 添加图片信息
+                    visionEnabled: visionModeEnabled, // 添加视觉模式状态
+                    slideScreenshot: slideScreenshot, // 添加截图数据
                     projectInfo: {
                         title: '{{ project.title }}',
                         topic: '{{ project.topic }}',
@@ -9829,6 +9925,93 @@
                 size: image.size > 0 ? formatFileSize(image.size) : '未知大小',
                 id: image.id
             }));
+        }
+
+        // 视觉模式切换功能
+        function toggleVisionMode() {
+            visionModeEnabled = !visionModeEnabled;
+            const visionBtn = document.getElementById('aiVisionToggleBtn');
+
+            if (visionModeEnabled) {
+                visionBtn.classList.add('active');
+                visionBtn.title = '关闭视觉模式 - AI将不再看到当前幻灯片';
+                showNotification('视觉模式已启用 - AI现在可以看到当前幻灯片', 'success');
+            } else {
+                visionBtn.classList.remove('active');
+                visionBtn.title = '启用视觉模式 - AI将能看到当前幻灯片';
+                showNotification('视觉模式已关闭', 'info');
+            }
+        }
+
+        // 捕获当前幻灯片截图
+        async function captureSlideScreenshot() {
+            if (!visionModeEnabled) {
+                return null;
+            }
+
+            try {
+                const slideFrame = document.getElementById('slideFrame');
+                if (!slideFrame) {
+                    console.warn('无法找到幻灯片预览框架');
+                    return null;
+                }
+
+                // 等待iframe内容加载完成
+                await new Promise(resolve => {
+                    if (slideFrame.contentDocument && slideFrame.contentDocument.readyState === 'complete') {
+                        resolve();
+                    } else {
+                        slideFrame.onload = resolve;
+                        setTimeout(resolve, 1000); // 超时保护
+                    }
+                });
+
+                // 获取iframe内容
+                const iframeDoc = slideFrame.contentDocument || slideFrame.contentWindow.document;
+                if (!iframeDoc) {
+                    console.warn('无法访问iframe内容');
+                    return null;
+                }
+
+                // 使用html2canvas捕获iframe内容
+                if (typeof html2canvas === 'undefined') {
+                    console.warn('html2canvas库未加载，尝试动态加载');
+                    await loadHtml2Canvas();
+                }
+
+                const canvas = await html2canvas(iframeDoc.body, {
+                    width: 1280,
+                    height: 720,
+                    scale: 1,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+
+                // 转换为base64
+                const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                return dataURL;
+
+            } catch (error) {
+                console.error('截图捕获失败:', error);
+                return null;
+            }
+        }
+
+        // 动态加载html2canvas库
+        async function loadHtml2Canvas() {
+            return new Promise((resolve, reject) => {
+                if (typeof html2canvas !== 'undefined') {
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
         }
 
 

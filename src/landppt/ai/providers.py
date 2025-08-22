@@ -5,16 +5,16 @@ AI provider implementations
 import asyncio
 import json
 import logging
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from typing import List, Dict, Any, Optional, AsyncGenerator, Union
 
-from .base import AIProvider, AIMessage, AIResponse, MessageRole
+from .base import AIProvider, AIMessage, AIResponse, MessageRole, TextContent, ImageContent, MessageContentType
 from ..core.config import ai_config
 
 logger = logging.getLogger(__name__)
 
 class OpenAIProvider(AIProvider):
     """OpenAI API provider"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         try:
@@ -26,17 +26,48 @@ class OpenAIProvider(AIProvider):
         except ImportError:
             logger.warning("OpenAI library not installed. Install with: pip install openai")
             self.client = None
+
+    def _convert_message_to_openai(self, message: AIMessage) -> Dict[str, Any]:
+        """Convert AIMessage to OpenAI format, supporting multimodal content"""
+        openai_message = {"role": message.role.value}
+
+        if isinstance(message.content, str):
+            # Simple text message
+            openai_message["content"] = message.content
+        elif isinstance(message.content, list):
+            # Multimodal message
+            content_parts = []
+            for part in message.content:
+                if isinstance(part, TextContent):
+                    content_parts.append({
+                        "type": "text",
+                        "text": part.text
+                    })
+                elif isinstance(part, ImageContent):
+                    content_parts.append({
+                        "type": "image_url",
+                        "image_url": part.image_url
+                    })
+            openai_message["content"] = content_parts
+        else:
+            # Fallback to string representation
+            openai_message["content"] = str(message.content)
+
+        if message.name:
+            openai_message["name"] = message.name
+
+        return openai_message
     
     async def chat_completion(self, messages: List[AIMessage], **kwargs) -> AIResponse:
         """Generate chat completion using OpenAI"""
         if not self.client:
             raise RuntimeError("OpenAI client not available")
-        
+
         config = self._merge_config(**kwargs)
-        
-        # Convert messages to OpenAI format
+
+        # Convert messages to OpenAI format with multimodal support
         openai_messages = [
-            {"role": msg.role.value, "content": msg.content}
+            self._convert_message_to_openai(msg)
             for msg in messages
         ]
         
@@ -88,9 +119,9 @@ class OpenAIProvider(AIProvider):
 
         config = self._merge_config(**kwargs)
 
-        # Convert messages to OpenAI format
+        # Convert messages to OpenAI format with multimodal support
         openai_messages = [
-            {"role": msg.role.value, "content": msg.content}
+            self._convert_message_to_openai(msg)
             for msg in messages
         ]
 
@@ -120,7 +151,7 @@ class OpenAIProvider(AIProvider):
 
 class AnthropicProvider(AIProvider):
     """Anthropic Claude API provider"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         try:
@@ -131,26 +162,69 @@ class AnthropicProvider(AIProvider):
         except ImportError:
             logger.warning("Anthropic library not installed. Install with: pip install anthropic")
             self.client = None
+
+    def _convert_message_to_anthropic(self, message: AIMessage) -> Dict[str, Any]:
+        """Convert AIMessage to Anthropic format, supporting multimodal content"""
+        anthropic_message = {"role": message.role.value}
+
+        if isinstance(message.content, str):
+            # Simple text message
+            anthropic_message["content"] = message.content
+        elif isinstance(message.content, list):
+            # Multimodal message
+            content_parts = []
+            for part in message.content:
+                if isinstance(part, TextContent):
+                    content_parts.append({
+                        "type": "text",
+                        "text": part.text
+                    })
+                elif isinstance(part, ImageContent):
+                    # Anthropic expects base64 data without the data URL prefix
+                    image_url = part.image_url.get("url", "")
+                    if image_url.startswith("data:image/"):
+                        # Extract base64 data and media type
+                        header, base64_data = image_url.split(",", 1)
+                        media_type = header.split(":")[1].split(";")[0]
+                        content_parts.append({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": base64_data
+                            }
+                        })
+                    else:
+                        # For URL-based images, we'd need to fetch and convert to base64
+                        # For now, skip or convert to text description
+                        content_parts.append({
+                            "type": "text",
+                            "text": f"[Image: {image_url}]"
+                        })
+            anthropic_message["content"] = content_parts
+        else:
+            # Fallback to string representation
+            anthropic_message["content"] = str(message.content)
+
+        return anthropic_message
     
     async def chat_completion(self, messages: List[AIMessage], **kwargs) -> AIResponse:
         """Generate chat completion using Anthropic Claude"""
         if not self.client:
             raise RuntimeError("Anthropic client not available")
-        
+
         config = self._merge_config(**kwargs)
-        
+
         # Convert messages to Anthropic format
         system_message = None
         claude_messages = []
-        
+
         for msg in messages:
             if msg.role == MessageRole.SYSTEM:
-                system_message = msg.content
+                # System messages should be simple text for Anthropic
+                system_message = msg.content if isinstance(msg.content, str) else str(msg.content)
             else:
-                claude_messages.append({
-                    "role": msg.role.value,
-                    "content": msg.content
-                })
+                claude_messages.append(self._convert_message_to_anthropic(msg))
         
         try:
             response = await self.client.messages.create(
@@ -205,6 +279,42 @@ class GoogleProvider(AIProvider):
             self.client = None
             self.model_instance = None
 
+    def _convert_messages_to_gemini(self, messages: List[AIMessage]) -> str:
+        """Convert AIMessage list to Gemini format, supporting multimodal content"""
+        import google.generativeai as genai
+
+        # Gemini uses a different approach - we build a single prompt with parts
+        parts = []
+
+        for msg in messages:
+            # Add role prefix
+            role_prefix = f"[{msg.role.value.upper()}]: "
+
+            if isinstance(msg.content, str):
+                # Simple text message
+                parts.append(role_prefix + msg.content)
+            elif isinstance(msg.content, list):
+                # Multimodal message
+                message_parts = [role_prefix]
+                for part in msg.content:
+                    if isinstance(part, TextContent):
+                        message_parts.append(part.text)
+                    elif isinstance(part, ImageContent):
+                        # For Gemini, we need to handle images differently
+                        # This is a simplified approach - in practice, you'd want to
+                        # use the proper Gemini multimodal API
+                        image_url = part.image_url.get("url", "")
+                        if image_url.startswith("data:image/"):
+                            message_parts.append(f"[Image data provided]")
+                        else:
+                            message_parts.append(f"[Image: {image_url}]")
+                parts.append(" ".join(message_parts))
+            else:
+                # Fallback to string representation
+                parts.append(role_prefix + str(msg.content))
+
+        return "\n\n".join(parts)
+
     async def chat_completion(self, messages: List[AIMessage], **kwargs) -> AIResponse:
         """Generate chat completion using Google Gemini"""
         if not self.client or not self.model_instance:
@@ -212,20 +322,8 @@ class GoogleProvider(AIProvider):
 
         config = self._merge_config(**kwargs)
 
-        # Convert messages to Gemini format
-        # Gemini uses a different conversation format
-        conversation_parts = []
-        for msg in messages:
-            if msg.role == MessageRole.SYSTEM:
-                # System messages are handled differently in Gemini
-                conversation_parts.append(f"System: {msg.content}")
-            elif msg.role == MessageRole.USER:
-                conversation_parts.append(f"User: {msg.content}")
-            elif msg.role == MessageRole.ASSISTANT:
-                conversation_parts.append(f"Assistant: {msg.content}")
-
-        # Combine all parts into a single prompt
-        prompt = "\n".join(conversation_parts)
+        # Convert messages to Gemini format with multimodal support
+        prompt = self._convert_messages_to_gemini(messages)
 
         try:
             # Configure generation parameters

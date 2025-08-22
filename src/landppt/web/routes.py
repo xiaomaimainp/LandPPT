@@ -77,6 +77,8 @@ class AISlideEditRequest(BaseModel):
     slideOutline: Optional[Dict[str, Any]] = None
     chatHistory: Optional[List[Dict[str, str]]] = None
     images: Optional[List[Dict[str, str]]] = None  # 新增：图片信息列表
+    visionEnabled: Optional[bool] = False  # 新增：视觉模式启用状态
+    slideScreenshot: Optional[str] = None  # 新增：幻灯片截图数据（base64格式）
 
 # AI要点增强请求数据模型
 class AIBulletPointEnhanceRequest(BaseModel):
@@ -2106,6 +2108,18 @@ async def ai_slide_edit_stream(
   - 说明：请分析这张图片的内容，理解用户的意图，并根据编辑要求进行相应的处理
 """
 
+        # 构建视觉上下文信息
+        vision_context = ""
+        if request.visionEnabled and request.slideScreenshot:
+            vision_context = f"""
+
+🔍 视觉上下文：
+- 当前幻灯片的视觉截图已提供
+- 请结合截图中的视觉内容来理解用户的编辑需求
+- 注意截图中的布局、颜色、字体、图片位置等视觉元素
+- 在提供编辑建议时，请考虑当前的视觉呈现效果
+"""
+
         context = f"""
 你是一位专业的PPT设计师和编辑助手。用户想要对当前幻灯片进行编辑修改。
 
@@ -2114,7 +2128,7 @@ async def ai_slide_edit_stream(
 - 标题：{request.slideTitle}
 - 项目主题：{request.projectInfo.get('title', '未知')}
 - 项目场景：{request.projectInfo.get('scenario', '未知')}
-{outline_info}{images_info}
+{outline_info}{images_info}{vision_context}
 用户的编辑要求：
 {request.userRequest}
 
@@ -2151,8 +2165,18 @@ async def ai_slide_edit_stream(
         else:
             logger.info("AI流式编辑未接收到对话历史")
 
-        # 添加当前用户请求
-        messages.append(AIMessage(role=MessageRole.USER, content=context))
+        # 添加当前用户请求（支持多模态内容）
+        if request.visionEnabled and request.slideScreenshot:
+            # 创建多模态消息，包含文本和图片
+            from ..ai.base import TextContent, ImageContent
+            user_content = [
+                TextContent(text=context),
+                ImageContent(image_url={"url": request.slideScreenshot})
+            ]
+            messages.append(AIMessage(role=MessageRole.USER, content=user_content))
+        else:
+            # 普通文本消息
+            messages.append(AIMessage(role=MessageRole.USER, content=context))
 
         async def generate_ai_stream():
             try:
