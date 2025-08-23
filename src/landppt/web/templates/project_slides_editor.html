@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPT编辑器 - {{ project.title }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- CodeMirror CSS -->
@@ -4807,7 +4809,6 @@
                 const encoded = btoa(unescape(encodeURIComponent(html)));
                 return `data:text/html;charset=utf-8;base64,${encoded}`;
             } catch (error) {
-                console.error('Error creating data URL:', error);
                 throw error;
             }
         }
@@ -4815,12 +4816,10 @@
         // 优化的iframe内容设置函数，减少卡顿
         function setSafeIframeContent(iframe, html) {
             if (!iframe) {
-                console.error('iframe is null or undefined');
                 return;
             }
 
             if (!html) {
-                console.error('html content is empty');
                 return;
             }
 
@@ -4850,7 +4849,7 @@
                                 if (chartElements.length > 0) {
                                     const iframeWindow = iframe.contentWindow;
                                     if (iframeWindow && iframeWindow.Chart) {
-                                        console.log('Chart.js库已加载，图表正常渲染');
+                                        // Chart.js库已加载，图表正常渲染
                                     }
                                 }
                             } catch (e) {
@@ -4859,7 +4858,7 @@
                         }, 50); // 减少延迟时间
                     };
                 } catch (e) {
-                    console.warn('设置iframe内容失败:', e);
+                    // 设置iframe内容失败
                 }
             });
         }
@@ -4876,7 +4875,7 @@
 
                 // 检查是否有Chart.js
                 if (iframeWindow.Chart) {
-                    console.log('清理现有Chart实例...');
+                    // 清理现有Chart实例
 
                     // 方法1: 通过Chart.instances清理所有实例
                     if (iframeWindow.Chart.instances) {
@@ -4884,9 +4883,8 @@
                             if (chart && typeof chart.destroy === 'function') {
                                 try {
                                     chart.destroy();
-                                    console.log('销毁Chart实例');
                                 } catch (e) {
-                                    console.warn('销毁Chart实例失败:', e);
+                                    // 销毁Chart实例失败
                                 }
                             }
                         });
@@ -4898,9 +4896,8 @@
                         if (canvas.chart) {
                             try {
                                 canvas.chart.destroy();
-                                console.log(`销毁canvas ${index + 1} 的Chart实例`);
                             } catch (e) {
-                                console.warn(`销毁canvas ${index + 1} 的Chart实例失败:`, e);
+                                // 销毁Chart实例失败
                             }
                         }
                         // 清理canvas的chart属性
@@ -4908,7 +4905,7 @@
                     });
                 }
             } catch (e) {
-                console.warn('清理Chart实例时出错:', e);
+                // 清理Chart实例时出错
             }
         }
 
@@ -5095,7 +5092,7 @@
                         try {
                             setSafeIframeContent(slideFrame, slidesData[index].html_content);
                         } catch (error) {
-                            console.error('Error setting iframe content:', error);
+                            // Error setting iframe content
                         }
 
                         // 减少延迟时间，提高响应速度
@@ -5172,7 +5169,7 @@
                             initializeImageSelection(slideFrame, iframeWindow, iframeDoc);
                         }
                     } catch (e) {
-                        console.error('重新初始化图像选择功能失败:', e);
+                        // 重新初始化图像选择功能失败
                     }
                 }
             }, 500);
@@ -5217,7 +5214,7 @@
                         });
                     }
                 } catch (e) {
-                    console.error('清理图像选择功能失败:', e);
+                    // 清理图像选择功能失败
                 }
             }
         }
@@ -5265,7 +5262,7 @@
 
 
             } catch (error) {
-                console.error('初始化可编辑元素时出错:', error);
+                // 初始化可编辑元素时出错
             }
         }
 
@@ -5299,7 +5296,7 @@
                     element.contentEditable = false;
                 });
             } catch (error) {
-                console.error('清除编辑高亮时出错:', error);
+                // 清除编辑高亮时出错
             }
         }
 
@@ -5393,8 +5390,7 @@
                     selection.addRange(range);
                 }
             } catch (error) {
-                console.warn('光标设置失败:', error);
-                // 如果设置光标失败，至少确保元素获得焦点
+                // 光标设置失败，至少确保元素获得焦点
                 element.focus();
             }
 
@@ -5526,14 +5522,14 @@
             if (modeButton) {
                 modeButton.classList.add('active');
             } else {
-                console.warn(`Mode button not found: ${buttonId}`);
+                // Mode button not found
             }
 
             const previewPane = document.getElementById('previewPane');
             const editPane = document.getElementById('editPane');
 
             if (!previewPane || !editPane) {
-                console.error('Required panes not found:', { previewPane: !!previewPane, editPane: !!editPane });
+                // Required panes not found
                 return;
             }
 
@@ -5584,7 +5580,7 @@
                     }
                     break;
                 default:
-                    console.warn(`Unknown mode: ${mode}`);
+                    // Unknown mode
                     break;
             }
         }
@@ -5739,7 +5735,7 @@
                         img.style.transform = '';
                     });
                 } catch (e) {
-                    console.error('清除图像选择状态失败:', e);
+                    // 清除图像选择状态失败
                 }
             }
 
@@ -5850,7 +5846,6 @@
                 }
 
             } catch (error) {
-                console.error('重新生成图像失败:', error);
                 closeProgressToast(progressToast);
                 showNotification('网络错误，请重试', 'error');
             } finally {
@@ -5916,7 +5911,6 @@
                 showNotification('图像删除成功！', 'success');
 
             } catch (error) {
-                console.error('删除图像失败:', error);
                 showNotification('删除图像失败，请重试', 'error');
             }
         }
@@ -5981,7 +5975,6 @@
                 showNotification('图像替换成功！', 'success');
 
             } catch (error) {
-                console.error('替换图像失败:', error);
                 showNotification('替换图像失败，请重试', 'error');
             }
         }
@@ -6095,7 +6088,6 @@
 
             } catch (error) {
                 closeProgressToast(progressToast);
-                console.error('一键配图失败:', error);
                 showNotification('一键配图失败，请检查网络连接后重试', 'error');
             }
         }
@@ -6591,7 +6583,6 @@
                 showNotification(`已撤销${operationType}`, 'info');
 
             } catch (error) {
-                console.error('撤销操作失败:', error);
                 showNotification('撤销操作失败', 'error');
             }
         }
@@ -6678,7 +6669,6 @@
                 return removed ? updatedHtml : htmlContent;
 
             } catch (error) {
-                console.error('删除图像失败:', error);
                 return htmlContent;
             }
         }
@@ -6708,7 +6698,6 @@
                 }
 
             } catch (error) {
-                console.error('加载图片库失败:', error);
                 showGalleryError(error.message);
             }
         }
@@ -6739,7 +6728,6 @@
                         hasMore = false;
                     }
                 } catch (error) {
-                    console.error(`加载第${currentPage}页图片失败:`, error);
                     hasMore = false;
                 }
             }
@@ -6958,7 +6946,6 @@
                         const rect = editPane.getBoundingClientRect();
                         const height = Math.max(400, rect.height - 40); // 减去padding，最小400px
                         codeMirrorEditor.setSize('100%', height + 'px');
-                        console.log('CodeMirror高度设置为:', height + 'px');
                     }
                 }, 200);
 
@@ -6979,7 +6966,6 @@
                 });
 
                 isCodeMirrorInitialized = true;
-                console.log('CodeMirror编辑器初始化成功，搜索功能已启用');
 
                 // 添加搜索功能的增强配置
                 codeMirrorEditor.on('cursorActivity', function(cm) {
@@ -6994,7 +6980,6 @@
                     restoreCodeMirrorTheme();
                 }, 100);
             } catch (error) {
-                console.error('CodeMirror初始化失败:', error);
                 // 如果CodeMirror初始化失败，保持使用原始textarea
             }
         }
@@ -7003,7 +6988,6 @@
         function changeCodeMirrorTheme(themeName) {
             if (codeMirrorEditor && isCodeMirrorInitialized) {
                 codeMirrorEditor.setOption('theme', themeName);
-                console.log('CodeMirror主题已切换为:', themeName);
 
                 // 保存主题偏好到localStorage
                 localStorage.setItem('codeMirrorTheme', themeName);
@@ -7020,7 +7004,7 @@
                     themeDropdown.innerHTML = `<i class="fas fa-palette"></i> ${themeNames[themeName] || themeName}`;
                 }
             } else {
-                console.warn('CodeMirror编辑器未初始化，无法切换主题');
+                // CodeMirror编辑器未初始化，无法切换主题
             }
         }
 
@@ -7045,7 +7029,6 @@
                     const height = Math.max(400, rect.height - 40); // 减去padding，最小400px
                     if (height > 0) {
                         codeMirrorEditor.setSize('100%', height + 'px');
-                        console.log('CodeMirror高度重新设置为:', height + 'px');
                     }
                 }
             }
@@ -7236,15 +7219,7 @@
         function validateCurrentSlideIndex(functionName = 'unknown') {
             const isValid = currentSlideIndex >= 0 && currentSlideIndex < (slidesData ? slidesData.length : 0);
 
-            console.log(`🔍 [${functionName}] 索引验证:`, {
-                currentSlideIndex: currentSlideIndex,
-                totalSlides: slidesData ? slidesData.length : 'undefined',
-                isValid: isValid,
-                caller: functionName
-            });
-
             if (!isValid) {
-                console.error(`❌ [${functionName}] 无效的幻灯片索引: ${currentSlideIndex}, 总页数: ${slidesData ? slidesData.length : 'undefined'}`);
                 return false;
             }
 
@@ -7505,7 +7480,6 @@
                     throw new Error(data.message || data.error || '保存失败');
                 }
             } catch (error) {
-                console.error('保存大纲失败:', error);
                 showNotification('保存大纲失败：' + error.message, 'error');
                 return; // 如果保存失败，不关闭模态框
             }
@@ -7530,7 +7504,6 @@
         function updateAIOutlineDisplay() {
             // 这里可以添加更新右上角大纲显示的逻辑
             // 目前大纲按钮点击时会显示最新的大纲信息
-            console.log('大纲已更新，AI编辑时会使用最新大纲');
         }
 
         // 获取项目选择的全局母版模板
@@ -7538,13 +7511,11 @@
             try {
                 const response = await fetch(`/api/projects/{{ project.project_id }}/selected-global-template`);
                 if (!response.ok) {
-                    console.warn('获取全局母版失败，将使用默认样式');
                     return null;
                 }
                 const data = await response.json();
                 return data.template || null;
             } catch (error) {
-                console.error('获取全局母版模板失败:', error);
                 return null;
             }
         }
@@ -7563,7 +7534,6 @@
 
                 return htmlTemplate;
             } catch (error) {
-                console.error('使用全局母版生成幻灯片失败:', error);
                 // 返回默认的HTML内容
                 return `
                     <div style="width: 1280px; height: 720px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -7631,12 +7601,11 @@
 
                 const data = await response.json();
                 if (data.status === 'success') {
-                    console.log('大纲已同步更新');
+                    // 大纲已同步更新
                 } else {
                     throw new Error(data.message || data.error || '大纲更新失败');
                 }
             } catch (error) {
-                console.error('同步更新大纲失败:', error);
                 throw error;
             }
         }
@@ -7695,9 +7664,6 @@
                 let slideScreenshot = null;
                 if (visionModeEnabled) {
                     slideScreenshot = await captureSlideScreenshot();
-                    if (slideScreenshot) {
-                        console.log('已捕获幻灯片截图用于视觉分析');
-                    }
                 }
 
                 // 获取所有已上传的图片信息
@@ -7739,7 +7705,6 @@
                 await handleStreamingResponse(response, waitingDiv);
 
             } catch (error) {
-                console.error('AI编辑请求失败:', error);
                 removeWaitingAnimation();
                 addAIMessage('抱歉，无法连接到AI服务。请检查网络连接后重试。', 'assistant');
             } finally {
@@ -7826,13 +7791,12 @@
                                     }
                                 }
                             } catch (e) {
-                                console.error('解析流式数据失败:', e);
+                                // 解析流式数据失败
                             }
                         }
                     }
                 }
             } catch (error) {
-                console.error('处理流式响应失败:', error);
                 removeWaitingAnimation();
                 addAIMessage('抱歉，处理流式响应时出现了错误。', 'assistant');
             }
@@ -7900,7 +7864,6 @@
                         applyBtn.style.background = '#6c757d';
                     }, 3000);
                 } catch (error) {
-                    console.error('Apply changes error:', error);
                     applyBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 保存失败';
                     applyBtn.style.background = '#dc3545';
                     applyBtn.style.color = 'white';
@@ -8098,14 +8061,11 @@
                 }
 
             } catch (error) {
-                console.error('应用AI更改失败:', error);
-
                 // 尝试恢复原始内容
                 try {
                     // 这里可以添加恢复逻辑，但需要保存原始内容
-                    console.log('Error occurred, but changes have been applied locally');
                 } catch (restoreError) {
-                    console.error('Failed to restore original content:', restoreError);
+                    // Failed to restore original content
                 }
 
                 showNotification('应用更改失败：' + error.message, 'error');
@@ -8260,7 +8220,6 @@
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error(`❌ 批量保存请求失败:`, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
@@ -8269,14 +8228,11 @@
                 if (data.success) {
                     return true;
                 } else {
-                    console.error(`❌ 批量保存失败:`, data.error);
                     throw new Error(data.error || 'Unknown batch save error');
                 }
 
             } catch (error) {
-                console.error('❌ 批量保存幻灯片时发生错误:', error);
                 // 如果批量保存失败，回退到逐个保存
-                console.log('🔄 回退到逐个保存模式...');
                 return await saveToServerFallback();
             }
         }
@@ -8284,7 +8240,6 @@
         // 回退保存方法 - 逐个保存
         async function saveToServerFallback() {
             try {
-                console.log('🔄 开始逐个保存幻灯片到服务器...', slidesData.length, '页');
 
                 let saveSuccessCount = 0;
                 let saveFailureCount = 0;
@@ -8297,38 +8252,28 @@
                         // 标记为用户编辑状态
                         slide.is_user_edited = true;
 
-                        console.log(`💾 保存第${i + 1}页: ${slide.title}`);
-
                         const success = await saveSingleSlideToServer(i, slide.html_content);
                         if (success) {
                             saveSuccessCount++;
-                            console.log(`✅ 第${i + 1}页保存成功`);
                         } else {
                             saveFailureCount++;
                             saveErrors.push(`第${i + 1}页保存失败`);
-                            console.error(`❌ 第${i + 1}页保存失败`);
                         }
                     } catch (error) {
                         saveFailureCount++;
                         const errorMsg = `第${i + 1}页保存异常: ${error.message}`;
                         saveErrors.push(errorMsg);
-                        console.error(`❌ ${errorMsg}`);
                     }
                 }
 
-                console.log(`📊 逐个保存结果: 成功${saveSuccessCount}页, 失败${saveFailureCount}页`);
-
                 if (saveFailureCount > 0) {
-                    console.warn('⚠️ 部分幻灯片保存失败:', saveErrors);
                     // 即使部分失败，也不抛出错误，让用户知道部分保存成功
                     return saveSuccessCount > 0; // 只要有成功的就返回true
                 } else {
-                    console.log('✅ 所有幻灯片保存成功');
                     return true;
                 }
 
             } catch (error) {
-                console.error('❌ 逐个保存幻灯片时发生错误:', error);
                 throw error; // 重新抛出错误以便调用者处理
             }
         }
@@ -8336,7 +8281,6 @@
         // 清理数据库中多余的幻灯片
         async function cleanupExcessSlides() {
             try {
-                console.log(`🧹 开始清理多余的幻灯片，当前幻灯片数量: ${slidesData.length}`);
 
                 const response = await fetch(`/api/projects/{{ project.project_id }}/slides/cleanup`, {
                     method: 'POST',
@@ -8350,23 +8294,18 @@
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error(`❌ 清理请求失败:`, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                console.log(`✅ 清理响应:`, data);
 
                 if (data.success) {
-                    console.log(`✅ 成功清理了 ${data.deleted_count} 张多余的幻灯片`);
                     return true;
                 } else {
-                    console.error(`❌ 清理失败:`, data.error);
                     throw new Error(data.error || 'Unknown cleanup error');
                 }
 
             } catch (error) {
-                console.error('❌ 清理多余幻灯片时发生错误:', error);
                 // 不抛出错误，因为这不应该阻止删除操作的完成
                 return false;
             }
@@ -8389,20 +8328,13 @@
                     throw new Error(`幻灯片索引超出范围: ${slideIndex}，总页数: ${slidesData.length}`);
                 }
 
-                console.log(`🔄 开始保存第${slideIndex + 1}页...`);
-                console.log(`📄 HTML内容长度: ${htmlContent.length} 字符`);
-                console.log(`📊 当前幻灯片索引: ${slideIndex}，总页数: ${slidesData.length}`);
-                console.log(`🎯 API路径: /api/projects/{{ project.project_id }}/slides/${slideIndex}/save`);
+
 
                 const requestData = {
                     html_content: htmlContent
                 };
 
-                console.log(`📤 发送保存请求:`, {
-                    slideIndex: slideIndex,
-                    contentLength: htmlContent.length,
-                    apiPath: `/api/projects/{{ project.project_id }}/slides/${slideIndex}/save`
-                });
+
 
                 const response = await fetch(`/api/projects/{{ project.project_id }}/slides/${slideIndex}/save`, {
                     method: 'POST',
@@ -8412,34 +8344,21 @@
                     body: JSON.stringify(requestData)
                 });
 
-                console.log(`📥 服务器响应状态: ${response.status} ${response.statusText}`);
-
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error(`❌ HTTP错误响应:`, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                console.log(`✅ 服务器响应数据:`, data);
 
                 // 验证保存是否成功
                 if (data.success === true) {
-                    console.log(`✅ 第${slideIndex + 1}页保存成功！数据库已更新`);
                     return true;
                 } else {
-                    console.error(`❌ 保存失败:`, data.error);
                     throw new Error(data.error || 'Unknown error occurred');
                 }
 
             } catch (error) {
-                console.error(`❌ 保存第${slideIndex + 1}页时发生错误:`, error);
-                console.error(`❌ 错误详情:`, {
-                    slideIndex: slideIndex,
-                    totalSlides: slidesData ? slidesData.length : 'undefined',
-                    currentSlideIndex: currentSlideIndex,
-                    error: error.message
-                });
                 throw error; // 重新抛出错误以便调用者处理
             }
         }
@@ -8718,7 +8637,6 @@
             // Use event delegation on the slides container
             const slidesContainer = document.querySelector('.slides-container');
             if (!slidesContainer) {
-                console.log('Slides container not found');
                 return;
             }
 
@@ -8983,7 +8901,6 @@
                 }, 500);
 
             } catch (e) {
-                console.warn('设置iframe内容失败:', e);
                 if (callback) callback();
             }
         }
@@ -9094,11 +9011,11 @@
 
             if (!document.fullscreenElement) {
                 overlay.requestFullscreen().catch(err => {
-                    console.log('无法进入全屏:', err);
+                    // 无法进入全屏
                 });
             } else {
                 document.exitFullscreen().catch(err => {
-                    console.log('无法退出全屏:', err);
+                    // 无法退出全屏
                 });
             }
         }
@@ -9305,7 +9222,6 @@
                 saveToServer();
                 showNotification('幻灯片已粘贴', 'success');
             } catch (error) {
-                console.error('粘贴幻灯片失败:', error);
                 showNotification('粘贴幻灯片失败：' + error.message, 'error');
             }
         }
@@ -9369,7 +9285,6 @@
                 saveToServer();
                 showNotification('新幻灯片已插入', 'success');
             } catch (error) {
-                console.error('插入新幻灯片失败:', error);
                 showNotification('插入新幻灯片失败：' + error.message, 'error');
             }
         }
@@ -9421,7 +9336,6 @@
                     saveToServer();
                     showNotification('幻灯片已复制', 'success');
                 } catch (error) {
-                    console.error('复制幻灯片失败:', error);
                     showNotification('复制幻灯片失败：' + error.message, 'error');
                 }
             }
@@ -9468,7 +9382,6 @@
 
                     showNotification('幻灯片已删除', 'success');
                 } catch (error) {
-                    console.error('删除幻灯片失败:', error);
                     showNotification('删除幻灯片失败：' + error.message, 'error');
                 }
             }
@@ -9687,7 +9600,7 @@
 
 
             } catch (e) {
-                console.error('初始化图像选择功能失败:', e);
+                // 初始化图像选择功能失败
             }
         }
 
@@ -9787,10 +9700,8 @@
                 // 通知AI助手
                 notifyAIAssistantImageSelected(imageInfo);
 
-                console.log('图像已选择:', imageInfo);
-
             } catch (e) {
-                console.error('选择图像失败:', e);
+                // 选择图像失败
             }
         }
 
@@ -9937,7 +9848,6 @@
                 return replaced ? updatedHtml : htmlContent;
 
             } catch (error) {
-                console.error('客户端图像替换失败:', error);
                 return htmlContent;
             }
         }
@@ -10501,13 +10411,11 @@
 
 
             if (!fileInput || !uploadBtn || !inputContainer) {
-                console.error('图片上传初始化失败：缺少必要元素');
                 return;
             }
 
             // 文件选择处理
             fileInput.addEventListener('change', handleFileSelect);
-            console.log('文件选择事件已绑定');
 
             // 拖拽事件处理 - 使用重命名的函数避免冲突
             inputContainer.addEventListener('dragenter', handleImageDragEnter);
@@ -10515,14 +10423,12 @@
             inputContainer.addEventListener('dragleave', handleImageDragLeave);
             inputContainer.addEventListener('drop', handleImageFileDrop);
 
-            console.log('拖拽事件已绑定到输入容器');
-
             // 阻止默认拖拽行为
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 inputContainer.addEventListener(eventName, preventImageDefaults, false);
             });
 
-            console.log('图片上传功能初始化完成');
+
         }
 
         // 检查是否为文件拖拽
@@ -10538,17 +10444,14 @@
             if (isFileDrag(e)) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('阻止默认行为:', e.type);
             }
         }
 
         function handleImageDragEnter(e) {
-            console.log('dragenter事件触发', e.dataTransfer?.types);
             if (isFileDrag(e)) {
                 e.preventDefault();
                 const inputContainer = document.querySelector('.ai-input-container');
                 inputContainer.classList.add('drag-over');
-                console.log('拖拽进入输入区域');
             }
         }
 
@@ -10556,12 +10459,10 @@
             if (isFileDrag(e)) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
-                console.log('拖拽悬停在输入区域');
             }
         }
 
         function handleImageDragLeave(e) {
-            console.log('dragleave事件触发');
             if (isFileDrag(e)) {
                 // 检查是否真的离开了容器区域
                 const inputContainer = document.querySelector('.ai-input-container');
@@ -10571,14 +10472,11 @@
 
                 if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
                     inputContainer.classList.remove('drag-over');
-                    console.log('拖拽离开输入区域');
                 }
             }
         }
 
         function handleImageFileDrop(e) {
-            console.log('drop事件触发', e.dataTransfer);
-
             // 总是阻止默认行为
             e.preventDefault();
             e.stopPropagation();
@@ -10588,20 +10486,17 @@
 
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const files = e.dataTransfer.files;
-                console.log('检测到拖拽文件:', files.length, '个文件');
 
                 // 过滤出图片文件
                 const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
 
                 if (imageFiles.length > 0) {
-                    console.log('处理图片文件:', imageFiles.length, '个图片');
                     handleFiles(imageFiles);
                     showNotification(`检测到 ${imageFiles.length} 张图片，正在上传...`, 'info');
                 } else {
                     showNotification('请拖拽图片文件到此区域', 'warning');
                 }
             } else {
-                console.log('未检测到文件或拖拽数据为空');
                 showNotification('拖拽失败，请重试', 'error');
             }
         }
@@ -10697,7 +10592,6 @@
                 showNotification(`成功上传 ${files.length} 张图片`, 'success');
 
             } catch (error) {
-                console.error('上传失败:', error);
                 showNotification('上传失败，请重试', 'error');
             } finally {
                 isUploading = false;
@@ -10741,7 +10635,6 @@
                     };
                 }
             } catch (error) {
-                console.error('上传请求失败:', error);
                 return {
                     success: false,
                     message: '网络错误'
@@ -10761,7 +10654,6 @@
                     return `${window.location.origin}/api/image/${imageId}`;
                 }
             } catch (error) {
-                console.error('获取图片URL失败:', error);
                 return `${window.location.origin}/api/image/${imageId}`;
             }
         }
@@ -10940,7 +10832,6 @@
             try {
                 const slideFrame = document.getElementById('slideFrame');
                 if (!slideFrame) {
-                    console.warn('无法找到幻灯片预览框架');
                     return null;
                 }
 
@@ -10957,13 +10848,11 @@
                 // 获取iframe内容
                 const iframeDoc = slideFrame.contentDocument || slideFrame.contentWindow.document;
                 if (!iframeDoc) {
-                    console.warn('无法访问iframe内容');
                     return null;
                 }
 
                 // 使用html2canvas捕获iframe内容
                 if (typeof html2canvas === 'undefined') {
-                    console.warn('html2canvas库未加载，尝试动态加载');
                     await loadHtml2Canvas();
                 }
 
@@ -10981,7 +10870,6 @@
                 return dataURL;
 
             } catch (error) {
-                console.error('截图捕获失败:', error);
                 return null;
             }
         }
@@ -11199,17 +11087,13 @@
                         updatePaginationUI();
                     }
 
-                    console.log('加载到的图片数量:', libraryImages.length);
-                    console.log('第一张图片的数据结构:', libraryImages[0]);
                     renderLibraryImages();
                     grid.style.display = 'grid';
                 } else {
-                    console.log('没有找到图片或API调用失败');
                     empty.style.display = 'block';
                     hidePaginationUI();
                 }
             } catch (error) {
-                console.error('加载图床图片失败:', error);
                 const loading = document.getElementById('imageLibraryLoading');
                 const empty = document.getElementById('imageLibraryEmpty');
 
@@ -11318,7 +11202,6 @@
                         addedCount++;
                     }
                 } catch (error) {
-                    console.error(`获取图片 ${image.image_id} 信息失败:`, error);
                     // 如果获取详细信息失败，使用基本信息
                     const imageData = {
                         id: image.image_id,
@@ -11362,7 +11245,6 @@
                     throw new Error('获取图片信息失败');
                 }
             } catch (error) {
-                console.error('获取图片完整信息失败:', error);
                 // 如果专用接口失败，尝试使用详情接口
                 try {
                     const detailResponse = await fetch(`/api/image/detail/${imageId}`);
@@ -11377,7 +11259,7 @@
                         };
                     }
                 } catch (detailError) {
-                    console.error('获取图片详情也失败:', detailError);
+                    // 获取图片详情也失败
                 }
 
                 throw error;
@@ -11560,7 +11442,6 @@
                 }
 
             } catch (error) {
-                console.error('AI增强所有要点失败:', error);
                 showNotification('AI增强失败：' + error.message, 'error');
             } finally {
                 // 恢复按钮状态
@@ -12008,7 +11889,6 @@
                 const inputContainer = document.querySelector('.ai-input-container');
 
                 if (imageUploadBtn && inputContainer) {
-                    console.log('初始化图片上传功能');
                     if (typeof initImageUpload === 'function') {
                         initImageUpload();
                     }
@@ -12626,12 +12506,19 @@
                             <textarea id="${editId}" class="speech-script-edit ${editMode ? '' : 'hidden'}" rows="8">${script.script_content}</textarea>
                         </div>
                         <div class="speech-script-actions">
-                            <button class="speech-script-btn save-btn hidden" onclick="saveSpeechScript(${script.slide_index}, ${index})">
+                            <button class="speech-script-btn save-btn ${editMode ? '' : 'hidden'}" onclick="saveSpeechScript(${script.slide_index}, ${index})">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M19 21H5C4.44772 21 4 20.5523 4 20V4C4 3.44772 4.44772 3 5 3H16L20 7V20C20 20.5523 19.5523 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     <polyline points="9,9 9,15 15,15 15,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
                                 保存
+                            </button>
+                            <button class="speech-script-btn edit-btn ${editMode ? 'hidden' : ''}" onclick="toggleEditMode(${script.slide_index}, ${index})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89783 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                编辑
                             </button>
                             <button class="speech-script-btn" onclick="regenerateSingleScript(${script.slide_index})">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -12802,6 +12689,7 @@
             const contentDiv = document.getElementById(`content-${slideIndex}-${scriptIndex}`);
             const editTextarea = document.getElementById(`edit-${slideIndex}-${scriptIndex}`);
             const saveBtn = document.querySelector(`[data-slide-index="${slideIndex}"] .save-btn`);
+            const editBtn = document.querySelector(`[data-slide-index="${slideIndex}"] .edit-btn`);
 
             // 确定当前状态
             const isCurrentlyEditing = editTextarea && !editTextarea.classList.contains('hidden');
@@ -12822,11 +12710,13 @@
                     editTextarea.focus();
                 }
                 if (saveBtn) saveBtn.classList.remove('hidden');
+                if (editBtn) editBtn.classList.add('hidden');
             } else {
                 // 退出编辑模式
                 if (contentDiv) contentDiv.classList.remove('hidden');
                 if (editTextarea) editTextarea.classList.add('hidden');
                 if (saveBtn) saveBtn.classList.add('hidden');
+                if (editBtn) editBtn.classList.remove('hidden');
             }
         }
 
@@ -12953,12 +12843,50 @@
                 toggleEditMode(slideIndex, scriptIndex, !isCurrentlyEditing);
             });
 
-            // 更新按钮文本
-            const toggleBtn = document.querySelector('.btn-outline-info');
+            const newEditMode = !isCurrentlyEditing;
+
+            // 同时更新所有单独的编辑按钮状态
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                if (newEditMode) {
+                    btn.classList.add('hidden');
+                } else {
+                    btn.classList.remove('hidden');
+                }
+            });
+
+            // 更新标题
+            const titleElement = document.querySelector('.speech-section-title');
+            if (titleElement) {
+                titleElement.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                    演讲稿${newEditMode ? '编辑' : '预览'}
+                `;
+            }
+
+            // 更新按钮文本和样式 - 查找正确的编辑模式按钮
+            const toggleBtn = document.querySelector('.speech-action-group .speech-btn:last-child');
             if (toggleBtn) {
-                toggleBtn.innerHTML = isCurrentlyEditing ?
-                    '<i class="fas fa-edit"></i> 编辑模式' :
-                    '<i class="fas fa-times"></i> 退出编辑';
+                // 更新按钮样式
+                if (newEditMode) {
+                    toggleBtn.className = 'speech-btn speech-btn-secondary';
+                } else {
+                    toggleBtn.className = 'speech-btn speech-btn-primary';
+                }
+
+                // 更新按钮内容
+                toggleBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        ${newEditMode ?
+                            '<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' :
+                            '<path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89783 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+                        }
+                    </svg>
+                    ${newEditMode ? '退出编辑' : '编辑模式'}
+                `;
             }
         }
 

@@ -5,10 +5,11 @@ Main FastAPI application entry point
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 import uvicorn
 import asyncio
 import logging
+import os
 
 from .api.openai_compat import router as openai_router
 from .api.landppt_api import router as landppt_router
@@ -103,7 +104,6 @@ app.include_router(database_router, tags=["Database Management"])
 app.include_router(web_router, prefix="", tags=["Web Interface"])
 
 # Mount static files
-import os
 static_dir = os.path.join(os.path.dirname(__file__), "web", "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -120,6 +120,15 @@ async def root():
     """Root endpoint - redirect to dashboard"""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/dashboard", status_code=302)
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon"""
+    favicon_path = os.path.join(os.path.dirname(__file__), "web", "static", "images", "favicon.svg")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/svg+xml")
+    else:
+        raise HTTPException(status_code=404, detail="Favicon not found")
 
 @app.get("/health")
 async def health_check():
