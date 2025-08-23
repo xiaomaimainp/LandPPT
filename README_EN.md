@@ -43,15 +43,18 @@ LandPPT is an intelligent presentation generation platform powered by Large Lang
 
 ![image](https://img.pub/p/bebe9fe671d0125ceac6.png)
 
+![image](https://img.pub/p/b1655542c516845fd924.png)
+
 ![image](https://img.pub/p/0d2ffc650792c4a133a4.png)
 
 ## 🌟 Feature Highlights
 
 - **🚀 One-Click Generation**: From topic to complete PPT, fully automated AI processing
-- **🎨 Smart Image Matching**: AI automatically matches the most suitable images with multi-source support
+- **🎨 Smart Image Matching**: AI automatically matches the most suitable images with multi-source support and reference image generation
 - **🔍 Deep Research**: Integrated multiple search engines for latest and comprehensive information
+- **🎤 Speech Script Generation**: Intelligent generation of accompanying speech scripts with multiple export formats
+- **👁️ Visual Reference**: AI editing assistant supports image upload and visual content analysis
 - **📱 Responsive Design**: Perfect adaptation to various devices and screen sizes
-processing
 - **🔒 Enterprise Security**: Support for local deployment with controllable data security
 
 ## ✨ Key Features
@@ -59,7 +62,7 @@ processing
 ### 🤖 Multi-AI Provider Support
 - **OpenAI GPT Series**: GPT-4o, GPT-4o-mini and other latest models
 - **Anthropic Claude**: Claude-3.5 Sonnet, Claude-3 Haiku series models
-- **Google Gemini**: Gemini-1.5 Flash, Gemini-1.5 Pro series models
+- **Google Gemini**: Gemini-1.5 Flash, Gemini-1.5 Pro series models with custom endpoint support
 - **Azure OpenAI**: Enterprise-grade AI services with custom deployments
 - **Ollama**: Locally deployed open-source models supporting Llama, Mistral, etc.
 
@@ -87,6 +90,7 @@ processing
 - **Diverse Layouts**: AI-generated creative page layouts and design styles
 - **Scenario-based Templates**: Professional templates for general, tourism, education scenarios
 - **Custom Templates**: Support for importing and creating personalized templates
+- **Reference Image Generation**: AI template generation supports reference images for intelligent design style matching
 
 ### 📊 Complete Project Management
 - **Three-stage Workflow**: Requirements confirmation → Outline generation → PPT generation
@@ -96,7 +100,8 @@ processing
 
 ### 🌐 Modern Web Interface
 - **Intuitive Operation**: User-friendly responsive web interface
-- **AI Chat Editing**: Sidebar AI editing with real-time conversation support
+- **AI Chat Editing**: Sidebar AI editing with real-time conversation support and visual references
+- **Speech Script Generation**: Support for single/multiple/all slide speech script generation, export to DOCX/Markdown formats
 - **Multi-format Export**: PDF/HTML/PPTX export support
 - **Real-time Preview**: 16:9 standard ratio real-time page preview
 
@@ -216,9 +221,10 @@ Configure your AI API keys in the settings page:
 5. **PPT Generation**: Generate complete HTML presentation based on outline
 
 ### 4. Edit and Export
-- Use AI chat functionality for real-time content and style editing
-- Support image replacement and optimization
-- Export as PDF, HTML, or PPTX format
+- Use AI chat functionality for real-time content and style editing with image upload for visual references
+- Support image replacement and optimization, AI template generation can reference uploaded images
+- Generate accompanying speech scripts with single/multiple/all slide modes
+- Export as PDF, HTML, PPTX, and speech script DOCX/Markdown formats
 - Save project versions and history
 - Support batch processing and template reuse
 
@@ -234,6 +240,7 @@ DEFAULT_AI_PROVIDER=openai
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_BASE_URL=https://generativelanguage.googleapis.com  # Custom Gemini endpoint
 
 # Server Configuration
 HOST=0.0.0.0

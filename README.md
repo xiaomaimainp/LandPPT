@@ -43,22 +43,26 @@ LandPPT 是一个基于大语言模型（LLM）的智能演示文稿生成平台
 
 ![image](https://img.pub/p/bebe9fe671d0125ceac6.png)
 
+![image](https://img.pub/p/b1655542c516845fd924.png)
+
 ![image](https://img.pub/p/0d2ffc650792c4a133a4.png)
 
 ## 🌟 功能亮点
 
 - **🚀 一键生成**：从主题到完整PPT，全程AI自动化处理
-- **🎨 智能配图**：AI自动匹配最适合的图像，支持多源获取
+- **🎨 智能配图**：AI自动匹配最适合的图像，支持多源获取和参考图片生成
 - **🔍 深度研究**：集成多个搜索引擎，获取最新最全面的信息
+- **🎤 演讲稿生成**：智能生成配套演讲稿，支持多种导出格式
+- **👁️ 视觉参考**：AI编辑助手支持图像上传和视觉内容分析
 - **📱 响应式设计**：完美适配各种设备和屏幕尺寸
 - **🔒 企业级安全**：支持本地部署，数据安全可控
 
 ## ✨ 核心功能
 
 ### 🤖 多AI提供商支持
-- **OpenAI GPT系列**：GPT-4o、GPT-4o-mini 等最新模型
-- **Anthropic Claude**：Claude-3.5 Sonnet、Claude-3 Haiku 系列模型
-- **Google Gemini**：Gemini-1.5 Flash、Gemini-1.5 Pro 系列模型
+- **OpenAI GPT系列**：GPT-4o、GPT-4o-mini 等模型
+- **Anthropic Claude**：Claude-4 Sonnet、Claude-4 Haiku 系列模型
+- **Google Gemini**：Gemini-2.5 Flash、Gemini-2.5 Pro 系列模型，支持自定义端点配置
 - **Azure OpenAI**：企业级AI服务，支持自定义部署
 - **Ollama**：本地部署的开源模型，支持 Llama、Mistral 等
 
@@ -86,6 +90,7 @@ LandPPT 是一个基于大语言模型（LLM）的智能演示文稿生成平台
 - **多样化布局**：AI生成多种创意页面布局和设计风格
 - **场景化模板**：通用、旅游、教育等多种专业场景模板
 - **自定义模板**：支持导入和创建个性化模板
+- **参考图片生成**：AI模板生成支持参考图片，智能匹配设计风格
 
 ### 📊 完整的项目管理
 - **三阶段工作流**：需求确认 → 大纲生成 → PPT生成
@@ -95,7 +100,8 @@ LandPPT 是一个基于大语言模型（LLM）的智能演示文稿生成平台
 
 ### 🌐 现代化Web界面
 - **直观操作**：用户友好的响应式Web界面
-- **AI聊天编辑**：侧边栏AI编辑功能，支持实时对话
+- **AI聊天编辑**：侧边栏AI编辑功能，支持实时对话和视觉参考
+- **演讲稿生成**：支持单页/多页/全部幻灯片的演讲稿生成，导出为DOCX/Markdown格式
 - **多格式导出**：PDF/HTML/PPTX 多种格式导出支持
 - **实时预览**：16:9 标准比例的实时页面预览
 
@@ -211,9 +217,10 @@ docker logs -f landppt
 5. **PPT生成**：基于大纲生成完整的HTML演示文稿
 
 ### 4. 编辑和导出
-- 使用AI聊天功能实时编辑内容和样式
-- 支持图像替换和优化
-- 导出为PDF、HTML或PPTX格式
+- 使用AI聊天功能实时编辑内容和样式，支持图像上传进行视觉参考
+- 支持图像替换和优化，AI模板生成可参考上传的图片
+- 生成配套演讲稿，支持单页/多页/全部幻灯片模式
+- 导出为PDF、HTML、PPTX、演讲稿DOCX/Markdown格式
 - 保存项目版本和历史记录
 - 支持批量处理和模板复用
 
@@ -229,6 +236,7 @@ DEFAULT_AI_PROVIDER=openai
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_BASE_URL=https://generativelanguage.googleapis.com  # 自定义Gemini端点
 
 # 服务器配置
 HOST=0.0.0.0
