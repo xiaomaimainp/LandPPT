@@ -12956,6 +12956,9 @@
                     generation_metadata: {}
                 };
 
+                // 设置全局演讲稿数据，以便导出功能可以使用
+                speechScriptData = previewData;
+
                 // 直接使用预览弹窗显示，默认为非编辑模式
                 showSpeechScriptPreview(previewData, false);
 

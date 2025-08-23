@@ -3056,9 +3056,20 @@ async def export_speech_script(
 
         exporter = get_speech_script_exporter()
 
+        # Validate scripts data
+        if not request.scripts_data or len(request.scripts_data) == 0:
+            return {
+                "success": False,
+                "error": "No speech scripts data provided"
+            }
+
         # Convert scripts data to SlideScriptData objects
         scripts = []
         for script_data in request.scripts_data:
+            # Validate required fields
+            if not script_data.get('script_content'):
+                continue  # Skip empty scripts
+
             script = SlideScriptData(
                 slide_index=script_data.get('slide_index', 0),
                 slide_title=script_data.get('slide_title', ''),
@@ -3068,12 +3079,33 @@ async def export_speech_script(
             )
             scripts.append(script)
 
+        # Check if we have any valid scripts after filtering
+        if not scripts:
+            return {
+                "success": False,
+                "error": "No valid speech scripts found"
+            }
+
         # Prepare metadata
         metadata = {}
         if request.include_metadata:
+            # Calculate total estimated duration from all scripts
+            total_duration = None
+            if scripts:
+                total_minutes = 0
+                for script in scripts:
+                    if script.estimated_duration and '分钟' in script.estimated_duration:
+                        try:
+                            minutes = float(script.estimated_duration.replace('分钟', ''))
+                            total_minutes += minutes
+                        except ValueError:
+                            pass
+                if total_minutes > 0:
+                    total_duration = f"{total_minutes:.1f}分钟"
+
             metadata = {
                 'generation_time': time.time(),
-                'total_estimated_duration': request.scripts_data[0].get('total_estimated_duration') if request.scripts_data else None,
+                'total_estimated_duration': total_duration,
                 'customization': {}
             }
 
