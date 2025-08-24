@@ -1080,12 +1080,20 @@ async def regenerate_outline(
         page_count_settings = confirmed_requirements.get('page_count_settings', {})
 
         # Check if this is a file-based project
-        is_file_project = confirmed_requirements.get('file_path') is not None
+        is_file_project = confirmed_requirements.get('content_source') == 'file'
 
         if is_file_project:
+            # Check if file path exists
+            file_path = confirmed_requirements.get('file_path')
+            if not file_path:
+                return {
+                    "status": "error",
+                    "error": "文件路径信息丢失，请重新上传文件并确认需求"
+                }
+
             # Use file-based outline generation
             file_request = FileOutlineGenerationRequest(
-                file_path=confirmed_requirements.get('file_path'),
+                file_path=file_path,
                 filename=confirmed_requirements.get('filename', 'uploaded_file'),
                 topic=project_request.topic,
                 scenario=project_request.scenario,
@@ -1446,6 +1454,14 @@ async def confirm_project_requirements(
             "content_analysis_depth": content_analysis_depth if content_source == "file" else None,
             "file_generated_outline": file_outline
         }
+
+        # 如果是文件项目，保存文件信息
+        if content_source == "file" and file_outline and 'file_info' in file_outline:
+            file_info = file_outline['file_info']
+            confirmed_requirements.update({
+                "file_path": file_info['file_path'],
+                "filename": file_info['filename']
+            })
 
         # Store confirmed requirements in project
         # 直接确认需求并更新TODO板，无需AI生成待办清单
@@ -5100,45 +5116,50 @@ async def _process_uploaded_file_for_outline(
             logger.error(f"File validation failed: {message}")
             return None
 
-        # 读取文件内容并保存临时文件（在线程池中执行）
+        # 读取文件内容并保存到项目文件目录（在线程池中执行）
         content = await file_upload.read()
-        temp_file_path = await run_blocking_io(
-            _save_temp_file_sync, content, file_upload.filename
+        project_file_path = await run_blocking_io(
+            _save_project_file_sync, content, file_upload.filename
         )
 
-        try:
-            # 创建文件大纲生成请求
-            from ..api.models import FileOutlineGenerationRequest
-            outline_request = FileOutlineGenerationRequest(
-                file_path=temp_file_path,
-                filename=file_upload.filename,
-                topic=topic if topic.strip() else None,
-                scenario="general",  # 默认场景，可以根据需要调整
-                requirements=requirements,
-                target_audience=target_audience,
-                page_count_mode=page_count_mode,
-                min_pages=min_pages,
-                max_pages=max_pages,
-                fixed_pages=fixed_pages,
-                ppt_style=ppt_style,
-                custom_style_prompt=custom_style_prompt,
-                file_processing_mode=file_processing_mode,
-                content_analysis_depth=content_analysis_depth
-            )
+        # 创建文件大纲生成请求
+        from ..api.models import FileOutlineGenerationRequest
+        outline_request = FileOutlineGenerationRequest(
+            file_path=project_file_path,
+            filename=file_upload.filename,
+            topic=topic if topic.strip() else None,
+            scenario="general",  # 默认场景，可以根据需要调整
+            requirements=requirements,
+            target_audience=target_audience,
+            page_count_mode=page_count_mode,
+            min_pages=min_pages,
+            max_pages=max_pages,
+            fixed_pages=fixed_pages,
+            ppt_style=ppt_style,
+            custom_style_prompt=custom_style_prompt,
+            file_processing_mode=file_processing_mode,
+            content_analysis_depth=content_analysis_depth
+        )
 
-            # 使用enhanced_ppt_service生成大纲
-            result = await ppt_service.generate_outline_from_file(outline_request)
+        # 使用enhanced_ppt_service生成大纲
+        result = await ppt_service.generate_outline_from_file(outline_request)
 
-            if result.success:
-                logger.info(f"Successfully generated outline from file: {file_upload.filename}")
-                return result.outline
-            else:
-                logger.error(f"Failed to generate outline from file: {result.error}")
-                return None
-
-        finally:
-            # 清理临时文件（在线程池中执行）
-            await run_blocking_io(_cleanup_temp_file_sync, temp_file_path)
+        if result.success:
+            logger.info(f"Successfully generated outline from file: {file_upload.filename}")
+            # 在大纲中添加文件信息，用于重新生成
+            outline_with_file_info = result.outline.copy()
+            outline_with_file_info['file_info'] = {
+                'file_path': project_file_path,
+                'filename': file_upload.filename,
+                'processing_mode': file_processing_mode,
+                'analysis_depth': content_analysis_depth
+            }
+            return outline_with_file_info
+        else:
+            logger.error(f"Failed to generate outline from file: {result.error}")
+            # 如果生成失败，清理文件
+            await run_blocking_io(_cleanup_project_file_sync, project_file_path)
+            return None
 
     except Exception as e:
         logger.error(f"Error processing uploaded file for outline: {e}")
@@ -5158,11 +5179,41 @@ def _save_temp_file_sync(content: bytes, filename: str) -> str:
         return temp_file.name
 
 
+def _save_project_file_sync(content: bytes, filename: str) -> str:
+    """同步保存项目文件到永久位置（在线程池中运行）"""
+    import os
+    import time
+    from pathlib import Path
+
+    # 创建项目文件目录
+    project_files_dir = Path("temp/project_files")
+    project_files_dir.mkdir(parents=True, exist_ok=True)
+
+    # 生成唯一文件名
+    timestamp = int(time.time())
+    file_ext = os.path.splitext(filename)[1]
+    safe_filename = f"{timestamp}_{filename}"
+    file_path = project_files_dir / safe_filename
+
+    # 保存文件
+    with open(file_path, 'wb') as f:
+        f.write(content)
+
+    return str(file_path)
+
+
 def _cleanup_temp_file_sync(temp_file_path: str):
     """同步清理临时文件（在线程池中运行）"""
     import os
     if os.path.exists(temp_file_path):
         os.unlink(temp_file_path)
+
+
+def _cleanup_project_file_sync(project_file_path: str):
+    """同步清理项目文件（在线程池中运行）"""
+    import os
+    if os.path.exists(project_file_path):
+        os.unlink(project_file_path)
 
 
 @router.get("/global-master-templates", response_class=HTMLResponse)
