@@ -1111,12 +1111,22 @@ async def regenerate_outline(
 
             result = await ppt_service.generate_outline_from_file(file_request)
 
+            if not result.success:
+                return {
+                    "status": "error",
+                    "error": result.error or "文件大纲生成失败"
+                }
+
             # Update outline generation stage
-            await ppt_service._update_outline_generation_stage(project_id, result['outline_dict'])
+            await ppt_service._update_outline_generation_stage(project_id, result.outline)
+
+            # Format outline as JSON string
+            import json
+            outline_content = json.dumps(result.outline, ensure_ascii=False, indent=2)
 
             return {
                 "status": "success",
-                "outline_content": result['outline_content'],
+                "outline_content": outline_content,
                 "message": "File-based outline regenerated successfully"
             }
         else:
